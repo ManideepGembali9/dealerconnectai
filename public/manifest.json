@@ -1,0 +1,42 @@
+{
+  "name": "DealerConnect AI",
+  "short_name": "DealerConnect",
+  "description": "AI-powered local dealer marketplace. Find nearby shops, compare prices, get directions.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a1a1a",
+  "theme_color": "#2563eb",
+  "categories": ["shopping", "business", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search Products",
+      "url": "/search",
+      "description": "Search for products across local dealers"
+    },
+    {
+      "name": "Nearby Dealers",
+      "url": "/nearby",
+      "description": "Find dealers near your location"
+    },
+    {
+      "name": "AI Search",
+      "url": "/ai-search",
+      "description": "Ask AI to find products and dealers"
+    }
+  ]
+}
