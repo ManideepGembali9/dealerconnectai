@@ -1,7 +1,3 @@
-# dealerconnectai
-
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-mq9ztpax)
-
 # DealerConnect AI
 
 **DealerConnect AI** is an AI-powered local product discovery platform that helps customers find products available at nearby local shops using their **PIN code or location**.
@@ -276,3 +272,6 @@ Full Stack Web Development
 
 This project is currently intended for educational, development, and portfolio purposes.
 
+# dealerconnectai
+
+[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-mq9ztpax)
