@@ -3,9 +3,10 @@ import { ProductDetailClient } from '@/components/product-detail-client';
 import { JsonLd, productSchema } from '@/components/json-ld';
 import { fetchProductById } from '@/lib/data';
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
-    const product = await fetchProductById(params.id);
+    const { id } = await params;
+    const product = await fetchProductById(id);
     if (!product) {
       return {
         title: 'Product Not Found',
@@ -42,10 +43,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   let schema = null;
   try {
-    const product = await fetchProductById(params.id);
+    const product = await fetchProductById(id);
     if (product) {
       schema = productSchema({
         name: product.name,
@@ -64,7 +66,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
   return (
     <>
       {schema && <JsonLd data={schema} />}
-      <ProductDetailClient id={params.id} />
+      <ProductDetailClient id={id} />
     </>
   );
 }

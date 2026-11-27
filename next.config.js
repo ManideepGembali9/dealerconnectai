@@ -1,15 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  outputFileTracingRoot: __dirname,
   eslint: {
     ignoreDuringBuilds: false,
   },
   typescript: {
     ignoreBuildErrors: false,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['nodemailer'],
-  },
+  serverExternalPackages: ['nodemailer'],
   images: { unoptimized: true },
   webpack: (config, { dev }) => {
     config.module = config.module || {};

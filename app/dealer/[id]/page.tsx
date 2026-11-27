@@ -3,9 +3,10 @@ import { DealerProfileClient } from '@/components/dealer-profile-client';
 import { JsonLd, dealerSchema } from '@/components/json-ld';
 import { fetchDealerById } from '@/lib/data';
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
-    const dealer = await fetchDealerById(params.id);
+    const { id } = await params;
+    const dealer = await fetchDealerById(id);
     if (!dealer) {
       return {
         title: 'Dealer Showroom Not Found',
@@ -22,10 +23,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default async function DealerPage({ params }: { params: { id: string } }) {
+export default async function DealerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   let schema = null;
   try {
-    const dealer = await fetchDealerById(params.id);
+    const dealer = await fetchDealerById(id);
     if (dealer) {
       schema = dealerSchema({
         shop_name: dealer.shop_name,
@@ -45,7 +47,7 @@ export default async function DealerPage({ params }: { params: { id: string } })
   return (
     <>
       {schema && <JsonLd data={schema} />}
-      <DealerProfileClient id={params.id} />
+      <DealerProfileClient id={id} />
     </>
   );
 }
