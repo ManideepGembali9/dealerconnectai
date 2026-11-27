@@ -1,0 +1,212 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { MapPin, MessageCircle, Phone, Search, Star, Store, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { SendEnquiryDialog } from '@/components/send-enquiry-dialog';
+import { fetchApprovedDealers } from '@/lib/data';
+import { useApp } from '@/lib/providers';
+import type { Dealer } from '@/lib/types';
+
+export function AllShopsClient() {
+  const { location } = useApp();
+  const [dealers, setDealers] = useState<Dealer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [enquiryDealer, setEnquiryDealer] = useState<Dealer | null>(null);
+
+  const loadDealers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const dls = await fetchApprovedDealers(200);
+      setDealers(dls ?? []);
+    } catch (err) {
+      console.error('Failed to load shops:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDealers();
+  }, [loadDealers]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return dealers;
+    return dealers.filter(
+      (d) =>
+        d.shop_name.toLowerCase().includes(q) ||
+        d.city?.toLowerCase().includes(q) ||
+        d.category?.name?.toLowerCase().includes(q) ||
+        d.pin_code?.toLowerCase().includes(q)
+    );
+  }, [dealers, search]);
+
+  return (
+    <div
+      className="mx-auto w-full max-w-7xl px-3.5 sm:px-6 pt-4 sm:pt-6"
+      style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+    >
+      {/* Page Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Link href="/nearby" className="text-xs text-muted-foreground hover:text-foreground">
+            ← Nearby Shops
+          </Link>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight">All Shops</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {loading ? 'Loading...' : `${dealers.length} verified local shops`}
+          {location.label ? ` near ${location.label}` : ''}
+        </p>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative mb-5 max-w-md">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by shop name, city, or category..."
+          className="h-11 pl-10 pr-9 text-sm rounded-2xl"
+        />
+        {search && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Loading Skeletons */}
+      {loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="p-4 space-y-3 rounded-2xl">
+              <div className="flex items-start gap-3">
+                <div className="h-14 w-14 rounded-xl bg-muted animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+                  <div className="h-3 w-1/2 bg-muted animate-pulse rounded" />
+                  <div className="h-3 w-1/3 bg-muted animate-pulse rounded" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && filtered.length === 0 && (
+        <Card className="p-12 rounded-3xl text-center space-y-3 border-dashed">
+          <Store className="mx-auto h-10 w-10 text-muted-foreground" />
+          <h2 className="text-base font-bold">
+            {search ? `No shops found for "${search}"` : 'No shops available'}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {search ? 'Try a different name, city, or category.' : 'Check back soon — new shops are being added daily.'}
+          </p>
+          {search && (
+            <Button variant="outline" size="sm" onClick={() => setSearch('')} className="rounded-xl">
+              Clear Search
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* Shops Grid */}
+      {!loading && filtered.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((dealer) => (
+            <Card
+              key={dealer.id}
+              className="rounded-2xl border border-border bg-card p-4 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all"
+            >
+              <Link href={`/dealer/${dealer.id}`} className="flex items-start gap-3 min-w-0">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
+                  <Image
+                    src={dealer.logo_url ?? 'https://images.pexels.com/photos/264537/pexels-photo-264537.jpeg?auto=compress&cs=tinysrgb&w=200'}
+                    alt={dealer.shop_name}
+                    fill
+                    sizes="56px"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors">
+                    {dealer.shop_name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {dealer.category?.name ?? 'General Store'}
+                  </p>
+                  <div className="flex items-center gap-1 mt-1 text-xs">
+                    <Star className="h-3 w-3 fill-warning text-warning" />
+                    <span className="font-semibold">{dealer.rating.toFixed(1)}</span>
+                    <span className="text-muted-foreground">({dealer.rating_count})</span>
+                  </div>
+                </div>
+              </Link>
+
+              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
+                  <span className="line-clamp-1">
+                    {[dealer.address, dealer.city, dealer.pin_code].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {dealer.delivery_available && (
+                    <Badge variant="outline" className="text-[10px] border-success/40 text-success px-1.5">Delivery</Badge>
+                  )}
+                  {dealer.pickup_available && (
+                    <Badge variant="outline" className="text-[10px] border-primary/40 text-primary px-1.5">Pickup</Badge>
+                  )}
+                  {dealer.whatsapp && (
+                    <Badge variant="outline" className="text-[10px] border-success/40 text-success px-1.5">WhatsApp</Badge>
+                  )}
+                  <Badge variant="outline" className="text-[10px] px-1.5">
+                    {dealer.product_count} products
+                  </Badge>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    onClick={() => setEnquiryDealer(dealer)}
+                    className="flex-1 h-8 text-xs rounded-xl"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 mr-1" /> Enquire
+                  </Button>
+                  {dealer.phone && (
+                    <Button asChild size="sm" variant="outline" className="h-8 px-2.5 rounded-xl">
+                      <a href={`tel:${dealer.phone}`} aria-label="Call shop">
+                        <Phone className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <SendEnquiryDialog
+        open={Boolean(enquiryDealer)}
+        onOpenChange={(open) => { if (!open) setEnquiryDealer(null); }}
+        dealer={enquiryDealer}
+      />
+    </div>
+  );
+}

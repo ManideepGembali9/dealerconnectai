@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth';
-import { formatINR,getEffectivePrice } from '@/lib/format';
-import { LANGUAGES,type Language } from '@/lib/i18n';
+import { formatINR, getEffectivePrice } from '@/lib/format';
+import { LANGUAGES, type Language } from '@/lib/i18n';
 import {
   getNotificationPrefs,
   getPushSubscription,
@@ -17,7 +17,7 @@ import {
   updatePushPreferences,
 } from '@/lib/notifications';
 import { useApp } from '@/lib/providers';
-import type { CustomerProfile,Dealer,Product } from '@/lib/types';
+import type { CustomerProfile, Dealer, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Bell,
@@ -45,7 +45,7 @@ import {
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect,useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export type ProfileSectionId =
@@ -93,10 +93,10 @@ export function isCustomerAccountVerified(customer: CustomerProfile | null): boo
   const prefs = (customer.preferences || {}) as Record<string, any>;
   return Boolean(
     prefs.verified === true ||
-      prefs.email_verified === true ||
-      prefs.phone_verified === true ||
-      customer.id.startsWith('google-') ||
-      customer.id === 'demo-customer-1'
+    prefs.email_verified === true ||
+    prefs.phone_verified === true ||
+    customer.id.startsWith('google-') ||
+    customer.id === 'demo-customer-1'
   );
 }
 
@@ -169,7 +169,7 @@ export function ProfileSettingsPanelContent({
     setMounted(true);
     getPushSubscription()
       .then((sub) => setPushSubscribed(!!sub))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -198,8 +198,8 @@ export function ProfileSettingsPanelContent({
       (cleanPin === '532440'
         ? 'Amalapuram, AP'
         : cleanPin === '533001'
-        ? 'Kakinada, AP'
-        : `PIN ${cleanPin}`);
+          ? 'Kakinada, AP'
+          : `PIN ${cleanPin}`);
 
     setLocation({
       pinCode: cleanPin,
@@ -312,7 +312,7 @@ export function ProfileSettingsPanelContent({
           body: JSON.stringify({ identifier: customer.email, otp: cleanCode }),
         });
         if (res.ok) valid = true;
-      } catch {}
+      } catch { }
 
       if (!valid && expectedOtp && (cleanCode === expectedOtp || cleanCode === '123456')) {
         valid = true;
@@ -388,7 +388,7 @@ export function ProfileSettingsPanelContent({
     const updated = { ...notifPrefs, [key]: value };
     setNotifPrefsState(updated);
     setNotificationPrefs(updated);
-    await updatePushPreferences(updated, location.pinCode ?? undefined).catch(() => {});
+    await updatePushPreferences(updated, location.pinCode ?? undefined).catch(() => { });
     toast.success('Notification alert preference updated');
   };
 

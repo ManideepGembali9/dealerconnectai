@@ -216,6 +216,12 @@ export function NearbyClient() {
           </Badge>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link
+            href="/shops"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-border bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
+          >
+            <Store className="h-3.5 w-3.5" /> View All Shops
+          </Link>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

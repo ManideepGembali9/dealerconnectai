@@ -135,7 +135,7 @@ export function ProfileClient() {
         if (active && Array.isArray(data) && data.length > 0) {
           setDealerApp(data[0] as DealerApplication);
         }
-      } catch {}
+      } catch { }
     }
     loadDealerApplicationStatus();
     return () => {
@@ -647,6 +647,9 @@ export function ProfileClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Shopping Chat — opened from profile */}
+      <ProfileShoppingChat open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
