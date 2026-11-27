@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CustomerGoogleAuthButton } from '@/components/customer-google-auth';
 import { useAuth } from '@/lib/auth';
-import { AlertCircle, Loader2, Lock, LogIn, Mail, Store as StoreIcon, User } from 'lucide-react';
+import { AlertCircle, Loader2, Lock, LogIn, Mail, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -162,23 +162,6 @@ export function CustomerLoginClient() {
           </p>
         </div>
       </Card>
-
-      <div className="mt-6 flex w-full flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground font-semibold">Are you a merchant or store owner?</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-        <Link href="/dealer/login?tab=register" className="w-full">
-          <Button variant="outline" className="w-full h-11 sm:h-12 font-bold rounded-xl border-border hover:bg-muted text-foreground">
-            <StoreIcon className="mr-2 h-4 w-4 text-primary" /> Become a Dealer — Register Your Shop
-          </Button>
-        </Link>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          Already registered?{' '}
-          <Link href="/dealer/login" className="font-bold text-foreground hover:underline">Dealer Sign In</Link>
-        </p>
-      </div>
     </div>
   );
 }

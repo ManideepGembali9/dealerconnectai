@@ -69,7 +69,7 @@ export function CustomerSignupClient() {
       if (sErr) {
         setError(sErr);
       } else {
-        router.push('/customer/dashboard');
+        router.push(getRedirectPath());
       }
     } catch {
       setError('Sign up failed. Please try again.');

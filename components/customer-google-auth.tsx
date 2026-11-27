@@ -22,27 +22,6 @@ type SelectableGoogleAccount = GoogleAccountInput & {
   saved?: boolean;
 };
 
-const QUICK_GOOGLE_ACCOUNTS: SelectableGoogleAccount[] = [
-  {
-    email: 'aarav.sharma@gmail.com',
-    full_name: 'Aarav Sharma',
-    avatar_url: buildGoogleAvatarDataUri('Aarav Sharma', 'aarav.sharma@gmail.com'),
-    google_sub: '104829103849102',
-  },
-  {
-    email: 'priya.nair@gmail.com',
-    full_name: 'Priya Nair',
-    avatar_url: buildGoogleAvatarDataUri('Priya Nair', 'priya.nair@gmail.com'),
-    google_sub: '109284751029384',
-  },
-  {
-    email: 'google.customer@gmail.com',
-    full_name: 'Google Customer',
-    avatar_url: buildGoogleAvatarDataUri('Google Customer', 'google.customer@gmail.com'),
-    google_sub: '100000000000001',
-  },
-];
-
 function sanitizeCustomerNextPath(target?: string): string {
   if (!target || typeof target !== 'string') return '/';
   const trimmed = target.trim();
@@ -157,12 +136,6 @@ export function CustomerGoogleAuthButton({
     const merged = new Map<string, SelectableGoogleAccount>();
     for (const acc of savedProfiles) {
       merged.set(acc.email.toLowerCase(), acc);
-    }
-    for (const preset of QUICK_GOOGLE_ACCOUNTS) {
-      const key = preset.email.toLowerCase();
-      if (!merged.has(key)) {
-        merged.set(key, preset);
-      }
     }
     return Array.from(merged.values());
   }, [savedProfiles]);
@@ -427,7 +400,7 @@ export function CustomerGoogleAuthButton({
           <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             <span>
-              Customer Portal only — Dealer and Admin sessions remain separate.
+              Customer Portal only — configure GOOGLE_CLIENT_ID &amp; GOOGLE_CLIENT_SECRET for live OAuth.
             </span>
           </div>
         </DialogContent>
