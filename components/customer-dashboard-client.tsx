@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
+import { getDbEnquiries } from '@/lib/firebase-db';
 import { formatINR,getEffectivePrice,timeAgo } from '@/lib/format';
 import { supabase,type Dealer,type Product } from '@/lib/supabase';
 import { Heart,MapPin,MessageSquare,Search,Sparkles,Star,Store,TrendingUp } from 'lucide-react';
@@ -34,10 +35,10 @@ export function CustomerDashboardClient() {
     if (!customer) return;
     setLoading(true);
     try {
-      const [favRes, searchRes, enquiryRes, dealerFavRes] = await Promise.all([
+      const [favRes, searchRes, enqList, dealerFavRes] = await Promise.all([
         supabase.from('customer_favorites').select('*, product:product_id(*, category:category_id(*), brand:brand_id(*), dealer:dealer_id(*))').eq('user_id', customer.id).eq('type', 'product').limit(4),
         supabase.from('customer_search_history').select('*').eq('user_id', customer.id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('enquiries').select('*', { count: 'exact', head: true }).eq('customer_id', customer.id),
+        getDbEnquiries(undefined, { customerId: customer.id, customerEmail: customer.email }),
         supabase.from('customer_favorites').select('*, dealer:dealer_id(*)').eq('user_id', customer.id).eq('type', 'dealer').limit(4),
       ]);
 
@@ -50,7 +51,7 @@ export function CustomerDashboardClient() {
       setStats({
         favorites: favProducts.length,
         searches: searchRes.data?.length ?? 0,
-        enquiries: enquiryRes.count ?? 0,
+        enquiries: enqList.length,
         dealers: favDealers.length,
       });
 
@@ -82,7 +83,7 @@ export function CustomerDashboardClient() {
     { label: 'Saved Products', value: stats.favorites, icon: Heart, color: 'text-[#E6B045]', href: '/wishlist' },
     { label: 'Favorite Dealers', value: stats.dealers, icon: Store, color: 'text-[#EDC65A]', href: '/profile' },
     { label: 'Recent Searches', value: stats.searches, icon: Search, color: 'text-[#2C2F3F]', href: '/customer/search-history' },
-    { label: 'Active Enquiries', value: stats.enquiries, icon: MessageSquare, color: 'text-[#E6B045]', href: '/messages' },
+    { label: 'Active Enquiries', value: stats.enquiries, icon: MessageSquare, color: 'text-[#E6B045]', href: '/customer/enquiries' },
   ];
 
   return (

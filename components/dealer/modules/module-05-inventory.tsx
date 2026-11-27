@@ -4,17 +4,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { formatINR,getEffectivePrice } from '@/lib/format';
+import { formatINR, getEffectivePrice } from '@/lib/format';
+import { broadcastSync } from '@/lib/firebase-db';
+import { broadcastSync } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
-import type { Dealer,Product } from '@/lib/types';
+import type { Dealer, Product } from '@/lib/types';
 import {
   AlertTriangle,
   Boxes,
   CheckCircle2,
-  DollarSign,Package,
+  DollarSign, Package,
   Search
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type Module05Props = {
@@ -27,6 +29,7 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
   const [search, setSearch] = useState('');
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const inventorySummary = useMemo(() => {
     const totalUnits = products.reduce((acc, p) => acc + (p.stock_qty || 0), 0);
@@ -70,12 +73,16 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
           stock_qty: newQty,
           stock_status: newStatus,
         })
-        .eq('id', p.id);
+        .eq('id', p.id)
+        .eq('dealer_id', dealer.id);
 
       if (error) throw error;
+      broadcastSync('products', { id: p.id, stock_qty: newQty, stock_status: newStatus });
+      setFeedback({ type: 'success', text: `Updated stock for "${p.name}" to ${newQty} units.` });
       toast.success(`Updated stock for ${p.name}`);
       await onRefreshProducts();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to update stock' });
       toast.error('Failed to update stock');
     } finally {
       setSavingId(null);
@@ -97,6 +104,33 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
       </div>
 
       {/* 4 Summary Cards */}
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="p-4 border-border/80">
           <span className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
@@ -248,8 +282,8 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
                           currentQty > 5
                             ? 'default'
                             : currentQty > 0
-                            ? 'secondary'
-                            : 'destructive'
+                              ? 'secondary'
+                              : 'destructive'
                         }
                         className="text-[10px] capitalize font-semibold"
                       >

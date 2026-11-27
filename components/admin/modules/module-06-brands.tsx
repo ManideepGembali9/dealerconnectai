@@ -4,20 +4,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
-  Dialog,DialogContent,DialogDescription,
+  Dialog, DialogContent, DialogDescription,
   DialogFooter,
-  DialogHeader,DialogTitle,
+  DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Brand,Product } from '@/lib/types';
+import { deleteDbBrand, saveDbBrand } from '@/lib/firebase-db';
+import type { Brand, Product } from '@/lib/types';
 import {
   Building2,
   Edit,
-  Plus,Search,
+  Plus, Search,
   Trash2
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type Module06Props = {
@@ -26,23 +27,24 @@ type Module06Props = {
   onRefreshBrands?: () => Promise<void>;
 };
 
-export function Module06Brands({ brands: initialBrands, products }: Module06Props) {
+export function Module06Brands({ brands: initialBrands, products, onRefreshBrands }: Module06Props) {
   const [brands, setBrands] = useState<Array<Brand & { is_enabled?: boolean }>>(
-    initialBrands.map((b) => ({ ...b, is_enabled: true }))
+    initialBrands.map((b) => ({ ...b, is_enabled: b.is_enabled ?? true }))
   );
   const [search, setSearch] = useState('');
   const [editingBrand, setEditingBrand] = useState<(Brand & { is_enabled?: boolean }) | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Sync with prop
-  useMemo(() => {
-    setBrands((prev) => {
-      const enabledMap = new Map(prev.map((b) => [b.id, b.is_enabled ?? true]));
-      return initialBrands.map((b) => ({
+  useEffect(() => {
+    setBrands(
+      initialBrands.map((b) => ({
         ...b,
-        is_enabled: enabledMap.has(b.id) ? enabledMap.get(b.id) : true,
-      }));
-    });
+        is_enabled: b.is_enabled ?? true,
+      }))
+    );
   }, [initialBrands]);
 
   const productCountsByBrand = useMemo(() => {
@@ -65,34 +67,68 @@ export function Module06Brands({ brands: initialBrands, products }: Module06Prop
     });
   }, [brands, search]);
 
-  const handleToggleBrand = (id: string) => {
-    setBrands((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, is_enabled: !b.is_enabled } : b))
-    );
-    toast.success('Brand status toggled');
+  const handleToggleBrand = async (id: string) => {
+    const current = brands.find((b) => b.id === id);
+    if (!current) return;
+    const nextEnabled = !(current.is_enabled ?? true);
+    const updated: Brand = { ...current, is_enabled: nextEnabled, updated_at: new Date().toISOString() };
+    setBrands((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    try {
+      await saveDbBrand(updated);
+      setFeedback({ type: 'success', text: `Brand "${current.name}" ${nextEnabled ? 'enabled' : 'disabled'} and saved.` });
+      toast.success('Brand status updated');
+      if (onRefreshBrands) await onRefreshBrands();
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err?.message || 'Failed to update brand status' });
+      toast.error('Failed to update brand status');
+    }
   };
 
-  const handleSaveBrand = (e: React.FormEvent) => {
+  const handleSaveBrand = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBrand) return;
-
-    if (isCreating) {
-      setBrands((prev) => [editingBrand, ...prev]);
-      toast.success(`Brand "${editingBrand.name}" created successfully`);
-    } else {
-      setBrands((prev) =>
-        prev.map((b) => (b.id === editingBrand.id ? editingBrand : b))
-      );
-      toast.success(`Brand "${editingBrand.name}" updated`);
+    setSaving(true);
+    try {
+      const toSave: Brand = {
+        ...editingBrand,
+        name: editingBrand.name.trim(),
+        slug: editingBrand.slug.trim(),
+        is_enabled: editingBrand.is_enabled ?? true,
+        updated_at: new Date().toISOString(),
+      };
+      await saveDbBrand(toSave);
+      if (isCreating) {
+        setBrands((prev) => [toSave, ...prev]);
+        setFeedback({ type: 'success', text: `Brand "${toSave.name}" created and saved.` });
+        toast.success(`Brand "${toSave.name}" created successfully`);
+      } else {
+        setBrands((prev) => prev.map((b) => (b.id === toSave.id ? toSave : b)));
+        setFeedback({ type: 'success', text: `Brand "${toSave.name}" updated.` });
+        toast.success(`Brand "${toSave.name}" updated`);
+      }
+      setEditingBrand(null);
+      setIsCreating(false);
+      if (onRefreshBrands) await onRefreshBrands();
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err?.message || 'Failed to save brand' });
+      toast.error('Failed to save brand');
+    } finally {
+      setSaving(false);
     }
-    setEditingBrand(null);
-    setIsCreating(false);
   };
 
-  const handleDeleteBrand = (id: string, name: string) => {
+  const handleDeleteBrand = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to remove the brand "${name}"?`)) return;
-    setBrands((prev) => prev.filter((b) => b.id !== id));
-    toast.success(`Brand "${name}" removed`);
+    try {
+      await deleteDbBrand(id);
+      setBrands((prev) => prev.filter((b) => b.id !== id));
+      setFeedback({ type: 'success', text: `Brand "${name}" removed.` });
+      toast.success(`Brand "${name}" removed`);
+      if (onRefreshBrands) await onRefreshBrands();
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err?.message || 'Failed to delete brand' });
+      toast.error('Failed to remove brand');
+    }
   };
 
   const openNewBrandModal = () => {
@@ -124,6 +160,20 @@ export function Module06Brands({ brands: initialBrands, products }: Module06Prop
           <Plus className="h-4 w-4" /> Add Brand
         </Button>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="relative w-full sm:w-80">
@@ -262,8 +312,8 @@ export function Module06Brands({ brands: initialBrands, products }: Module06Prop
                 <Button type="button" variant="outline" onClick={() => setEditingBrand(null)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="font-semibold">
-                  Save Brand
+                <Button type="submit" disabled={saving} className="font-semibold">
+                  {saving ? 'Saving...' : 'Save Brand'}
                 </Button>
               </DialogFooter>
             </form>

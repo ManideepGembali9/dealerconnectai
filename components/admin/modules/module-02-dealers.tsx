@@ -56,11 +56,18 @@ type Module02Props = {
   dealers: Dealer[];
   onUpdateDealerStatus: (id: string, status: Dealer['status']) => Promise<void>;
   onDeleteDealer: (id: string) => Promise<void>;
+  onRefreshDealers?: () => Promise<void>;
 };
 
-export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer }: Module02Props) {
+export function Module02Dealers({
+  dealers,
+  onUpdateDealerStatus,
+  onDeleteDealer,
+  onRefreshDealers,
+}: Module02Props) {
   // Top Level Tab: "applications" vs "showrooms"
   const [activeSubTab, setActiveSubTab] = useState<'applications' | 'showrooms'>('applications');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Applications Data State
   const [applications, setApplications] = useState<DealerApplication[]>([]);
@@ -155,20 +162,26 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
   // Approve Application Handler
   const handleApproveApplication = async (appId: string) => {
     setAppActionLoading(true);
+    setFeedback(null);
     try {
       const remarks = adminRemarks.trim() || 'Approved by Administrator. Welcome to DealerConnect AI Merchant Console!';
       const res = await approveDbDealerApplication(appId, remarks);
       if (res.success) {
+        setFeedback({ type: 'success', text: `Dealership Application ${appId} approved! Showroom account is now live.` });
         toast.success(`Dealership Application ${appId} Approved! Account activated.`);
         setSelectedApp(null);
         setAdminRemarks('');
         setShowRejectInput(false);
         await loadApplications();
+        if (onRefreshDealers) await onRefreshDealers();
       } else {
+        setFeedback({ type: 'error', text: res.error || 'Failed to approve application' });
         toast.error(res.error || 'Failed to approve application');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Approval failed');
+      const msg = err?.message || 'Approval failed';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setAppActionLoading(false);
     }
@@ -177,24 +190,31 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
   // Reject Application Handler
   const handleRejectApplication = async (appId: string) => {
     if (!rejectionReason.trim()) {
+      setFeedback({ type: 'error', text: 'Please enter the reason for rejecting this application.' });
       toast.error('Please enter the reason for rejecting this application.');
       return;
     }
 
     setAppActionLoading(true);
+    setFeedback(null);
     try {
       const res = await rejectDbDealerApplication(appId, rejectionReason.trim());
       if (res.success) {
+        setFeedback({ type: 'success', text: `Application ${appId} rejected.` });
         toast.success(`Application ${appId} rejected.`);
         setSelectedApp(null);
         setRejectionReason('');
         setShowRejectInput(false);
         await loadApplications();
+        if (onRefreshDealers) await onRefreshDealers();
       } else {
+        setFeedback({ type: 'error', text: res.error || 'Failed to reject application' });
         toast.error(res.error || 'Failed to reject application');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Rejection failed');
+      const msg = err?.message || 'Rejection failed';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setAppActionLoading(false);
     }
@@ -203,14 +223,17 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
   // Mark Under Review
   const handleMarkUnderReview = async (appId: string) => {
     setAppActionLoading(true);
+    setFeedback(null);
     try {
       await updateDbDealerApplicationStatus(appId, 'under_review', 'Application documents are currently under verification.');
+      setFeedback({ type: 'success', text: `Application ${appId} marked as Under Review.` });
       toast.success(`Application ${appId} marked as Under Review.`);
       if (selectedApp) {
         setSelectedApp((prev) => (prev ? { ...prev, status: 'under_review' } : null));
       }
       await loadApplications();
-    } catch (err: any) {
+    } catch {
+      setFeedback({ type: 'error', text: 'Failed to update status' });
       toast.error('Failed to update status');
     } finally {
       setAppActionLoading(false);
@@ -220,13 +243,16 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
   // Existing Dealer Handlers
   const handleStatusChange = async (id: string, newStatus: Dealer['status']) => {
     setActionLoading(true);
+    setFeedback(null);
     try {
       await onUpdateDealerStatus(id, newStatus);
+      setFeedback({ type: 'success', text: `Dealer status updated to "${newStatus}".` });
       toast.success(`Dealer status updated to "${newStatus}"`);
       if (selectedDealer && selectedDealer.id === id) {
         setSelectedDealer((prev) => (prev ? { ...prev, status: newStatus } : null));
       }
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to update dealer status' });
       toast.error('Failed to update dealer status');
     } finally {
       setActionLoading(false);
@@ -236,12 +262,15 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setActionLoading(true);
+    setFeedback(null);
     try {
       await onDeleteDealer(deleteTarget.id);
+      setFeedback({ type: 'success', text: `Dealership "${deleteTarget.shop_name}" deleted.` });
       toast.success(`Dealership "${deleteTarget.shop_name}" deleted.`);
       setDeleteTarget(null);
       if (selectedDealer?.id === deleteTarget.id) setSelectedDealer(null);
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to delete dealer' });
       toast.error('Failed to delete dealer');
     } finally {
       setActionLoading(false);
@@ -267,6 +296,21 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
           </Badge>
         )}
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* TOP NAVIGATION SUB-TABS: Applications vs Directory */}
       <div className="flex border-b border-border">

@@ -48,10 +48,20 @@ const KEY_REVIEWS = `${STORAGE_PREFIX}reviews`;
 const KEY_MODERATION = `${STORAGE_PREFIX}moderation_logs`;
 const KEY_ENQUIRIES = `${STORAGE_PREFIX}enquiries`;
 const KEY_DEALER_APPLICATIONS = `${STORAGE_PREFIX}dealer_applications`;
+const KEY_PLATFORM_SETTINGS = `${STORAGE_PREFIX}platform_settings`;
 
 // ==================== CROSS-APP REAL-TIME SYNC ====================
 export function broadcastSync(
-  type: 'products' | 'dealers' | 'categories' | 'brands' | 'enquiries' | 'settings',
+  type:
+    | 'products'
+    | 'dealers'
+    | 'categories'
+    | 'brands'
+    | 'enquiries'
+    | 'settings'
+    | 'reviews'
+    | 'customers'
+    | 'notifications',
   payload?: any
 ) {
   if (typeof window === 'undefined') return;
@@ -86,7 +96,21 @@ function setLocal<T>(key: string, data: T): void {
   } catch {}
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2000): Promise<T> {
+let firestoreBackoffUntil = 0;
+
+function canTryFirestore(): boolean {
+  return Date.now() >= firestoreBackoffUntil;
+}
+
+function noteFirestoreUnavailable(err: any): void {
+  const msg = String(err?.message || '').toLowerCase();
+  const code = String(err?.code || '').toLowerCase();
+  if (msg.includes('timeout') || code === 'unavailable' || code === 'permission-denied') {
+    firestoreBackoffUntil = Date.now() + 30000;
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = 1000): Promise<T> {
   // Catch any background failure to avoid unhandled rejection crashes
   promise.catch(() => {});
   let timer: any;
@@ -99,15 +123,17 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2000): Promise<T>
   ]);
 }
 
-async function readFirestoreCollection<T>(colName: string, timeoutMs = 2000): Promise<T[] | null> {
+async function readFirestoreCollection<T>(colName: string, timeoutMs = 1000): Promise<T[] | null> {
   const db = getFirebaseDb();
-  if (!db) return null;
+  if (!db || !canTryFirestore()) return null;
   try {
     const snap = await withTimeout(getDocs(collection(db, colName)), timeoutMs);
     if (snap && !snap.empty) {
       return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
     }
-  } catch {}
+  } catch (err) {
+    noteFirestoreUnavailable(err);
+  }
   return null;
 }
 
@@ -116,22 +142,26 @@ async function writeFirestoreDoc(
   docId: string,
   data: any,
   merge = true,
-  timeoutMs = 3000
+  timeoutMs = 1000
 ): Promise<void> {
   const db = getFirebaseDb();
-  if (!db) return;
+  if (!db || !canTryFirestore()) return;
   try {
     const ref = doc(db, colName, docId);
     await withTimeout(merge ? setDoc(ref, data, { merge: true }) : setDoc(ref, data), timeoutMs);
-  } catch {}
+  } catch (err) {
+    noteFirestoreUnavailable(err);
+  }
 }
 
-async function deleteFirestoreDoc(colName: string, docId: string, timeoutMs = 3000): Promise<void> {
+async function deleteFirestoreDoc(colName: string, docId: string, timeoutMs = 1000): Promise<void> {
   const db = getFirebaseDb();
-  if (!db) return;
+  if (!db || !canTryFirestore()) return;
   try {
     await withTimeout(deleteDoc(doc(db, colName, docId)), timeoutMs);
-  } catch {}
+  } catch (err) {
+    noteFirestoreUnavailable(err);
+  }
 }
 
 // ==================== APP SETTINGS ====================
@@ -191,16 +221,23 @@ export async function saveDbCategory(category: Category): Promise<void> {
   const updated = index >= 0 ? list.map((c) => (c.id === category.id ? category : c)) : [...list, category];
   setLocal(KEY_CATEGORIES, updated);
   await writeFirestoreDoc('categories', category.id, category);
+  broadcastSync('categories', category);
+}
+
+export async function deleteDbCategory(id: string): Promise<void> {
+  const list = await getDbCategories();
+  const updated = list.filter((c) => c.id !== id);
+  setLocal(KEY_CATEGORIES, updated);
+  await deleteFirestoreDoc('categories', id);
+  broadcastSync('categories', { id, deleted: true });
 }
 
 // ==================== BRANDS ====================
 
 export async function getDbBrands(): Promise<Brand[]> {
   let local = getLocal<Brand[]>(KEY_BRANDS, INITIAL_BRANDS);
-  if (local.length < INITIAL_BRANDS.length) {
-    const existingIds = new Set(local.map((b) => b.id));
-    const missing = INITIAL_BRANDS.filter((b) => !existingIds.has(b.id));
-    local = [...local, ...missing];
+  if (local.length === 0) {
+    local = [...INITIAL_BRANDS];
     setLocal(KEY_BRANDS, local);
   }
   const remote = await readFirestoreCollection<Brand>('brands');
@@ -209,6 +246,61 @@ export async function getDbBrands(): Promise<Brand[]> {
     return remote;
   }
   return local;
+}
+
+export async function saveDbBrand(brand: Brand): Promise<void> {
+  const list = await getDbBrands();
+  const index = list.findIndex((b) => b.id === brand.id);
+  const nextBrand: Brand = { ...brand, updated_at: new Date().toISOString() };
+  const updated = index >= 0 ? list.map((b) => (b.id === brand.id ? nextBrand : b)) : [nextBrand, ...list];
+  setLocal(KEY_BRANDS, updated);
+  await writeFirestoreDoc('brands', brand.id, nextBrand);
+  broadcastSync('brands', nextBrand);
+}
+
+export async function deleteDbBrand(id: string): Promise<void> {
+  const list = await getDbBrands();
+  const updated = list.filter((b) => b.id !== id);
+  setLocal(KEY_BRANDS, updated);
+  await deleteFirestoreDoc('brands', id);
+  broadcastSync('brands', { id, deleted: true });
+}
+
+// ==================== PLATFORM SETTINGS ====================
+
+export type PlatformSupportSettings = {
+  supportPhone: string;
+  supportEmail: string;
+  supportWhatsApp: string;
+  sessionTimeout: boolean;
+  auditLogEnabled: boolean;
+  updatedAt?: string;
+};
+
+const DEFAULT_PLATFORM_SETTINGS: PlatformSupportSettings = {
+  supportPhone: '+91 98480 12345',
+  supportEmail: 'support@dealerconnect.ai',
+  supportWhatsApp: '+91 98480 12345',
+  sessionTimeout: true,
+  auditLogEnabled: true,
+};
+
+export function getDbPlatformSettings(): PlatformSupportSettings {
+  return getLocal<PlatformSupportSettings>(KEY_PLATFORM_SETTINGS, DEFAULT_PLATFORM_SETTINGS);
+}
+
+export async function saveDbPlatformSettings(
+  next: Partial<PlatformSupportSettings>
+): Promise<PlatformSupportSettings> {
+  const updated: PlatformSupportSettings = {
+    ...getDbPlatformSettings(),
+    ...next,
+    updatedAt: new Date().toISOString(),
+  };
+  setLocal(KEY_PLATFORM_SETTINGS, updated);
+  await writeFirestoreDoc('settings', 'platform', updated);
+  broadcastSync('settings', updated);
+  return updated;
 }
 
 // ==================== DEALERS ====================
@@ -593,9 +685,22 @@ export async function getDbReviews(): Promise<Review[]> {
 
 export async function saveDbReview(review: Review): Promise<void> {
   const list = await getDbReviews();
-  const updated = [review, ...list.filter((r) => r.id !== review.id)];
+  const normalized: Review = {
+    ...review,
+    is_approved: review.is_approved ?? true,
+  };
+  const updated = [normalized, ...list.filter((r) => r.id !== normalized.id)];
   setLocal(KEY_REVIEWS, updated);
-  await writeFirestoreDoc('reviews', review.id, review, true, 2000);
+  await writeFirestoreDoc('reviews', normalized.id, normalized, true, 2000);
+  broadcastSync('reviews', normalized);
+}
+
+export async function deleteDbReview(id: string): Promise<void> {
+  const list = await getDbReviews();
+  const updated = list.filter((r) => r.id !== id);
+  setLocal(KEY_REVIEWS, updated);
+  await deleteFirestoreDoc('reviews', id, 2000);
+  broadcastSync('reviews', { id, deleted: true });
 }
 
 // ==================== ENQUIRIES ====================
@@ -603,68 +708,201 @@ export async function saveDbReview(review: Review): Promise<void> {
 const INITIAL_ENQUIRIES: Enquiry[] = [
   {
     id: 'enq-1',
+    customer_id: 'demo-customer-1',
+    customer_email: 'customer@demo.in',
     dealer_id: 'dealer-1',
     product_id: 'prod-s24',
+    product_name: 'Samsung Galaxy S24 Ultra 5G',
+    dealer_name: 'Sri Krishna Electronics',
     customer_name: 'Aditya Varma',
     customer_phone: '+91 98480 12345',
     message: 'Is Samsung Galaxy S24 Ultra in Titanium Gray available for immediate in-store pickup?',
     channel: 'whatsapp',
+    status: 'responded',
+    dealer_response: 'Yes! Titanium Gray 256GB is ready in stock for immediate showroom pickup and same-day delivery.',
+    responded_at: new Date(Date.now() - 8 * 60000).toISOString(),
+    responded_by: 'Sri Krishna Electronics',
     created_at: new Date(Date.now() - 15 * 60000).toISOString(),
   },
   {
     id: 'enq-2',
+    customer_id: 'cust-102',
+    customer_email: 'pooja.reddy@yahoo.com',
     dealer_id: 'dealer-1',
     product_id: 'prod-bravia',
+    product_name: 'Sony Bravia 55" 4K Ultra HD Smart LED Google TV',
+    dealer_name: 'Sri Krishna Electronics',
     customer_name: 'Pooja Reddy',
     customer_phone: '+91 98480 67890',
     message: 'Can you provide free wall-mount installation for the Sony Bravia 55 inch today?',
     channel: 'call',
+    status: 'pending',
     created_at: new Date(Date.now() - 45 * 60000).toISOString(),
   },
   {
     id: 'enq-3',
+    customer_id: 'cust-103',
+    customer_email: 'rohan.sharma@gmail.com',
     dealer_id: 'dealer-2',
     product_id: 'prod-drill',
+    product_name: 'Bosch Cordless Hammer Drill Kit',
+    dealer_name: 'Konaseema Appliances & Hardware',
     customer_name: 'Rohan Sharma',
     customer_phone: '+91 98480 34567',
     message: 'Looking for Bosch hammer drill bit set. Do you have replacement warranty?',
     channel: 'form',
+    status: 'pending',
     created_at: new Date(Date.now() - 120 * 60000).toISOString(),
   },
 ];
 
-export async function getDbEnquiries(dealerId?: string): Promise<Enquiry[]> {
+export async function getDbEnquiries(
+  dealerId?: string,
+  opts?: { customerId?: string; customerEmail?: string }
+): Promise<Enquiry[]> {
   let list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
   const remote = await readFirestoreCollection<Enquiry>('enquiries');
   if (remote) {
     list = remote;
     setLocal(KEY_ENQUIRIES, list);
   }
+
+  const [dealers, products] = await Promise.all([
+    getDbDealers(),
+    getDbProducts({ includeUnapproved: true }),
+  ]);
+
+  let enriched = list
+    .map((e) => {
+      const dealer = e.dealer ?? (e.dealer_id ? dealers.find((d) => d.id === e.dealer_id) ?? null : null);
+      const product = e.product ?? (e.product_id ? products.find((p) => p.id === e.product_id) ?? null : null);
+      const rawStatus = (e.status || 'pending') as string;
+      const status =
+        rawStatus === 'new'
+          ? 'pending'
+          : rawStatus === 'contacted'
+            ? 'responded'
+            : rawStatus === 'completed'
+              ? 'resolved'
+              : (rawStatus as Enquiry['status']);
+      return {
+        ...e,
+        status: status || 'pending',
+        product_name: e.product_name || product?.name || null,
+        dealer_name: e.dealer_name || dealer?.shop_name || null,
+        dealer,
+        product,
+      };
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   if (dealerId) {
-    return list.filter((e) => e.dealer_id === dealerId);
+    enriched = enriched.filter((e) => e.dealer_id === dealerId);
   }
-  return list;
+  if (opts?.customerId || opts?.customerEmail) {
+    const cleanEmail = opts.customerEmail?.toLowerCase().trim();
+    enriched = enriched.filter(
+      (e) =>
+        (opts.customerId && e.customer_id === opts.customerId) ||
+        (cleanEmail && e.customer_email?.toLowerCase().trim() === cleanEmail)
+    );
+  }
+  return enriched;
 }
 
 export async function saveDbEnquiry(enquiry: Partial<Enquiry>): Promise<Enquiry> {
-  const newEnq: Enquiry = {
-    id: enquiry.id || `enq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    dealer_id: enquiry.dealer_id || null,
-    product_id: enquiry.product_id || null,
-    customer_name: enquiry.customer_name || 'Prospective Customer',
-    customer_phone: enquiry.customer_phone || '+91 98480 99999',
-    message: enquiry.message || 'Product enquiry',
-    channel: enquiry.channel || 'form',
-    created_at: enquiry.created_at || new Date().toISOString(),
+  const list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
+  const existing = enquiry.id ? list.find((e) => e.id === enquiry.id) : undefined;
+  const nowIso = new Date().toISOString();
+
+  const generatedId =
+    existing?.id ||
+    enquiry.id ||
+    `ENQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+  const mergedRaw: Enquiry = {
+    id: generatedId,
+    customer_id: enquiry.customer_id !== undefined ? enquiry.customer_id : existing?.customer_id ?? null,
+    customer_email:
+      enquiry.customer_email !== undefined
+        ? enquiry.customer_email?.toLowerCase().trim() || null
+        : existing?.customer_email ?? null,
+    dealer_id: enquiry.dealer_id !== undefined ? enquiry.dealer_id : existing?.dealer_id ?? null,
+    product_id: enquiry.product_id !== undefined ? enquiry.product_id : existing?.product_id ?? null,
+    product_name: enquiry.product_name !== undefined ? enquiry.product_name : existing?.product_name ?? null,
+    dealer_name: enquiry.dealer_name !== undefined ? enquiry.dealer_name : existing?.dealer_name ?? null,
+    customer_name:
+      enquiry.customer_name !== undefined ? enquiry.customer_name : existing?.customer_name || 'Customer',
+    customer_phone:
+      enquiry.customer_phone !== undefined ? enquiry.customer_phone : existing?.customer_phone || null,
+    message: enquiry.message !== undefined ? enquiry.message : existing?.message || 'Product enquiry',
+    channel: enquiry.channel || existing?.channel || 'form',
+    status: enquiry.status || existing?.status || 'pending',
+    dealer_response:
+      enquiry.dealer_response !== undefined ? enquiry.dealer_response : existing?.dealer_response ?? null,
+    responded_at: enquiry.responded_at !== undefined ? enquiry.responded_at : existing?.responded_at ?? null,
+    responded_by: enquiry.responded_by !== undefined ? enquiry.responded_by : existing?.responded_by ?? null,
+    admin_notes: enquiry.admin_notes !== undefined ? enquiry.admin_notes : existing?.admin_notes ?? null,
+    created_at: existing?.created_at || enquiry.created_at || nowIso,
+    updated_at: nowIso,
   };
 
-  const list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
-  const idx = list.findIndex((e) => e.id === newEnq.id);
-  const updated = idx >= 0 ? list.map((e) => (e.id === newEnq.id ? newEnq : e)) : [newEnq, ...list];
+  const updated = existing
+    ? list.map((e) => (e.id === mergedRaw.id ? mergedRaw : e))
+    : [mergedRaw, ...list];
   setLocal(KEY_ENQUIRIES, updated);
-  await writeFirestoreDoc('enquiries', newEnq.id, newEnq);
-  broadcastSync('enquiries', newEnq);
-  return newEnq;
+  await writeFirestoreDoc('enquiries', mergedRaw.id, mergedRaw);
+
+  // Targetted real-time notification when customer sends a new enquiry to a specific dealer
+  if (!existing && mergedRaw.dealer_id) {
+    try {
+      await sendDbNotification({
+        title: `New Customer Enquiry (${mergedRaw.id})`,
+        body: `${mergedRaw.customer_name || 'A buyer'} enquired about ${mergedRaw.product_name || 'a product'}: "${(mergedRaw.message || '').slice(0, 90)}"`,
+        target_audience: 'specific',
+        target_user_ids: [mergedRaw.dealer_id],
+        sent_by: 'Customer Enquiry',
+      });
+    } catch {}
+  }
+
+  // Targeted notification to customer when dealer responds or updates status
+  if (
+    existing &&
+    mergedRaw.customer_id &&
+    ((mergedRaw.dealer_response && mergedRaw.dealer_response !== existing.dealer_response) ||
+      (mergedRaw.status && mergedRaw.status !== existing.status))
+  ) {
+    try {
+      const custNotifs = getLocal<any[]>(KEY_CUSTOMER_NOTIFICATIONS, []);
+      const notif = {
+        id: `cnotif-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        customer_id: mergedRaw.customer_id,
+        type: 'system',
+        title: mergedRaw.dealer_response
+          ? `Dealer Reply on ${mergedRaw.id}`
+          : `Enquiry ${mergedRaw.id} marked ${mergedRaw.status}`,
+        message: mergedRaw.dealer_response
+          ? `${mergedRaw.dealer_name || 'Dealer'} replied: "${mergedRaw.dealer_response}"`
+          : `Your enquiry for ${mergedRaw.product_name || 'product'} is now "${mergedRaw.status}".`,
+        product_id: mergedRaw.product_id,
+        dealer_id: mergedRaw.dealer_id,
+        product_name: mergedRaw.product_name || null,
+        dealer_name: mergedRaw.dealer_name || null,
+        old_value: existing.status || null,
+        new_value: mergedRaw.status || null,
+        pin_code: null,
+        distance_km: null,
+        is_read: false,
+        created_at: nowIso,
+      };
+      setLocal(KEY_CUSTOMER_NOTIFICATIONS, [notif, ...custNotifs]);
+      broadcastSync('notifications', notif);
+    } catch {}
+  }
+
+  broadcastSync('enquiries', mergedRaw);
+  return mergedRaw;
 }
 
 // ==================== DEALER APPLICATIONS ====================
@@ -1012,20 +1250,25 @@ export function createFirebaseQueryBuilder(tableName: string) {
         items = getLocal(storageKeyForTable(tableName), []);
       }
 
+      const resolveCol = (obj: any, col: string) => {
+        if (!col.includes('.')) return obj?.[col];
+        return col.split('.').reduce((acc, part) => (acc ? acc[part] : undefined), obj);
+      };
+
       let res = [...items];
       for (const f of filterList) {
         if (f.op === '==' || !f.op) {
-          res = res.filter((item) => item[f.col] === f.val);
+          res = res.filter((item) => resolveCol(item, f.col) === f.val);
         } else if (f.op === '!=') {
-          res = res.filter((item) => item[f.col] !== f.val);
+          res = res.filter((item) => resolveCol(item, f.col) !== f.val);
         } else if (f.op === 'in' && Array.isArray(f.val)) {
-          res = res.filter((item) => f.val.includes(item[f.col]));
+          res = res.filter((item) => f.val.includes(resolveCol(item, f.col)));
         } else if (f.op === 'ilike') {
           const cleanPattern = String(f.val).replace(/%/g, '').toLowerCase();
-          res = res.filter((item) => String(item[f.col] || '').toLowerCase().includes(cleanPattern));
+          res = res.filter((item) => String(resolveCol(item, f.col) || '').toLowerCase().includes(cleanPattern));
         } else if (f.op === 'contains') {
           res = res.filter((item) => {
-            const arr = item[f.col];
+            const arr = resolveCol(item, f.col);
             if (Array.isArray(arr)) {
               return Array.isArray(f.val) ? f.val.some((v) => arr.includes(v)) : arr.includes(f.val);
             }
@@ -1061,10 +1304,17 @@ export function createFirebaseQueryBuilder(tableName: string) {
         for (const item of items) {
           if (tableName === 'products') await saveDbProduct(item);
           else if (tableName === 'dealers') await saveDbDealer(item);
+          else if (tableName === 'categories') await saveDbCategory(item);
+          else if (tableName === 'brands') await saveDbBrand(item);
+          else if (tableName === 'reviews') await saveDbReview(item);
           else if (tableName === 'messages') await saveDbMessage(item);
           else if (tableName === 'enquiries') await saveDbEnquiry(item);
           else if (tableName === 'dealer_applications') await saveDbDealerApplication(item);
-          else if (tableName === 'customer_favorites') {
+          else if (tableName === 'notifications') {
+            const list = getLocal<any[]>(KEY_CUSTOMER_NOTIFICATIONS, []);
+            setLocal(KEY_CUSTOMER_NOTIFICATIONS, [item, ...list]);
+            broadcastSync('notifications', item);
+          } else if (tableName === 'customer_favorites') {
             const list = getLocal<any[]>(KEY_FAVORITES, []);
             setLocal(KEY_FAVORITES, [...list, item]);
           } else if (tableName === 'customer_search_history') {
@@ -1149,6 +1399,21 @@ export function createFirebaseQueryBuilder(tableName: string) {
               for (const item of list) {
                 if (matches(item)) await saveDbDealer({ ...item, ...data });
               }
+            } else if (tableName === 'categories') {
+              const list = await getDbCategories();
+              for (const item of list) {
+                if (matches(item)) await saveDbCategory({ ...item, ...data });
+              }
+            } else if (tableName === 'brands') {
+              const list = await getDbBrands();
+              for (const item of list) {
+                if (matches(item)) await saveDbBrand({ ...item, ...data });
+              }
+            } else if (tableName === 'reviews') {
+              const list = await getDbReviews();
+              for (const item of list) {
+                if (matches(item)) await saveDbReview({ ...item, ...data });
+              }
             } else if (tableName === 'messages') {
               const list = getLocal<any[]>(KEY_MESSAGES, []);
               setLocal(KEY_MESSAGES, list.map((m) => (matches(m) ? { ...m, ...data } : m)));
@@ -1157,6 +1422,10 @@ export function createFirebaseQueryBuilder(tableName: string) {
               for (const item of list) {
                 if (matches(item)) await saveDbEnquiry({ ...item, ...data });
               }
+            } else if (tableName === 'notifications') {
+              const list = getLocal<any[]>(KEY_CUSTOMER_NOTIFICATIONS, []);
+              setLocal(KEY_CUSTOMER_NOTIFICATIONS, list.map((m) => (matches(m) ? { ...m, ...data } : m)));
+              broadcastSync('notifications');
             } else if (tableName === 'dealer_applications') {
               const list = await getDbDealerApplications();
               for (const item of list) {
@@ -1210,6 +1479,21 @@ export function createFirebaseQueryBuilder(tableName: string) {
               const list = await getDbDealers();
               for (const item of list) {
                 if (matches(item)) await deleteDbDealer(item.id);
+              }
+            } else if (tableName === 'categories') {
+              const list = await getDbCategories();
+              for (const item of list) {
+                if (matches(item)) await deleteDbCategory(item.id);
+              }
+            } else if (tableName === 'brands') {
+              const list = await getDbBrands();
+              for (const item of list) {
+                if (matches(item)) await deleteDbBrand(item.id);
+              }
+            } else if (tableName === 'reviews') {
+              const list = await getDbReviews();
+              for (const item of list) {
+                if (matches(item)) await deleteDbReview(item.id);
               }
             } else if (tableName === 'customer_favorites') {
               const list = getLocal<any[]>(KEY_FAVORITES, []);

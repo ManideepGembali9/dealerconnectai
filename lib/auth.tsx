@@ -9,7 +9,7 @@ import {
   useCallback,
 } from 'react';
 import type { Dealer, CustomerProfile } from './types';
-import { getDbDealers, saveDbDealer } from './firebase-db';
+import { getDbDealerApplications, getDbDealers, saveDbDealer } from './firebase-db';
 import { supabase } from './supabase';
 
 export type GoogleAccountInput = {
@@ -447,6 +447,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
 
           if (!foundDealer) {
+            const apps = await getDbDealerApplications();
+            const pendingOrRejectedApp = apps.find(
+              (a) => a.email.toLowerCase().trim() === lowerEmail
+            );
+            if (pendingOrRejectedApp) {
+              if (
+                pendingOrRejectedApp.status === 'pending' ||
+                pendingOrRejectedApp.status === 'under_review'
+              ) {
+                return {
+                  error:
+                    'Your dealership registration is currently pending admin review.',
+                };
+              }
+              if (pendingOrRejectedApp.status === 'rejected') {
+                return {
+                  error:
+                    pendingOrRejectedApp.rejection_reason
+                      ? `Your dealership application was rejected: ${pendingOrRejectedApp.rejection_reason}`
+                      : 'Your dealership application was rejected by Admin.',
+                };
+              }
+            }
             return {
               error: 'No dealer account found with this email. Please register first.',
             };
@@ -503,6 +526,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (requestedRole === 'customer') {
           const matchedExisting = await findExistingCustomerByEmail(lowerEmail);
           if (matchedExisting) {
+            if ((matchedExisting.preferences as any)?.account_status === 'suspended') {
+              return { error: 'Your customer account has been suspended. Please contact support.' };
+            }
             const savedPw = localStorage.getItem(`dc-customer-pw-${lowerEmail}`);
             if (
               savedPw &&
@@ -712,6 +738,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (targetRole === 'dealer') {
           if (!dealer) return { error: 'Dealer is not signed in.' };
           localStorage.setItem(`dc-dealer-pw-${dealer.id}`, newPassword);
+          if (dealer.email) {
+            localStorage.setItem(`dc-dealer-pw-${dealer.email.toLowerCase().trim()}`, newPassword);
+          }
           return { error: null };
         }
         if (targetRole === 'customer') {

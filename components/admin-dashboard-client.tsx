@@ -26,7 +26,7 @@ import {
   getDbBrands,
   getDbCategories,
   getDbDealers,
-  getDbMessages,
+  getDbEnquiries,
   getDbProducts,
   getDbReviews,
   saveDbDealer,
@@ -53,14 +53,14 @@ export function AdminDashboardClient() {
   const loadPlatformData = useCallback(async () => {
     setDataLoading(true);
     try {
-      const [dls, prods, cats, brnds, revs, logs, msgs] = await Promise.all([
+      const [dls, prods, cats, brnds, revs, logs, enqs] = await Promise.all([
         getDbDealers(),
-        getDbProducts(),
+        getDbProducts({ includeUnapproved: true }),
         getDbCategories(),
         getDbBrands(),
         getDbReviews(),
         supabase.from('search_logs').select('*').limit(100),
-        getDbMessages(),
+        getDbEnquiries(),
       ]);
 
       setDealers(dls);
@@ -70,24 +70,33 @@ export function AdminDashboardClient() {
       setReviews(revs);
       setSearchLogs(logs?.data || []);
 
-      // Build realistic customer count and enquiry items from messages
-      const hasCust =
-        typeof window !== 'undefined' &&
-        (localStorage.getItem('dc_session_customer') || localStorage.getItem('dc-auth-customer'));
-      const storedCustCount = 128 + (hasCust ? 1 : 0);
-      setCustomerCount(storedCustCount);
-
-      const transformedEnquiries: Enquiry[] = msgs.map((m: any, idx: number) => ({
-        id: m.id || `enq-${idx}`,
-        dealer_id: m.dealer_id,
-        product_id: m.product_id,
-        customer_name: m.customer_id === 'anon' ? 'Prospective Buyer' : 'Registered Customer',
-        customer_phone: '+91 98480 ' + (10000 + idx),
-        message: m.body,
-        channel: 'form',
-        created_at: m.created_at || new Date().toISOString(),
-      }));
-      setEnquiries(transformedEnquiries);
+      // Compute customer count from registered customer storage + session + baseline
+      let registryCount = 0;
+      if (typeof window !== 'undefined') {
+        try {
+          const emails = new Set<string>();
+          const reg = JSON.parse(localStorage.getItem('dc-customers-registry') || '[]');
+          if (Array.isArray(reg)) {
+            reg.forEach((c: any) => {
+              if (c?.email) emails.add(String(c.email).toLowerCase());
+            });
+          }
+          const dbCust = JSON.parse(localStorage.getItem('dc_db_customers') || '[]');
+          if (Array.isArray(dbCust)) {
+            dbCust.forEach((c: any) => {
+              if (c?.email) emails.add(String(c.email).toLowerCase());
+            });
+          }
+          const wrapped = localStorage.getItem('dc_session_customer');
+          if (wrapped) {
+            const p = JSON.parse(wrapped)?.profile;
+            if (p?.email) emails.add(String(p.email).toLowerCase());
+          }
+          registryCount = emails.size;
+        } catch {}
+      }
+      setCustomerCount(Math.max(registryCount, 5));
+      setEnquiries(enqs);
     } catch (err) {
       console.error('Failed to load platform data:', err);
     } finally {
@@ -173,7 +182,9 @@ export function AdminDashboardClient() {
   }
 
   const pendingDealersCount = dealers.filter((d) => d.status === 'pending').length;
-  const openEnquiriesCount = enquiries.length;
+  const openEnquiriesCount = enquiries.filter(
+    (e) => e.status !== 'resolved' && e.status !== 'closed' && (e as any).status !== 'completed'
+  ).length;
 
   return (
     <AdminShell
@@ -207,12 +218,13 @@ export function AdminDashboardClient() {
           dealers={dealers}
           onUpdateDealerStatus={handleUpdateDealerStatus}
           onDeleteDealer={handleDeleteDealer}
+          onRefreshDealers={loadPlatformData}
         />
       )}
 
       {/* 03. Customer Management */}
       {activeTab === '03-customers' && (
-        <Module03Customers customerCount={customerCount} />
+        <Module03Customers customerCount={customerCount} enquiries={enquiries} />
       )}
 
       {/* 04. Product Management */}
@@ -229,7 +241,11 @@ export function AdminDashboardClient() {
 
       {/* 06. Brand Management */}
       {activeTab === '06-brands' && (
-        <Module06Brands brands={brands} products={products} />
+        <Module06Brands
+          brands={brands}
+          products={products}
+          onRefreshBrands={loadPlatformData}
+        />
       )}
 
       {/* 07. Inventory Management */}
@@ -247,11 +263,17 @@ export function AdminDashboardClient() {
           enquiries={enquiries}
           dealers={dealers}
           products={products}
+          onRefreshEnquiries={loadPlatformData}
         />
       )}
 
       {/* 09. Reviews and Ratings */}
-      {activeTab === '09-reviews' && <Module09Reviews reviews={reviews} />}
+      {activeTab === '09-reviews' && (
+        <Module09Reviews
+          reviews={reviews}
+          onRefreshReviews={loadPlatformData}
+        />
+      )}
 
       {/* 10. Homepage Management */}
       {activeTab === '10-homepage' && (

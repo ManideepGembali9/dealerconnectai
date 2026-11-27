@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
+import { SendEnquiryDialog } from '@/components/send-enquiry-dialog';
 import { fetchApprovedDealers,fetchCategories,fetchDealersByPin } from '@/lib/data';
 import { estimateDriveTime,formatDistance,getAllPinCentroids,getPinCentroid,haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
@@ -44,6 +45,8 @@ export function NearbyClient() {
   const [sort, setSort] = useState<SortKey>('nearest');
   const [selectedCat, setSelectedCat] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [enquiryDealer, setEnquiryDealer] = useState<Dealer | null>(null);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   const loadDealers = useCallback(async (pinCode: string) => {
     setLoading(true);
@@ -403,16 +406,26 @@ export function NearbyClient() {
                       </div>
                     </div>
                   </Link>
-                  <div className="flex sm:flex-col items-center justify-center gap-2 sm:pl-2 shrink-0">
+                  <div className="flex flex-wrap sm:flex-col items-center justify-center gap-2 sm:pl-2 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEnquiryDealer(dealer);
+                        setEnquiryOpen(true);
+                      }}
+                      className="flex-1 sm:flex-none sm:w-28"
+                    >
+                      <MessageCircle className="mr-1 h-3.5 w-3.5" /> Enquire
+                    </Button>
                     <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none sm:w-28">
                       <a href={`tel:${dealer.phone}`}><Phone className="mr-1 h-3.5 w-3.5" /> Call</a>
                     </Button>
                     {dealer.whatsapp && (
                       <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none sm:w-28 border-success/40 text-success hover:bg-success/10">
-                        <a href={`https://wa.me/91${dealer.whatsapp}`} target="_blank" rel="noopener noreferrer"><MessageCircle className="mr-1 h-3.5 w-3.5" /> Chat</a>
+                        <a href={`https://wa.me/91${dealer.whatsapp}`} target="_blank" rel="noopener noreferrer"><MessageCircle className="mr-1 h-3.5 w-3.5" /> WhatsApp</a>
                       </Button>
                     )}
-                    <Button asChild size="sm" className="flex-1 sm:flex-none sm:w-28">
+                    <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none sm:w-28">
                       <a href={`https://www.google.com/maps/dir/?api=1&destination=${dealer.map_lat},${dealer.map_lng}`} target="_blank" rel="noopener noreferrer">
                         <Navigation className="mr-1 h-3.5 w-3.5" /> Directions
                       </a>
@@ -424,6 +437,8 @@ export function NearbyClient() {
           )}
         </div>
       </div>
+
+      <SendEnquiryDialog open={enquiryOpen} onOpenChange={setEnquiryOpen} dealer={enquiryDealer} />
     </div>
   );
 }

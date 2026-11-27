@@ -3,11 +3,14 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/lib/auth';
+import { saveDbEnquiry } from '@/lib/firebase-db';
 import { formatINR } from '@/lib/format';
 import { useApp } from '@/lib/providers';
 import {
   ArrowRight,
   CheckCircle2,
+  Loader2,
   Minus,
   Plus,
   ShieldCheck,
@@ -17,20 +20,38 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export function CartClient() {
+  const { customer } = useAuth();
   const { cart, removeFromCart, updateCartQuantity, clearCart, cartTotal, t } = useApp();
   const [promoCode, setPromoCode] = useState('');
   const [discountApplied, setDiscountApplied] = useState(false);
+  const [promoFeedback, setPromoFeedback] = useState<string | null>(null);
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerPhone, setBuyerPhone] = useState('');
+  const [placing, setPlacing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [placedEnquiryIds, setPlacedEnquiryIds] = useState<string[]>([]);
   const [orderPlaced, setOrderPlaced] = useState(false);
 
+  useEffect(() => {
+    if (customer) {
+      setBuyerName((prev) => prev || customer.full_name || '');
+      setBuyerPhone((prev) => prev || customer.phone || '');
+    }
+  }, [customer]);
+
   const applyPromo = () => {
-    if (promoCode.trim().toUpperCase() === 'LOCAL10' || promoCode.trim().toUpperCase() === 'FESTIVE') {
+    const code = promoCode.trim().toUpperCase();
+    if (code === 'LOCAL10' || code === 'FESTIVE') {
       setDiscountApplied(true);
+      setPromoFeedback('Promo code applied! 10% discount included.');
       toast.success('Promo code applied! 10% discount added.');
     } else {
+      setDiscountApplied(false);
+      setPromoFeedback('Invalid promo code. Try "LOCAL10" or "FESTIVE".');
       toast.error('Invalid promo code. Try "LOCAL10" or "FESTIVE"');
     }
   };
@@ -38,28 +59,82 @@ export function CartClient() {
   const discountAmount = discountApplied ? Math.round(cartTotal * 0.1) : 0;
   const finalTotal = cartTotal - discountAmount;
 
-  const handlePlaceOrder = () => {
-    setOrderPlaced(true);
-    clearCart();
-    toast.success('Your enquiry and order request has been sent to the local dealers!');
+  const handlePlaceOrder = async () => {
+    setCheckoutError(null);
+    const cleanName = buyerName.trim() || customer?.full_name || 'Customer';
+    const cleanPhone = buyerPhone.trim() || customer?.phone || '';
+    if (cleanPhone.replace(/\D/g, '').length < 7) {
+      setCheckoutError('Please enter a valid contact phone number so local dealers can confirm your order.');
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      const byDealer = new Map<string, typeof cart>();
+      for (const item of cart) {
+        const dId = item.product.dealer_id || item.product.dealer?.id || 'dealer-1';
+        const arr = byDealer.get(dId) || [];
+        arr.push(item);
+        byDealer.set(dId, arr);
+      }
+
+      const ids: string[] = [];
+      for (const [dealerId, items] of byDealer.entries()) {
+        const primaryItem = items[0];
+        const summaryLines = items
+          .map((it) => `${it.quantity}x ${it.product.name}`)
+          .join(', ');
+        const saved = await saveDbEnquiry({
+          customer_id: customer?.id ?? null,
+          customer_email: customer?.email ?? null,
+          dealer_id: dealerId,
+          dealer_name: primaryItem.product.dealer?.shop_name || 'Local Showroom',
+          product_id: primaryItem.product.id,
+          product_name: primaryItem.product.name,
+          customer_name: cleanName,
+          customer_phone: cleanPhone,
+          message: `Cart Order Enquiry (${items.length} item${items.length > 1 ? 's' : ''}): ${summaryLines}. Estimated total ${formatINR(finalTotal)}.`,
+          channel: 'form',
+          status: 'pending',
+        });
+        ids.push(saved.id);
+      }
+
+      setPlacedEnquiryIds(ids);
+      setOrderPlaced(true);
+      clearCart();
+      toast.success('Your enquiry and order request has been sent to the local dealers!');
+    } catch {
+      setCheckoutError('Failed to send order enquiry. Please try again.');
+    } finally {
+      setPlacing(false);
+    }
   };
 
   if (orderPlaced) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center animate-in fade-in text-foreground">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted text-foreground mb-4 border border-border">
-          <CheckCircle2 className="h-10 w-10" />
+          <CheckCircle2 className="h-10 w-10 text-emerald-600" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Order Enquiry Sent Successfully!</h2>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-          The local dealers have received your order request. They will confirm product stock, pickup time, or home delivery details with you directly via WhatsApp or phone.
+          The local dealers have received your order request and can now respond inside your Enquiry Tracker.
         </p>
-        <div className="mt-6 flex justify-center gap-3">
+        {placedEnquiryIds.length > 0 && (
+          <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs">
+            <span className="text-muted-foreground font-semibold">Enquiry Reference:</span>
+            {placedEnquiryIds.map((id) => (
+              <span key={id} className="font-mono font-bold text-foreground">{id}</span>
+            ))}
+          </div>
+        )}
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg" className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href="/">Back to Home</Link>
+            <Link href={customer ? '/customer/enquiries' : '/customer/login?redirect=/customer/enquiries'}>Track My Enquiries →</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="rounded-xl border-border text-foreground hover:bg-muted">
-            <Link href="/messages">View Messages</Link>
+            <Link href="/">Back to Home</Link>
           </Button>
         </div>
       </div>
@@ -206,7 +281,7 @@ export function CartClient() {
             </div>
 
             {/* Promo Code Input */}
-            <div className="pt-2">
+            <div className="pt-2 space-y-1.5">
               <div className="flex gap-2">
                 <Input
                   value={promoCode}
@@ -218,12 +293,36 @@ export function CartClient() {
                   Apply
                 </Button>
               </div>
+              {promoFeedback && (
+                <p className="text-[11px] font-medium text-muted-foreground">{promoFeedback}</p>
+              )}
+            </div>
+
+            {/* Buyer Contact Details */}
+            <div className="pt-2 space-y-2 border-t border-border/60">
+              <p className="text-xs font-bold text-foreground">Contact Details for Dealers</p>
+              <Input
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                placeholder="Your Full Name *"
+                className="h-9 text-xs border-border bg-muted/30"
+              />
+              <Input
+                type="tel"
+                value={buyerPhone}
+                onChange={(e) => setBuyerPhone(e.target.value)}
+                placeholder="Mobile Number *"
+                className="h-9 text-xs border-border bg-muted/30"
+              />
+              {checkoutError && (
+                <p className="text-[11px] font-semibold text-destructive">{checkoutError}</p>
+              )}
             </div>
 
             {/* Checkout Action */}
             <div className="pt-2 space-y-2">
-              <Button onClick={handlePlaceOrder} size="lg" className="w-full rounded-xl font-black shadow-sm bg-primary text-primary-foreground hover:bg-primary/90">
-                Inquire & Buy from Dealers
+              <Button onClick={handlePlaceOrder} disabled={placing} size="lg" className="w-full rounded-xl font-black shadow-sm bg-primary text-primary-foreground hover:bg-primary/90">
+                {placing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Enquiry...</> : 'Inquire & Buy from Dealers'}
               </Button>
               <p className="text-[11px] text-center text-muted-foreground">
                 No upfront payment required. Dealers confirm live inventory & coordinate directly.

@@ -6,6 +6,7 @@ import {
   getDbDealerById,
   getDbProducts,
   getDbProductById,
+  getDbReviews,
 } from './firebase-db';
 import { supabase } from './supabase';
 
@@ -103,38 +104,14 @@ export async function fetchProductsByName(name: string): Promise<Product[]> {
 }
 
 export async function fetchReviewsByDealer(dealerId: string): Promise<Review[]> {
-  return [
-    {
-      id: 'rev-1',
-      dealer_id: dealerId,
-      product_id: null,
-      customer_name: 'Aditya Varma',
-      rating: 5,
-      quality_rating: 5,
-      cleanliness_rating: 5,
-      behavior_rating: 5,
-      price_rating: 5,
-      availability_rating: 5,
-      delivery_rating: 5,
-      comment: 'Excellent shop! Very transparent pricing, and they gave instant demo and doorstep delivery.',
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    },
-    {
-      id: 'rev-2',
-      dealer_id: dealerId,
-      product_id: null,
-      customer_name: 'Pooja Reddy',
-      rating: 5,
-      quality_rating: 5,
-      cleanliness_rating: 4,
-      behavior_rating: 5,
-      price_rating: 4,
-      availability_rating: 5,
-      delivery_rating: 5,
-      comment: 'Genuine brand warranty provided. Owner was courteous and explained all specs thoroughly.',
-      created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-    },
-  ];
+  try {
+    const all = await getDbReviews();
+    return all
+      .filter((r) => (r.dealer_id === dealerId || !r.dealer_id) && r.is_approved !== false)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchAllDealers(): Promise<Dealer[]> {

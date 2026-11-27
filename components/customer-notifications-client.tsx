@@ -5,10 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
+import {
+  deleteNotification,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/lib/notifications';
 import { Bell,BellOff,Check,Package,Store,TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect,useState } from 'react';
+import { useCallback,useEffect,useState } from 'react';
 
 export function CustomerNotificationsClient() {
   const router = useRouter();
@@ -16,29 +21,37 @@ export function CustomerNotificationsClient() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
-    if (customer) loadNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, customerAuthenticated, customer]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!customer) return;
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setNotifications(data ?? []);
+      const data = await fetchNotifications(100, {
+        id: customer.id,
+        email: customer.email,
+      });
+      setNotifications(data);
     } catch { /* ignore */ } finally { setLoading(false); }
-  };
+  }, [customer]);
+
+  useEffect(() => {
+    if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
+    if (customer) {
+      loadNotifications();
+      const handleSync = () => loadNotifications();
+      window.addEventListener('dc-sync-event', handleSync);
+      window.addEventListener('dc-notification-sent', handleSync);
+      window.addEventListener('storage', handleSync);
+      return () => {
+        window.removeEventListener('dc-sync-event', handleSync);
+        window.removeEventListener('dc-notification-sent', handleSync);
+        window.removeEventListener('storage', handleSync);
+      };
+    }
+  }, [authLoading, customerAuthenticated, customer, router, loadNotifications]);
 
   const markAsRead = async (id: string) => {
     try {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      await markNotificationRead(id);
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
     } catch { /* ignore */ }
   };
@@ -46,9 +59,14 @@ export function CustomerNotificationsClient() {
   const markAllRead = async () => {
     if (!customer) return;
     try {
-      await supabase.from('notifications').update({ is_read: true }).eq('customer_id', customer.id).eq('is_read', false);
+      await markAllNotificationsRead({ id: customer.id, email: customer.email });
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch { /* ignore */ }
+  };
+
+  const handleDismiss = async (id: string) => {
+    await deleteNotification(id);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   if (authLoading || loading) {
@@ -87,7 +105,10 @@ export function CustomerNotificationsClient() {
                   {!n.is_read && <Badge className="bg-primary/15 text-primary text-[10px]">New</Badge>}
                 </div>
               </div>
-              {!n.is_read && <Button size="sm" variant="ghost" onClick={() => markAsRead(n.id)} className="shrink-0">Mark read</Button>}
+              <div className="flex items-center gap-1 shrink-0">
+                {!n.is_read && <Button size="sm" variant="ghost" onClick={() => markAsRead(n.id)}>Mark read</Button>}
+                <Button size="sm" variant="ghost" onClick={() => handleDismiss(n.id)} className="text-xs text-muted-foreground">Dismiss</Button>
+              </div>
             </Card>
           ))}
         </div>

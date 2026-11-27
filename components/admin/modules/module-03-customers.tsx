@@ -9,8 +9,9 @@ import {
   DialogHeader,DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { broadcastSync } from '@/lib/firebase-db';
 import { timeAgo } from '@/lib/format';
-import type { CustomerProfile } from '@/lib/types';
+import type { CustomerProfile, Enquiry } from '@/lib/types';
 import {
   Eye,
   Mail,
@@ -25,6 +26,13 @@ import { toast } from 'sonner';
 
 type Module03Props = {
   customerCount: number;
+  enquiries?: Enquiry[];
+};
+
+type AdminCustomerRow = CustomerProfile & {
+  status: 'active' | 'inactive' | 'suspended';
+  search_count: number;
+  enquiry_count: number;
 };
 
 // Initial realistic customer baseline data for admin visibility
@@ -111,47 +119,80 @@ const FALLBACK_CUSTOMERS: Array<CustomerProfile & { status: 'active' | 'inactive
   },
 ];
 
-export function Module03Customers({ customerCount }: Module03Props) {
-  const [customers, setCustomers] = useState(FALLBACK_CUSTOMERS);
+export function Module03Customers({ customerCount, enquiries = [] }: Module03Props) {
+  const [customers, setCustomers] = useState<AdminCustomerRow[]>(FALLBACK_CUSTOMERS);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
-  const [selectedCustomer, setSelectedCustomer] = useState<(typeof FALLBACK_CUSTOMERS)[0] | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<AdminCustomerRow | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    // If local customer profile is saved, merge it into the admin list
     try {
+      const byEmail = new Map<string, AdminCustomerRow>();
+      for (const fc of FALLBACK_CUSTOMERS) {
+        byEmail.set(fc.email.toLowerCase(), fc);
+      }
+
+      const mergeRawProfile = (raw: any, fallbackIndex = 0) => {
+        if (!raw || !raw.email) return;
+        const emailKey = String(raw.email).toLowerCase().trim();
+        const existing = byEmail.get(emailKey);
+        const rawStatus = raw.preferences?.account_status || raw.status || existing?.status || 'active';
+        const normalizedStatus: 'active' | 'inactive' | 'suspended' =
+          rawStatus === 'suspended' || rawStatus === 'inactive' ? rawStatus : 'active';
+        const relatedEnquiries = enquiries.filter(
+          (e) =>
+            (e.customer_id && e.customer_id === raw.id) ||
+            (e.customer_email && e.customer_email.toLowerCase() === emailKey)
+        ).length;
+
+        byEmail.set(emailKey, {
+          id: raw.id || existing?.id || `cust-reg-${fallbackIndex}`,
+          full_name: raw.full_name || existing?.full_name || 'Customer',
+          email: emailKey,
+          phone: raw.phone || existing?.phone || null,
+          pin_code: raw.pin_code || existing?.pin_code || '533201',
+          preferred_city: raw.preferred_city || existing?.preferred_city || 'Amalapuram',
+          preferred_location: raw.preferred_location || {},
+          avatar_url: raw.avatar_url || null,
+          preferences: { ...(existing?.preferences || {}), ...(raw.preferences || {}), account_status: normalizedStatus },
+          created_at: raw.created_at || existing?.created_at || new Date().toISOString(),
+          updated_at: raw.updated_at || new Date().toISOString(),
+          status: normalizedStatus,
+          search_count: existing?.search_count ?? 1,
+          enquiry_count: Math.max(relatedEnquiries, existing?.enquiry_count ?? 0),
+        });
+      };
+
+      const regRaw = localStorage.getItem('dc-customers-registry');
+      if (regRaw) {
+        const parsed = JSON.parse(regRaw);
+        if (Array.isArray(parsed)) parsed.forEach((p, idx) => mergeRawProfile(p, idx));
+      }
+
+      const dbCustRaw = localStorage.getItem('dc_db_customers');
+      if (dbCustRaw) {
+        const parsed = JSON.parse(dbCustRaw);
+        if (Array.isArray(parsed)) parsed.forEach((p, idx) => mergeRawProfile(p, idx));
+      }
+
       const wrapped = localStorage.getItem('dc_session_customer');
       const legacy = localStorage.getItem('dc-auth-customer');
-      const rawProfile = wrapped ? JSON.parse(wrapped)?.profile : legacy ? JSON.parse(legacy) : null;
-      if (rawProfile && rawProfile.email) {
-        const currentProfile = rawProfile;
-        setCustomers((prev) => {
-          if (prev.some((c) => c.email.toLowerCase() === currentProfile.email.toLowerCase())) {
-            return prev;
-          }
-          return [
-            {
-              id: currentProfile.id || `cust-${Date.now()}`,
-              full_name: currentProfile.full_name || 'Current User',
-              email: currentProfile.email,
-              phone: currentProfile.phone || 'N/A',
-              pin_code: currentProfile.pin_code || '533201',
-              preferred_city: currentProfile.preferred_city || 'Amalapuram',
-              preferred_location: {},
-              avatar_url: null,
-              preferences: {},
-              created_at: currentProfile.created_at || new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              status: 'active',
-              search_count: 12,
-              enquiry_count: 1,
-            },
-            ...prev,
-          ];
-        });
-      }
+      const sessionProfile = wrapped ? JSON.parse(wrapped)?.profile : legacy ? JSON.parse(legacy) : null;
+      if (sessionProfile?.email) mergeRawProfile(sessionProfile, 999);
+
+      // Update live enquiry counts on remaining rows too
+      const mergedList = Array.from(byEmail.values()).map((c) => {
+        const liveCount = enquiries.filter(
+          (e) =>
+            (e.customer_id && e.customer_id === c.id) ||
+            (e.customer_email && e.customer_email.toLowerCase() === c.email.toLowerCase())
+        ).length;
+        return { ...c, enquiry_count: Math.max(liveCount, c.enquiry_count) };
+      });
+      setCustomers(mergedList);
     } catch {}
-  }, []);
+  }, [enquiries]);
 
   const filtered = useMemo(() => {
     return customers.filter((c) => {
@@ -170,11 +211,77 @@ export function Module03Customers({ customerCount }: Module03Props) {
   }, [customers, statusFilter, search]);
 
   const toggleCustomerStatus = (id: string, newStatus: 'active' | 'inactive' | 'suspended') => {
+    const target = customers.find((c) => c.id === id);
     setCustomers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status: newStatus,
+              preferences: { ...(c.preferences || {}), account_status: newStatus },
+              updated_at: new Date().toISOString(),
+            }
+          : c
+      )
     );
     if (selectedCustomer?.id === id) {
       setSelectedCustomer((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
+    if (target) {
+      const targetEmail = target.email.toLowerCase();
+      const upsertList = (storageKey: string) => {
+        try {
+          const raw = localStorage.getItem(storageKey);
+          const list = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(list)) return;
+          const idx = list.findIndex(
+            (u: any) =>
+              u?.id === id || (u?.email && String(u.email).toLowerCase() === targetEmail)
+          );
+          if (idx >= 0) {
+            list[idx] = {
+              ...list[idx],
+              status: newStatus,
+              preferences: { ...(list[idx].preferences || {}), account_status: newStatus },
+              updated_at: new Date().toISOString(),
+            };
+          } else {
+            list.push({
+              ...target,
+              status: newStatus,
+              preferences: { ...(target.preferences || {}), account_status: newStatus },
+              updated_at: new Date().toISOString(),
+            });
+          }
+          localStorage.setItem(storageKey, JSON.stringify(list));
+        } catch {}
+      };
+      upsertList('dc-customers-registry');
+      upsertList('dc_db_customers');
+
+      try {
+        const wrappedRaw = localStorage.getItem('dc_session_customer');
+        if (wrappedRaw) {
+          const wrapped = JSON.parse(wrappedRaw);
+          if (
+            wrapped?.profile &&
+            (wrapped.profile.id === id || wrapped.profile.email?.toLowerCase() === targetEmail)
+          ) {
+            wrapped.profile = {
+              ...wrapped.profile,
+              preferences: { ...(wrapped.profile.preferences || {}), account_status: newStatus },
+            };
+            localStorage.setItem('dc_session_customer', JSON.stringify(wrapped));
+          }
+        }
+      } catch {}
+
+      broadcastSync('customers', { id, email: targetEmail, status: newStatus });
+      setFeedback({
+        type: 'success',
+        text: `Customer "${target.full_name}" status persisted as "${newStatus}".`,
+      });
     }
     toast.success(`Customer status changed to "${newStatus}"`);
   };
@@ -193,10 +300,25 @@ export function Module03Customers({ customerCount }: Module03Props) {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 font-bold text-xs">
-            {customers.length} Accounts Monitored
+            {customers.length} Accounts ({customerCount} synced)
           </Badge>
         </div>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

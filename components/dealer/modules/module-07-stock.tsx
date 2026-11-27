@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import {
   Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
 } from '@/components/ui/select';
+import { broadcastSync } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
 import type { Dealer,Product } from '@/lib/types';
 import {
@@ -25,6 +26,7 @@ export function Module07DealerStock({ dealer, products, onRefreshProducts }: Mod
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -47,12 +49,19 @@ export function Module07DealerStock({ dealer, products, onRefreshProducts }: Mod
       const { error } = await supabase
         .from('products')
         .update({ stock_status: newStatus })
-        .eq('id', p.id);
+        .eq('id', p.id)
+        .eq('dealer_id', dealer.id);
 
       if (error) throw error;
+      broadcastSync('products', { id: p.id, stock_status: newStatus });
+      setFeedback({
+        type: 'success',
+        text: `Availability for "${p.name}" updated to "${newStatus.replace('_', ' ')}".`,
+      });
       toast.success(`Availability changed to "${newStatus.replace('_', ' ')}" for ${p.name}`);
       await onRefreshProducts();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to change stock status' });
       toast.error('Failed to change stock status');
     } finally {
       setUpdatingId(null);
@@ -70,6 +79,21 @@ export function Module07DealerStock({ dealer, products, onRefreshProducts }: Mod
           Quickly switch product availability between In Stock, Limited, Out of Stock, or Temporarily Unavailable
         </p>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

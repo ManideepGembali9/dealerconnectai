@@ -1,15 +1,16 @@
 'use client';
 
 import { ProductCard } from '@/components/product-card';
+import { SendEnquiryDialog } from '@/components/send-enquiry-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
-import { fetchDealerById,fetchProducts,fetchReviewsByDealer } from '@/lib/data';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { fetchDealerById, fetchProducts, fetchReviewsByDealer } from '@/lib/data';
 import { timeAgo } from '@/lib/format';
-import { formatDistance,haversineKm } from '@/lib/geo';
+import { formatDistance, haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
-import type { Dealer,Product,Review } from '@/lib/supabase';
+import type { Dealer, Product, Review } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
   Check,
@@ -17,7 +18,7 @@ import {
   Clock,
   Heart,
   MapPin,
-  MessageCircle,Navigation,
+  MessageCircle, Navigation,
   Phone,
   Share2,
   ShoppingBag,
@@ -28,7 +29,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect,useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -42,9 +43,11 @@ export function DealerProfileClient({ id }: { id: string }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [productSearch, setProductSearch] = useState('');
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    let active = true;
+    async function loadDealerData() {
       setLoading(true);
       try {
         const [d, prods, revs] = await Promise.all([
@@ -52,15 +55,25 @@ export function DealerProfileClient({ id }: { id: string }) {
           fetchProducts({ dealerId: id, limit: 100 }),
           fetchReviewsByDealer(id),
         ]);
+        if (!active) return;
         setDealer(d);
         setProducts(prods);
         setReviews(revs);
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    })();
+    }
+    loadDealerData();
+    const handleSync = () => loadDealerData();
+    window.addEventListener('dc-sync-event', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      active = false;
+      window.removeEventListener('dc-sync-event', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [id]);
 
   if (loading) {
@@ -90,8 +103,8 @@ export function DealerProfileClient({ id }: { id: string }) {
 
   const handleShare = async () => {
     const url = window.location.href;
-    if (navigator.share) { try { await navigator.share({ title: dealer.shop_name, url }); } catch {} }
-    else { try { await navigator.clipboard.writeText(url); toast.success('Link copied!'); } catch {} }
+    if (navigator.share) { try { await navigator.share({ title: dealer.shop_name, url }); } catch { } }
+    else { try { await navigator.clipboard.writeText(url); toast.success('Link copied!'); } catch { } }
   };
 
   return (
@@ -122,7 +135,10 @@ export function DealerProfileClient({ id }: { id: string }) {
               {distance !== null && <span className="flex items-center gap-1 font-medium text-primary"><MapPin className="h-4 w-4" /> {formatDistance(distance)} away</span>}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setEnquiryOpen(true)}>
+              <MessageCircle className="mr-1.5 h-4 w-4" /> Send Enquiry
+            </Button>
             <Button variant={isSaved ? 'default' : 'outline'} onClick={() => toggleSavedDealer(dealer.id)}>
               <Heart className={cn('mr-1.5 h-4 w-4', isSaved && 'fill-current')} /> {isSaved ? 'Saved' : 'Save Shop'}
             </Button>
@@ -235,6 +251,7 @@ export function DealerProfileClient({ id }: { id: string }) {
           </TabsContent>
         </Tabs>
       </div>
+      <SendEnquiryDialog open={enquiryOpen} onOpenChange={setEnquiryOpen} dealer={dealer} />
     </div>
   );
 }

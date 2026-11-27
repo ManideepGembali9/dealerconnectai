@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
   Shield, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, CheckCircle2,
   KeyRound, Smartphone, RefreshCw, Sparkles, Check, ShieldCheck
@@ -218,24 +217,17 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
 
   return (
     <div
-      className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-gradient-to-br from-background via-purple-950/5 to-muted/40 px-4 py-4 sm:px-6 sm:py-8 touch-pan-y scrollbar-hide selection:bg-purple-500/20"
-      style={{ WebkitOverflowScrolling: 'touch' }}
+      className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overscroll-none bg-gradient-to-br from-background via-purple-950/10 to-muted/40 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 selection:bg-purple-500/20"
     >
       {/* Decorative background grid */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(#8b5cf6_1px,transparent_1px)] opacity-15 [background-size:24px_24px]" />
 
-      <div className="relative w-full max-w-md space-y-3 sm:space-y-4 shrink-0 transition-all touch-pan-y">
-        {/* Mobile-App Top Strip */}
-        <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 rounded-xl border border-border bg-card/80 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Storefront
-          </Link>
-          <PwaInstallButton portalName="Admin App" compact />
-        </div>
+      {/* Standalone PWA Install Shortcut (renders only when install prompt available) */}
+      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
+        <PwaInstallButton portalName="Admin App" compact />
+      </div>
 
+      <div className="relative my-auto w-full max-w-md space-y-3 sm:space-y-4 shrink-0">
         {/* Compact Mobile-App Header */}
         <div className="text-center space-y-1.5">
           <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-600/25">
@@ -346,15 +338,6 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
               )}
             </Button>
           </form>
-
-          <div className="border-t border-border/40 pt-3 text-center">
-            <Link
-              href="/"
-              className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-            >
-              ← Return to Customer App Home
-            </Link>
-          </div>
         </Card>
       </div>
 
@@ -404,11 +387,10 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
                     <button
                       type="button"
                       onClick={() => setForgotChannel('email')}
-                      className={`p-3 rounded-2xl border text-left transition-all flex items-start gap-2.5 ${
-                        forgotChannel === 'email'
-                          ? 'border-purple-600 bg-purple-500/10 text-foreground ring-2 ring-purple-500/20'
-                          : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted'
-                      }`}
+                      className={`p-3 rounded-2xl border text-left transition-all flex items-start gap-2.5 ${forgotChannel === 'email'
+                        ? 'border-purple-600 bg-purple-500/10 text-foreground ring-2 ring-purple-500/20'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted'
+                        }`}
                     >
                       <Mail className={`h-4 w-4 mt-0.5 shrink-0 ${forgotChannel === 'email' ? 'text-purple-600' : ''}`} />
                       <div>
@@ -420,11 +402,10 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
                     <button
                       type="button"
                       onClick={() => setForgotChannel('sms')}
-                      className={`p-3 rounded-2xl border text-left transition-all flex items-start gap-2.5 ${
-                        forgotChannel === 'sms'
-                          ? 'border-purple-600 bg-purple-500/10 text-foreground ring-2 ring-purple-500/20'
-                          : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted'
-                      }`}
+                      className={`p-3 rounded-2xl border text-left transition-all flex items-start gap-2.5 ${forgotChannel === 'sms'
+                        ? 'border-purple-600 bg-purple-500/10 text-foreground ring-2 ring-purple-500/20'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted'
+                        }`}
                     >
                       <Smartphone className={`h-4 w-4 mt-0.5 shrink-0 ${forgotChannel === 'sms' ? 'text-purple-600' : ''}`} />
                       <div>

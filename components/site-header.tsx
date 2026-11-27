@@ -25,15 +25,24 @@ export function SiteHeader() {
 
   useEffect(() => {
     let mounted = true;
-    fetchUnreadCount()
-      .then((count) => {
-        if (mounted) setUnreadCount(count);
-      })
-      .catch(() => {});
+    const refresh = () => {
+      fetchUnreadCount({ id: customer?.id, email: customer?.email })
+        .then((count) => {
+          if (mounted) setUnreadCount(count);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    window.addEventListener('dc-sync-event', refresh);
+    window.addEventListener('dc-notification-sent', refresh);
+    window.addEventListener('storage', refresh);
     return () => {
       mounted = false;
+      window.removeEventListener('dc-sync-event', refresh);
+      window.removeEventListener('dc-notification-sent', refresh);
+      window.removeEventListener('storage', refresh);
     };
-  }, [pathname]);
+  }, [pathname, customer?.id, customer?.email]);
 
   const navItems = [
     {

@@ -973,6 +973,14 @@ export function ProfileClient() {
               asChild
               className="h-9 px-3 rounded-xl border-border text-xs font-bold gap-1.5"
             >
+              <Link href="/customer/enquiries">My Enquiries</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              asChild
+              className="h-9 px-3 rounded-xl border-border text-xs font-bold gap-1.5"
+            >
               <Link href="/messages">Dealer Chats</Link>
             </Button>
           </div>

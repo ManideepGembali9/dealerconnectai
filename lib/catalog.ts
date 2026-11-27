@@ -131,7 +131,9 @@ export async function fetchMasterCatalog(opts?: {
     .select('*, category:category_id(*), brand:brand_id(*), subcategory:subcategory_id(*)')
     .eq('is_master', true);
 
-  if (!opts?.includeInactive) q = q.eq('is_active', true);
+  if (!opts?.includeInactive) {
+    q = q.eq('is_active', true).eq('moderation_status', 'approved');
+  }
   if (opts?.categorySlug) q = q.eq('category.slug', opts.categorySlug);
   if (opts?.brandId) q = q.eq('brand_id', opts.brandId);
   if (opts?.search) q = q.ilike('name', `%${opts.search}%`);

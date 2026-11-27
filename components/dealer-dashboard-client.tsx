@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/lib/auth';
 import { fetchReviewsByDealer } from '@/lib/data';
+import { getDbEnquiries, getDbProducts } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
 import type { Dealer,Enquiry,Product,Review } from '@/lib/types';
 import { AlertCircle,Loader2 } from 'lucide-react';
@@ -60,37 +61,21 @@ export function DealerDashboardClient() {
     }
   }, [authDealer]);
 
-  // Load Dealer's Products
+  // Load Dealer's Products (dealer-scoped only)
   const loadProducts = useCallback(async (dealerId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, dealer:dealer_id(*), category:category_id(*), brand:brand_id(*)')
-        .eq('dealer_id', dealerId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn('Error loading products from supabase:', error);
-      }
-      setProducts(data || []);
+      const list = await getDbProducts({ dealerId, includeUnapproved: true });
+      setProducts(list || []);
     } catch (e) {
       console.error('Failed to load products:', e);
     }
   }, []);
 
-  // Load Customer Enquiries
+  // Load Customer Enquiries (privately scoped to this dealer only)
   const loadEnquiries = useCallback(async (dealerId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('enquiries')
-        .select('*, product:products(*)')
-        .eq('dealer_id', dealerId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn('Error loading enquiries from supabase:', error);
-      }
-      setEnquiries(data || []);
+      const list = await getDbEnquiries(dealerId);
+      setEnquiries(list || []);
     } catch (e) {
       console.error('Failed to load enquiries:', e);
     }
@@ -139,7 +124,10 @@ export function DealerDashboardClient() {
   // Computed Badges for Shell
   const pendingEnquiriesCount = useMemo(() => {
     return enquiries.filter(
-      (e) => (e as any).status === 'new' || (e as any).status === 'pending'
+      (e) =>
+        e.status === 'pending' ||
+        e.status === 'viewed' ||
+        (e as any).status === 'new'
     ).length;
   }, [enquiries]);
 
@@ -257,7 +245,12 @@ export function DealerDashboardClient() {
       )}
 
       {activeTab === '04-add-products' && (
-        <Module04DealerAddProducts dealer={effectiveDealer} />
+        <Module04DealerAddProducts
+          dealer={effectiveDealer}
+          onInventoryChanged={async () => {
+            await loadProducts(effectiveDealer.id);
+          }}
+        />
       )}
 
       {activeTab === '05-inventory' && (
@@ -295,6 +288,9 @@ export function DealerDashboardClient() {
           dealer={effectiveDealer}
           enquiries={enquiries}
           products={products}
+          onRefreshEnquiries={async () => {
+            await loadEnquiries(effectiveDealer.id);
+          }}
         />
       )}
 

@@ -37,7 +37,13 @@ import {
   type DealerInventoryInput,
 } from '@/lib/catalog';
 
-export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
+export function DealerCatalogClient({
+  dealer,
+  onInventoryChanged,
+}: {
+  dealer: Dealer;
+  onInventoryChanged?: () => Promise<void> | void;
+}) {
   const [tab, setTab] = useState('browse');
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,6 +55,7 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
   const [filterCategory, setFilterCategory] = useState('all');
   const [editTarget, setEditTarget] = useState<DealerInventory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DealerInventory | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,9 +147,13 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
       ]);
 
       broadcastSync('products', dealerProduct);
+      if (onInventoryChanged) await onInventoryChanged();
+      setFeedback({ type: 'success', text: `"${product.name}" added to your showroom & inventory!` });
       toast.success(`"${product.name}" added to your showroom & inventory!`);
     } catch (e: any) {
-      toast.error(e.message ?? 'Failed to add product');
+      const msg = e.message ?? 'Failed to add product';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
       // Rollback optimistic update on error
       setInventoryProductIds((prev) => {
         const next = new Set(prev);
@@ -161,17 +172,30 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
   const handleRemove = async () => {
     if (!deleteTarget) return;
     const { error } = await removeDealerInventory(deleteTarget.id, dealer.id);
-    if (error) { toast.error(error); return; }
+    if (error) {
+      setFeedback({ type: 'error', text: error });
+      toast.error(error);
+      return;
+    }
+    setFeedback({ type: 'success', text: `"${deleteTarget.product?.name || 'Product'}" removed from your store.` });
     toast.success('Product removed from your store');
     setDeleteTarget(null);
-    load();
+    await load();
+    if (onInventoryChanged) await onInventoryChanged();
   };
 
   const handleToggleInv = async (inv: DealerInventory) => {
     const { error } = await toggleInventoryActive(inv.id, !inv.is_active);
-    if (error) { toast.error(error); return; }
+    if (error) {
+      setFeedback({ type: 'error', text: error });
+      toast.error(error);
+      return;
+    }
+    const nextLabel = inv.is_active ? 'paused' : 'enabled';
+    setFeedback({ type: 'success', text: `Listing ${nextLabel}.` });
     toast.success(`Listing ${inv.is_active ? 'disabled' : 'enabled'}`);
     setInventory((prev) => prev.map((i) => i.id === inv.id ? { ...i, is_active: !i.is_active } : i));
+    if (onInventoryChanged) await onInventoryChanged();
   };
 
   if (loading) {
@@ -180,6 +204,25 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
 
   return (
     <div className="space-y-4">
+      {feedback && (
+        <div
+          className={cn(
+            'rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2',
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          )}
+        >
+          <span>{feedback.text}</span>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="text-[11px] opacity-70 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">
           <TabsTrigger value="browse" className="flex-1"><ShoppingCart className="mr-1.5 h-4 w-4" /> Add Products</TabsTrigger>
@@ -399,7 +442,12 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
           product={editTarget.product!}
           dealerId={dealer.id}
           existing={editTarget}
-          onSaved={() => { setEditTarget(null); load(); }}
+          onSaved={async () => {
+            setEditTarget(null);
+            setFeedback({ type: 'success', text: 'Inventory pricing & stock saved.' });
+            await load();
+            if (onInventoryChanged) await onInventoryChanged();
+          }}
         />
       )}
 

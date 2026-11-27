@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
 } from '@/components/ui/select';
-import { getDbCategoryGroups,saveDbCategory } from '@/lib/firebase-db';
+import { deleteDbCategory, getDbCategoryGroups,saveDbCategory } from '@/lib/firebase-db';
 import type { Category,Product } from '@/lib/types';
 import {
   ArrowDown,
@@ -22,7 +22,7 @@ import {
   FolderTree,Plus,Search,
   Trash2
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useEffect, useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module05Props = {
@@ -38,11 +38,12 @@ export function Module05Categories({ categories, products, onRefreshCategories }
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const groups = useMemo(() => getDbCategoryGroups(), []);
 
   // Sync when prop updates
-  useMemo(() => {
+  useEffect(() => {
     setCats(categories);
   }, [categories]);
 
@@ -116,11 +117,13 @@ export function Module05Categories({ categories, products, onRefreshCategories }
         }
         return [...prev, editingCategory];
       });
+      setFeedback({ type: 'success', text: `Category "${editingCategory.name}" saved and synced.` });
       toast.success('Category saved successfully!');
       setEditingCategory(null);
       setIsCreating(false);
-      onRefreshCategories();
+      await onRefreshCategories();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to save category' });
       toast.error('Failed to save category');
     } finally {
       setSaving(false);
@@ -129,8 +132,16 @@ export function Module05Categories({ categories, products, onRefreshCategories }
 
   const handleDeleteCategory = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to remove the category "${name}"?`)) return;
-    setCats((prev) => prev.filter((c) => c.id !== id));
-    toast.success(`Category "${name}" removed`);
+    try {
+      await deleteDbCategory(id);
+      setCats((prev) => prev.filter((c) => c.id !== id));
+      setFeedback({ type: 'success', text: `Category "${name}" removed permanently.` });
+      toast.success(`Category "${name}" removed`);
+      await onRefreshCategories();
+    } catch {
+      setFeedback({ type: 'error', text: 'Failed to delete category' });
+      toast.error('Failed to delete category');
+    }
   };
 
   const openNewCategoryModal = () => {
@@ -166,6 +177,21 @@ export function Module05Categories({ categories, products, onRefreshCategories }
           <Plus className="h-4 w-4" /> Add Category
         </Button>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* 8 Groups Filter Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">

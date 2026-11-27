@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { deleteDbReview, getDbDealers, saveDbDealer, saveDbReview } from '@/lib/firebase-db';
 import { timeAgo } from '@/lib/format';
 import type { Review } from '@/lib/types';
 import {
@@ -14,7 +15,7 @@ import {
   Star,
   Trash2
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type ExtendedReview = Review & {
@@ -26,15 +27,31 @@ type Module09Props = {
   onRefreshReviews?: () => Promise<void>;
 };
 
-export function Module09Reviews({ reviews: initialReviews }: Module09Props) {
+export function Module09Reviews({ reviews: initialReviews, onRefreshReviews }: Module09Props) {
   const [reviews, setReviews] = useState<ExtendedReview[]>(initialReviews);
   const [filter, setFilter] = useState<'all' | 'approved' | 'flagged' | 'low'>('all');
   const [search, setSearch] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Sync with prop
-  useMemo(() => {
+  useEffect(() => {
     setReviews(initialReviews);
   }, [initialReviews]);
+
+  const recomputeDealerRating = async (dealerId: string, updatedList: ExtendedReview[]) => {
+    try {
+      const dealers = await getDbDealers();
+      const target = dealers.find((d) => d.id === dealerId);
+      if (!target) return;
+      const approved = updatedList.filter((r) => r.dealer_id === dealerId && r.is_approved !== false);
+      const count = approved.length;
+      const avg =
+        count > 0
+          ? Number((approved.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / count).toFixed(1))
+          : 4.5;
+      await saveDbDealer({ ...target, rating: avg, rating_count: count });
+    } catch { }
+  };
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
@@ -51,24 +68,57 @@ export function Module09Reviews({ reviews: initialReviews }: Module09Props) {
     });
   }, [reviews, filter, search]);
 
-  const handleApprove = (id: string) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, is_approved: true, is_flagged: false } : r))
-    );
-    toast.success('Review approved and published');
+  const handleApprove = async (id: string) => {
+    const target = reviews.find((r) => r.id === id);
+    if (!target) return;
+    const updated: ExtendedReview = { ...target, is_approved: true, is_flagged: false };
+    const nextList = reviews.map((r) => (r.id === id ? updated : r));
+    setReviews(nextList);
+    try {
+      await saveDbReview(updated);
+      if (target.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
+      setFeedback({ type: 'success', text: `Review by "${target.customer_name}" approved and published.` });
+      toast.success('Review approved and published');
+      if (onRefreshReviews) await onRefreshReviews();
+    } catch {
+      setFeedback({ type: 'error', text: 'Failed to approve review' });
+      toast.error('Failed to approve review');
+    }
   };
 
-  const handleFlag = (id: string) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, is_flagged: true } : r))
-    );
-    toast.info('Review flagged for content moderation');
+  const handleFlag = async (id: string) => {
+    const target = reviews.find((r) => r.id === id);
+    if (!target) return;
+    const updated: ExtendedReview = { ...target, is_flagged: true, is_approved: false };
+    const nextList = reviews.map((r) => (r.id === id ? updated : r));
+    setReviews(nextList);
+    try {
+      await saveDbReview(updated);
+      if (target.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
+      setFeedback({ type: 'success', text: `Review by "${target.customer_name}" flagged for moderation.` });
+      toast.info('Review flagged for content moderation');
+      if (onRefreshReviews) await onRefreshReviews();
+    } catch {
+      setFeedback({ type: 'error', text: 'Failed to flag review' });
+      toast.error('Failed to flag review');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Permanently delete this customer review?')) return;
-    setReviews((prev) => prev.filter((r) => r.id !== id));
-    toast.success('Review removed');
+    const target = reviews.find((r) => r.id === id);
+    const nextList = reviews.filter((r) => r.id !== id);
+    setReviews(nextList);
+    try {
+      await deleteDbReview(id);
+      if (target?.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
+      setFeedback({ type: 'success', text: 'Customer review removed permanently.' });
+      toast.success('Review removed');
+      if (onRefreshReviews) await onRefreshReviews();
+    } catch {
+      setFeedback({ type: 'error', text: 'Failed to remove review' });
+      toast.error('Failed to remove review');
+    }
   };
 
   return (
@@ -84,6 +134,20 @@ export function Module09Reviews({ reviews: initialReviews }: Module09Props) {
           </p>
         </div>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Tabs and Search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

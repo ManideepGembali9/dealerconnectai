@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import type { Dealer } from '@/lib/types';
-import { KeyRound,LogOut,Settings,ShieldCheck } from 'lucide-react';
+import { KeyRound, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -21,32 +21,52 @@ export function Module14DealerSettings({ dealer }: Module14Props) {
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFeedback(null);
     if (!newPw) {
+      setFeedback({ type: 'error', text: 'Please enter a new password' });
       toast.error('Please enter a new password');
       return;
     }
     if (newPw.length < 6) {
+      setFeedback({ type: 'error', text: 'Dealer password must be at least 6 characters long' });
       toast.error('Dealer password must be at least 6 characters long');
       return;
     }
     if (newPw !== confirmPw) {
+      setFeedback({ type: 'error', text: 'New passwords do not match' });
       toast.error('New passwords do not match');
       return;
+    }
+    if (currentPw.trim()) {
+      const storedPw =
+        localStorage.getItem(`dc-dealer-pw-${dealer.id}`) ||
+        localStorage.getItem(`dc-dealer-pw-${dealer.email.toLowerCase().trim()}`) ||
+        (dealer as any).dealer_password ||
+        'dealer123';
+      if (currentPw !== storedPw) {
+        setFeedback({ type: 'error', text: 'Current password is incorrect' });
+        toast.error('Current password is incorrect');
+        return;
+      }
     }
 
     setSaving(true);
     try {
       const { error } = await changePassword(newPw, 'dealer');
       if (error) throw new Error(error);
+      setFeedback({ type: 'success', text: 'Dealer password updated successfully!' });
       toast.success('Dealer password updated successfully!');
       setCurrentPw('');
       setNewPw('');
       setConfirmPw('');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to update password');
+      const msg = err?.message || 'Failed to update password';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -130,6 +150,27 @@ export function Module14DealerSettings({ dealer }: Module14Props) {
           </div>
 
           <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+            {feedback && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${feedback.type === 'success'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive'
+                  }`}
+              >
+                {feedback.text}
+              </div>
+            )}
+            {feedback && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                  feedback.type === 'success'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : 'border-destructive/30 bg-destructive/10 text-destructive'
+                }`}
+              >
+                {feedback.text}
+              </div>
+            )}
             <div>
               <Label className="text-xs font-semibold">Current Password</Label>
               <Input

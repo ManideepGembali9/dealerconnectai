@@ -1,20 +1,20 @@
 'use client';
 
 import { ProductCard } from '@/components/product-card';
+import { SendEnquiryDialog } from '@/components/send-enquiry-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth';
 import { fetchApprovedDealers,fetchProductById,fetchProductsByName,fetchReviewsByDealer,fetchSimilarProducts } from '@/lib/data';
-import { saveDbEnquiry } from '@/lib/firebase-db';
+import { saveDbDealer,saveDbEnquiry,saveDbReview } from '@/lib/firebase-db';
 import { formatINR,getDiscountPercent,getEffectivePrice,timeAgo } from '@/lib/format';
 import { estimateDriveTime,haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
-import { supabase } from '@/lib/supabase';
 import type { Dealer,Product,Review } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -24,7 +24,7 @@ import {
   Clock,
   Heart,
   MapPin,
-  MessageCircle,Navigation,
+  MessageCircle, Navigation,
   Package,
   Phone,
   Scale,
@@ -41,7 +41,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect,useMemo,useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const stockConfig = {
@@ -64,6 +64,16 @@ export function ProductDetailClient({ id }: { id: string }) {
   const [imageIdx, setImageIdx] = useState(0);
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [addedToCartNotice, setAddedToCartNotice] = useState(false);
+  const [enquiryModalOpen, setEnquiryModalOpen] = useState(false);
+  const [enquiryTargetDealer, setEnquiryTargetDealer] = useState<Dealer | null>(null);
+
+  useEffect(() => {
+    if (customer?.full_name) {
+      setReviewForm((prev) => (prev.name ? prev : { ...prev, name: customer.full_name }));
+    }
+  }, [customer?.full_name]);
 
   useEffect(() => {
     if (product) addRecentlyViewed(product.id);
@@ -71,10 +81,12 @@ export function ProductDetailClient({ id }: { id: string }) {
   }, [product?.id]);
 
   useEffect(() => {
-    (async () => {
+    let active = true;
+    async function loadProductData() {
       setLoading(true);
       try {
         const p = await fetchProductById(id);
+        if (!active) return;
         setProduct(p);
         if (p) {
           setImageIdx(0);
@@ -83,20 +95,31 @@ export function ProductDetailClient({ id }: { id: string }) {
             fetchProductsByName(p.name),
             fetchApprovedDealers(50),
           ]);
+          if (!active) return;
           setSimilar(sim);
           setAllVariants(variants);
           setAllApprovedDealers(dealers);
           if (p.dealer_id) {
             const revs = await fetchReviewsByDealer(p.dealer_id);
-            setReviews(revs);
+            if (active) setReviews(revs);
           }
         }
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    })();
+    }
+    loadProductData();
+
+    const handleSync = () => loadProductData();
+    window.addEventListener('dc-sync-event', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      active = false;
+      window.removeEventListener('dc-sync-event', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -217,33 +240,57 @@ export function ProductDetailClient({ id }: { id: string }) {
   const handleShare = async () => {
     const url = window.location.href;
     if (navigator.share) {
-      try { await navigator.share({ title: product.name, url }); } catch {}
+      try { await navigator.share({ title: product.name, url }); } catch { }
     } else {
-      try { await navigator.clipboard.writeText(url); toast.success('Link copied!'); } catch {}
+      try { await navigator.clipboard.writeText(url); toast.success('Link copied!'); } catch { }
     }
   };
 
   const submitReview = async () => {
+    setReviewFeedback(null);
     if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
-      toast.error('Please fill your name and comment');
+      setReviewFeedback({ type: 'error', text: 'Please fill in your name and comment.' });
       return;
     }
-    if (!dealer) return;
+    const targetDealer = dealer || availableShops[0]?.dealer || null;
+    if (!targetDealer) {
+      setReviewFeedback({ type: 'error', text: 'No associated dealer found for this product.' });
+      return;
+    }
     setSubmittingReview(true);
     try {
-      const { data, error } = await supabase.from('reviews').insert({
-        dealer_id: dealer.id,
+      const newReview: Review = {
+        id: `rev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        dealer_id: targetDealer.id,
         product_id: product.id,
-        customer_name: reviewForm.name,
+        customer_name: reviewForm.name.trim(),
         rating: reviewForm.rating,
-        comment: reviewForm.comment,
-      }).select().single();
-      if (error) throw error;
-      setReviews((prev) => [data, ...prev]);
-      setReviewForm({ name: '', rating: 5, comment: '' });
-      toast.success('Review submitted!');
-    } catch (e) {
-      toast.error('Failed to submit review');
+        quality_rating: reviewForm.rating,
+        cleanliness_rating: reviewForm.rating,
+        behavior_rating: reviewForm.rating,
+        price_rating: reviewForm.rating,
+        availability_rating: reviewForm.rating,
+        delivery_rating: reviewForm.rating,
+        comment: reviewForm.comment.trim(),
+        created_at: new Date().toISOString(),
+        is_approved: true,
+      };
+      await saveDbReview(newReview);
+      const nextReviews = [newReview, ...reviews];
+      setReviews(nextReviews);
+
+      const avg = nextReviews.reduce((sum, r) => sum + r.rating, 0) / nextReviews.length;
+      await saveDbDealer({
+        ...targetDealer,
+        rating: Number(avg.toFixed(1)),
+        rating_count: nextReviews.length,
+        updated_at: new Date().toISOString(),
+      });
+
+      setReviewForm({ name: customer?.full_name || '', rating: 5, comment: '' });
+      setReviewFeedback({ type: 'success', text: 'Your review has been published successfully!' });
+    } catch {
+      setReviewFeedback({ type: 'error', text: 'Failed to submit review. Please try again.' });
     } finally {
       setSubmittingReview(false);
     }
@@ -368,21 +415,42 @@ export function ProductDetailClient({ id }: { id: string }) {
 
           {/* Actions */}
           <div className="mt-5 space-y-2.5">
-            <Button
-              size="lg"
-              onClick={() => {
-                if (!customer) {
-                  router.push(`/customer/login?redirect=/product/${product.id}`);
-                  return;
-                }
-                addToCart(product, 1);
-                toast.success('Added to your Shopping Cart!');
-              }}
-              className="w-full h-12 rounded-xl text-sm font-bold shadow-md"
-              disabled={product.stock_status === 'out_of_stock'}
-            >
-              <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <Button
+                size="lg"
+                onClick={() => {
+                  if (!customer) {
+                    router.push(`/customer/login?redirect=/product/${product.id}`);
+                    return;
+                  }
+                  addToCart(product, 1);
+                  setAddedToCartNotice(true);
+                  setTimeout(() => setAddedToCartNotice(false), 2500);
+                  toast.success('Added to your Shopping Cart!');
+                }}
+                className="w-full h-12 rounded-xl text-sm font-bold shadow-md"
+                disabled={product.stock_status === 'out_of_stock'}
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                {addedToCartNotice ? 'Added to Cart ✓' : 'Add to Cart'}
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  const target = dealer || availableShops[0]?.dealer || null;
+                  if (target) {
+                    setEnquiryTargetDealer(target);
+                    setEnquiryModalOpen(true);
+                  }
+                }}
+                disabled={!dealer && availableShops.length === 0}
+                className="w-full h-12 rounded-xl text-sm font-bold border-primary/40 hover:bg-primary/5"
+              >
+                <MessageCircle className="mr-2 h-5 w-5 text-primary" /> Send Enquiry
+              </Button>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button variant={inWishlist ? 'default' : 'outline'} onClick={() => toggleWishlist(product.id)} className="flex-1 rounded-xl">
@@ -496,7 +564,7 @@ export function ProductDetailClient({ id }: { id: string }) {
                 )}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-                  
+
                   {/* Left: Showroom Identity & Location Details */}
                   <div className="flex items-start gap-4 flex-1">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted">
@@ -606,11 +674,17 @@ export function ProductDetailClient({ id }: { id: string }) {
                             href={`tel:${d.phone}`}
                             onClick={() => {
                               saveDbEnquiry({
+                                customer_id: customer?.id ?? null,
+                                customer_email: customer?.email ?? null,
+                                customer_phone: customer?.phone ?? null,
                                 dealer_id: d.id,
+                                dealer_name: d.shop_name,
                                 product_id: product?.id,
-                                customer_name: 'Direct Phone Caller',
+                                product_name: product?.name ?? null,
+                                customer_name: customer?.full_name || 'Direct Phone Caller',
                                 message: `Called showroom regarding ${product?.name || 'product'}`,
                                 channel: 'call',
+                                status: 'pending',
                               });
                             }}
                           >
@@ -633,11 +707,17 @@ export function ProductDetailClient({ id }: { id: string }) {
                             rel="noopener noreferrer"
                             onClick={() => {
                               saveDbEnquiry({
+                                customer_id: customer?.id ?? null,
+                                customer_email: customer?.email ?? null,
+                                customer_phone: customer?.phone ?? null,
                                 dealer_id: d.id,
+                                dealer_name: d.shop_name,
                                 product_id: product?.id,
-                                customer_name: 'WhatsApp Customer',
+                                product_name: product?.name ?? null,
+                                customer_name: customer?.full_name || 'WhatsApp Customer',
                                 message: `WhatsApp chat initiated regarding ${product?.name || 'product'}`,
                                 channel: 'whatsapp',
+                                status: 'pending',
                               });
                             }}
                           >
@@ -665,9 +745,21 @@ export function ProductDetailClient({ id }: { id: string }) {
                       )}
 
                       <Button
+                        size="sm"
+                        onClick={() => {
+                          setEnquiryTargetDealer(d);
+                          setEnquiryModalOpen(true);
+                        }}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs h-9 rounded-xl shadow-sm"
+                      >
+                        <MessageCircle className="mr-1 h-3.5 w-3.5" /> Enquire
+                      </Button>
+
+                      <Button
                         asChild
                         size="sm"
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs h-9 rounded-xl shadow-sm"
+                        variant="outline"
+                        className="border-border text-foreground hover:bg-muted font-bold text-xs h-9 rounded-xl"
                       >
                         <Link href={`/dealer/${d.id}`}>
                           Visit Store
@@ -758,6 +850,18 @@ export function ProductDetailClient({ id }: { id: string }) {
                     <Label htmlFor="rev-comment" className="text-xs">Comment</Label>
                     <Textarea id="rev-comment" value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} />
                   </div>
+                  {reviewFeedback && (
+                    <div
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-xs font-medium',
+                        reviewFeedback.type === 'success'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                          : 'border-destructive/30 bg-destructive/10 text-destructive'
+                      )}
+                    >
+                      {reviewFeedback.text}
+                    </div>
+                  )}
                   <Button onClick={submitReview} disabled={submittingReview} className="w-full">
                     {submittingReview ? 'Submitting...' : 'Submit Review'}
                   </Button>
@@ -803,6 +907,13 @@ export function ProductDetailClient({ id }: { id: string }) {
           </div>
         </section>
       )}
+
+      <SendEnquiryDialog
+        open={enquiryModalOpen}
+        onOpenChange={setEnquiryModalOpen}
+        dealer={enquiryTargetDealer || dealer || null}
+        product={product}
+      />
     </div>
   );
 }

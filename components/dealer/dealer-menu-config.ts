@@ -42,14 +42,14 @@ export const DEALER_MENU_ITEMS: DealerMenuItem[] = [
   {
     id: '04-add-products',
     number: '03',
-    title: 'Add & Create Products',
-    shortDesc: '1-click master catalog add or custom product proposal',
+    title: 'Add Master Products',
+    shortDesc: 'Browse and add Admin-approved master catalog items',
     iconName: 'PlusCircle',
     order: 3,
     translations: {
-      en: 'Add & Create Products',
+      en: 'Add Master Products',
       te: 'ఉత్పత్తులను జోడించండి',
-      hi: 'उत्पाद जोड़ें और बनाएं',
+      hi: 'मास्टर उत्पाद जोड़ें',
       ta: 'தயாரிப்புகளைச் சேர்க்கவும்',
     },
   },

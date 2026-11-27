@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatINR,getDiscountPercent,getEffectivePrice } from '@/lib/format';
+import { broadcastSync } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
 import type { Dealer,Product } from '@/lib/types';
 import {
@@ -24,6 +25,7 @@ export function Module06DealerPricing({ dealer, products, onRefreshProducts }: M
   const [search, setSearch] = useState('');
   const [priceEdits, setPriceEdits] = useState<Record<string, { price: number; discount: number | null }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -51,12 +53,21 @@ export function Module06DealerPricing({ dealer, products, onRefreshProducts }: M
           price: edit.price,
           discount_price: edit.discount,
         })
-        .eq('id', p.id);
+        .eq('id', p.id)
+        .eq('dealer_id', dealer.id);
 
       if (error) throw error;
+      broadcastSync('products', { id: p.id, price: edit.price, discount_price: edit.discount });
+      setPriceEdits((prev) => {
+        const next = { ...prev };
+        delete next[p.id];
+        return next;
+      });
+      setFeedback({ type: 'success', text: `Pricing updated for "${p.name}".` });
       toast.success(`Pricing updated for ${p.name}`);
       await onRefreshProducts();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to update price' });
       toast.error('Failed to update price');
     } finally {
       setSavingId(null);
@@ -74,6 +85,21 @@ export function Module06DealerPricing({ dealer, products, onRefreshProducts }: M
           Set shop showroom retail prices, promotional discount offers & calculate buyer savings
         </p>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Search Input */}
       <div className="relative w-full sm:w-80">

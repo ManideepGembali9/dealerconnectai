@@ -73,7 +73,9 @@ export function Module01Dashboard({
     const featuredCount = products.filter((p) => p.is_featured).length;
 
     const totalCategories = categories.length;
-    const pendingEnquiries = enquiries.filter((e) => (e as any).status !== 'completed').length;
+    const pendingEnquiries = enquiries.filter(
+      (e) => e.status !== 'resolved' && e.status !== 'closed' && (e as any).status !== 'completed'
+    ).length;
     const totalReviews = reviews.length;
 
     return {

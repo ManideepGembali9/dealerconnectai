@@ -65,6 +65,7 @@ export function Module02DealerProfile({ dealer, onRefreshDealer }: Module02Props
     },
   });
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleHourChange = (dayKey: string, val: string) => {
     setForm((prev) => ({
@@ -78,7 +79,9 @@ export function Module02DealerProfile({ dealer, onRefreshDealer }: Module02Props
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFeedback(null);
     if (!form.shop_name.trim() || !form.phone.trim() || !form.address.trim()) {
+      setFeedback({ type: 'error', text: 'Please fill in required fields (Shop Name, Phone, Address).' });
       toast.error('Please fill in required fields (Shop Name, Phone, Address)');
       return;
     }
@@ -106,10 +109,13 @@ export function Module02DealerProfile({ dealer, onRefreshDealer }: Module02Props
       });
 
       if (error) throw new Error(error);
+      setFeedback({ type: 'success', text: 'Shop profile updated and synced to storefront!' });
       toast.success('Shop profile updated successfully!');
       if (onRefreshDealer) await onRefreshDealer();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to save shop profile');
+      const msg = err?.message || 'Failed to save shop profile';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -130,6 +136,19 @@ export function Module02DealerProfile({ dealer, onRefreshDealer }: Module02Props
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
+        {feedback && (
+          <div
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+              }`}
+          >
+            <span>{feedback.text}</span>
+            <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+              Dismiss
+            </button>
+          </div>
+        )}
         {/* Basic Shop Identity */}
         <Card className="p-6 border-border/80 shadow-sm space-y-4">
           <div className="pb-3 border-b border-border/60">

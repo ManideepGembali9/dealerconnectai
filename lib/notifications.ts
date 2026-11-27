@@ -1,8 +1,10 @@
 import { supabase } from './supabase';
+import { getDbNotifications } from './firebase-db';
 import type { Notification, PushSubscription } from './types';
 
 const CUSTOMER_ID_KEY = 'dc_customer_id';
 const PREFS_KEY = 'dc_notif_prefs';
+const READ_BROADCASTS_KEY = 'dc_read_broadcasts';
 
 export function getCustomerId(): string {
   if (typeof window === 'undefined') return '';
@@ -202,48 +204,126 @@ export async function unwatchProduct(productId: string): Promise<{ error: string
   return { error: error?.message ?? null };
 }
 
+function getReadBroadcastIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(READ_BROADCASTS_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markBroadcastReadLocal(id: string) {
+  if (typeof window === 'undefined') return;
+  const set = getReadBroadcastIds();
+  set.add(id);
+  try {
+    localStorage.setItem(READ_BROADCASTS_KEY, JSON.stringify(Array.from(set)));
+  } catch { }
+}
+
 /**
- * Fetch notifications for the current customer.
+ * Fetch notifications for the current customer (personal alerts + targeted Admin broadcasts).
  */
-export async function fetchNotifications(limit = 50): Promise<Notification[]> {
-  const customerId = getCustomerId();
-  const { data, error } = await supabase
+export async function fetchNotifications(
+  limit = 50,
+  customerIdentity?: { id?: string | null; email?: string | null }
+): Promise<Notification[]> {
+  const deviceCustomerId = getCustomerId();
+  const validCustomerIds = new Set(
+    [deviceCustomerId, customerIdentity?.id, customerIdentity?.email?.toLowerCase().trim()].filter(
+      (v): v is string => Boolean(v)
+    )
+  );
+
+  const { data } = await supabase
     .from('notifications')
     .select('*')
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data as Notification[]) ?? [];
+    .order('created_at', { ascending: false });
+
+  const personal = ((data as Notification[]) ?? []).filter(
+    (n) => !n.customer_id || validCustomerIds.has(n.customer_id)
+  );
+
+  let broadcasts: Notification[] = [];
+  try {
+    const rawBroadcasts = await getDbNotifications();
+    const readSet = getReadBroadcastIds();
+    broadcasts = rawBroadcasts
+      .filter((b) => {
+        if (b.target_audience === 'all' || b.target_audience === 'customers') return true;
+        if (b.target_audience === 'specific' && Array.isArray(b.target_user_ids)) {
+          return b.target_user_ids.some(
+            (id) =>
+              validCustomerIds.has(id) ||
+              (customerIdentity?.email && id.toLowerCase().trim() === customerIdentity.email.toLowerCase().trim())
+          );
+        }
+        return false;
+      })
+      .map((b) => ({
+        id: b.id,
+        customer_id: customerIdentity?.id || deviceCustomerId,
+        type: 'system',
+        title: b.title,
+        message: b.body,
+        product_id: null,
+        dealer_id: null,
+        product_name: null,
+        dealer_name: b.sent_by || 'DealerConnect AI',
+        old_value: null,
+        new_value: null,
+        pin_code: null,
+        distance_km: null,
+        is_read: readSet.has(b.id),
+        created_at: b.sent_at,
+      }));
+  } catch { }
+
+  const merged = new Map<string, Notification>();
+  for (const item of [...personal, ...broadcasts]) {
+    if (!merged.has(item.id)) {
+      merged.set(item.id, item);
+    }
+  }
+
+  return Array.from(merged.values())
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit);
 }
 
 /**
  * Get unread notification count.
  */
-export async function fetchUnreadCount(): Promise<number> {
-  const customerId = getCustomerId();
-  const { count, error } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('customer_id', customerId)
-    .eq('is_read', false);
-  if (error) return 0;
-  return count ?? 0;
+export async function fetchUnreadCount(customerIdentity?: { id?: string | null; email?: string | null }): Promise<number> {
+  try {
+    const all = await fetchNotifications(100, customerIdentity);
+    return all.filter((n) => !n.is_read).length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
  * Mark a notification as read.
  */
 export async function markNotificationRead(id: string): Promise<void> {
+  markBroadcastReadLocal(id);
   await supabase.from('notifications').update({ is_read: true }).eq('id', id);
 }
 
 /**
  * Mark all notifications as read.
  */
-export async function markAllNotificationsRead(): Promise<void> {
-  const customerId = getCustomerId();
-  await supabase.from('notifications').update({ is_read: true }).eq('customer_id', customerId).eq('is_read', false);
+export async function markAllNotificationsRead(customerIdentity?: { id?: string | null; email?: string | null }): Promise<void> {
+  const all = await fetchNotifications(100, customerIdentity);
+  for (const n of all) {
+    markBroadcastReadLocal(n.id);
+    if (!n.is_read) {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
+    }
+  }
 }
 
 /**

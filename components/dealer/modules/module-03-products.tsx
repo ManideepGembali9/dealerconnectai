@@ -69,6 +69,7 @@ export function Module03DealerProducts({
   const [deliveryInput, setDeliveryInput] = useState(true);
   const [pickupInput, setPickupInput] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     getDbCategories().then(setCategories).catch(() => {});
@@ -144,10 +145,12 @@ export function Module03DealerProducts({
       await saveDbProduct(updated);
       broadcastSync('products', updated);
 
+      setFeedback({ type: 'success', text: `"${updated.name}" updated across your shop & storefront!` });
       toast.success(`"${updated.name}" updated successfully across your entire shop!`);
       setEditingProduct(null);
       await onRefreshProducts();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to update product details' });
       toast.error('Failed to update product details');
     } finally {
       setSaving(false);
@@ -157,11 +160,27 @@ export function Module03DealerProducts({
   const handleRemoveFromShop = async (id: string, name: string) => {
     if (!confirm(`Remove "${name}" from your shop inventory?`)) return;
     try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .eq('dealer_id', dealer.id);
       if (error) throw error;
+      const prefix = `prod-${dealer.id}-`;
+      if (id.startsWith(prefix)) {
+        const masterId = id.slice(prefix.length);
+        await supabase
+          .from('dealer_inventory')
+          .delete()
+          .eq('dealer_id', dealer.id)
+          .eq('product_id', masterId);
+      }
+      broadcastSync('products', { removedId: id });
+      setFeedback({ type: 'success', text: `"${name}" removed from your shop inventory.` });
       toast.success('Product removed from your shop.');
       await onRefreshProducts();
     } catch {
+      setFeedback({ type: 'error', text: 'Failed to remove product' });
       toast.error('Failed to remove product');
     }
   };
@@ -183,9 +202,24 @@ export function Module03DealerProducts({
           onClick={() => onNavigateTab('04-add-products')}
           className="font-bold gap-1.5 self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
         >
-          <Plus className="h-4 w-4" /> Add or Create Products
+          <Plus className="h-4 w-4" /> Add Master Catalog Products
         </Button>
       </div>
+
+      {feedback && (
+        <div
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span>{feedback.text}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -247,7 +281,7 @@ export function Module03DealerProducts({
         {filtered.length === 0 ? (
           <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
             <Package className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
-            No products found. Tap &quot;Add or Create Products&quot; to begin.
+            No products found. Tap &quot;Add Master Catalog Products&quot; to begin.
           </Card>
         ) : (
           filtered.map((p) => {
@@ -677,7 +711,7 @@ export function Module03DealerProducts({
               </div>
 
               <p className="text-muted-foreground text-[11px]">
-                You can remove this product and create a revised submission under &quot;Add Products &gt; Create Custom Product&quot;.
+                You can remove this listing and add an approved item from the Master Catalog under &quot;Add Master Products&quot;.
               </p>
             </div>
 

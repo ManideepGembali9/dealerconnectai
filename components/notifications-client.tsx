@@ -19,6 +19,7 @@ import {
   updatePushPreferences
 } from '@/lib/notifications';
 import { useApp } from '@/lib/providers';
+import { useAuth } from '@/lib/auth';
 import { type Notification } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
@@ -38,6 +39,7 @@ import { toast } from 'sonner';
 
 export function NotificationsClient() {
   const { location } = useApp();
+  const { customer } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribed, setSubscribed] = useState(false);
@@ -47,11 +49,11 @@ export function NotificationsClient() {
 
   const loadNotifications = useCallback(async () => {
     try {
-      const notifs = await fetchNotifications(100);
+      const notifs = await fetchNotifications(100, { id: customer?.id, email: customer?.email });
       setNotifications(notifs);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, []);
+  }, [customer?.id, customer?.email]);
 
   const checkSubscription = useCallback(async () => {
     try {
@@ -61,7 +63,19 @@ export function NotificationsClient() {
     finally { setSubLoading(false); }
   }, []);
 
-  useEffect(() => { loadNotifications(); checkSubscription(); }, [loadNotifications, checkSubscription]);
+  useEffect(() => {
+    loadNotifications();
+    checkSubscription();
+    const handleSync = () => loadNotifications();
+    window.addEventListener('dc-sync-event', handleSync);
+    window.addEventListener('dc-notification-sent', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('dc-sync-event', handleSync);
+      window.removeEventListener('dc-notification-sent', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [loadNotifications, checkSubscription]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 

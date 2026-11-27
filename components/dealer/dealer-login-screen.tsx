@@ -1,7 +1,6 @@
 'use client';
 
 import { DealerRegistrationForm } from '@/components/dealer-registration-form';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -34,7 +33,6 @@ import {
   Sparkles,
   Store
 } from 'lucide-react';
-import Link from 'next/link';
 import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
@@ -312,18 +310,12 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
   };
 
   return (
-    <div className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 py-5 bg-background">
-      <div className="relative w-full max-w-md space-y-3.5">
-        <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 rounded-xl border border-border bg-card/80 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Storefront
-          </Link>
-          <PwaInstallButton portalName="Dealer App" compact />
-        </div>
+    <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overscroll-none bg-gradient-to-br from-background via-emerald-950/5 to-muted/30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
+      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
+        <PwaInstallButton portalName="Dealer App" compact />
+      </div>
 
+      <div className="relative my-auto w-full max-w-md space-y-3 sm:space-y-4 shrink-0">
         {/* Brand header */}
         <div className="text-center space-y-1">
           <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
@@ -338,9 +330,9 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
         </div>
 
         {/* ============================================================= */}
-        {/* ONLY CONTINUE WITH CLEAN LOGIN PAGE                          */}
+        {/* STANDALONE DEALER LOGIN FORM                                 */}
         {/* ============================================================= */}
-        <Card className="border border-border/80 shadow-xl backdrop-blur rounded-3xl p-5 sm:p-7 space-y-5">
+        <Card className="border border-border/80 shadow-xl backdrop-blur rounded-3xl p-4 sm:p-6 space-y-4">
           <div>
             <h2 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
               <Lock className="h-4 w-4 text-emerald-600" /> Authorized Dealer Sign In
@@ -425,52 +417,38 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
           {/* QUICK DEMO ACCOUNTS HELPER */}
           {demoDealers.length > 0 && (
             <div className="pt-2 border-t border-border/50">
-              <p className="text-[11px] font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+              <p className="text-[11px] font-bold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                 <Sparkles className="h-3 w-3 text-emerald-600" /> Quick Sign In (Demo Showrooms)
               </p>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {demoDealers.map((d) => (
                   <button
                     key={d.id}
                     type="button"
                     onClick={() => handleQuickDemoLogin(d)}
-                    className="flex items-center justify-between p-2 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted text-left text-xs transition-colors"
+                    className="flex-1 min-w-[140px] flex items-center justify-between px-2.5 py-1.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted text-left text-[11px] transition-colors"
                   >
-                    <div className="truncate">
-                      <span className="font-bold text-foreground block truncate">{d.shop_name}</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">{d.email}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-semibold text-emerald-600 shrink-0">
-                      Sign In →
-                    </Badge>
+                    <span className="font-bold text-foreground truncate pr-1">{d.shop_name}</span>
+                    <span className="text-[10px] font-semibold text-emerald-600 shrink-0">Sign In →</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* KEEP THE FORM OPEN LINK INSIDE THE LOGIN PAGE */}
-          <div className="border-t border-border/60 pt-4 text-center space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Own a local showroom or store? Want to connect with nearby shoppers?
+          {/* DEALERSHIP REGISTRATION MODAL TRIGGER */}
+          <div className="border-t border-border/60 pt-3 text-center space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              Own a local showroom or store? Connect with nearby buyers.
             </p>
             <Button
               type="button"
               variant="outline"
               onClick={() => setRegModalOpen(true)}
-              className="w-full h-11 border-dashed border-emerald-600/40 hover:border-emerald-600 hover:bg-emerald-600/5 text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl gap-2 transition-all"
+              className="w-full h-10 border-dashed border-emerald-600/40 hover:border-emerald-600 hover:bg-emerald-600/5 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl gap-2 transition-all"
             >
-              <Store className="h-4 w-4" /> Open Dealership Registration Form →
+              <Store className="h-4 w-4" /> Register New Dealership →
             </Button>
-          </div>
-
-          <div className="border-t border-border/40 pt-3 text-center">
-            <Link
-              href="/"
-              className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-            >
-              ← Return to Customer App Home
-            </Link>
           </div>
         </Card>
       </div>

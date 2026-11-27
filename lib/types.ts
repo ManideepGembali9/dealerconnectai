@@ -40,6 +40,8 @@ export type Brand = {
   name: string;
   slug: string;
   logo_url: string | null;
+  is_enabled?: boolean;
+  updated_at?: string;
 };
 
 // ==================== DEALER ====================
@@ -340,15 +342,29 @@ export type Review = {
 
 // ==================== ENQUIRY ====================
 
+export type EnquiryStatus = 'pending' | 'viewed' | 'responded' | 'resolved' | 'closed';
+
 export type Enquiry = {
   id: string;
+  customer_id?: string | null;
+  customer_email?: string | null;
   dealer_id: string | null;
   product_id: string | null;
+  product_name?: string | null;
+  dealer_name?: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   message: string | null;
   channel: 'call' | 'whatsapp' | 'form';
+  status?: EnquiryStatus;
+  dealer_response?: string | null;
+  responded_at?: string | null;
+  responded_by?: string | null;
+  admin_notes?: string | null;
   created_at: string;
+  updated_at?: string | null;
+  dealer?: Dealer | null;
+  product?: Product | null;
 };
 
 // ==================== SEARCH LOG ====================

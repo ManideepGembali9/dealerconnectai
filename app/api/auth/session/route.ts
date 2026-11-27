@@ -155,9 +155,11 @@ export async function POST(request: Request) {
     // 2. DEALER PORTAL AUTHENTICATION (approved dealers only)
     if (portal === 'dealer') {
       const seedMatch = INITIAL_DEALERS.find((d) => d.email.toLowerCase() === emailRaw);
-      const dealerStatus =
-        seedMatch?.status ||
-        (typeof body?.dealerStatus === 'string' ? body.dealerStatus : '');
+      const dealerStatus = seedMatch
+        ? seedMatch.status
+        : typeof body?.dealerStatus === 'string'
+          ? body.dealerStatus
+          : '';
       const dealerId = seedMatch?.id || (typeof body?.dealerId === 'string' ? body.dealerId : sub);
 
       if (!dealerId) {

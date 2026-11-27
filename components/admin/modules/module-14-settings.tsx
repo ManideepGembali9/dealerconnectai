@@ -7,14 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth';
+import { getDbPlatformSettings, saveDbPlatformSettings } from '@/lib/firebase-db';
 import {
   KeyRound,
   LogOut,
   Phone,
   Save,
-  Settings,Shield
+  Settings, Shield
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export function Module14Settings() {
@@ -24,46 +25,91 @@ export function Module14Settings() {
   const [confirmPw, setConfirmPw] = useState('');
   const [savingPw, setSavingPw] = useState(false);
 
-  // Platform support details
+  // Platform support details persisted in DB
   const [supportPhone, setSupportPhone] = useState('+91 98480 12345');
   const [supportEmail, setSupportEmail] = useState('support@dealerconnect.ai');
   const [supportWhatsApp, setSupportWhatsApp] = useState('+91 98480 12345');
   const [sessionTimeout, setSessionTimeout] = useState(true);
   const [auditLogEnabled, setAuditLogEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [pwFeedback, setPwFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [settingsFeedback, setSettingsFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    const saved = getDbPlatformSettings();
+    setSupportPhone(saved.supportPhone);
+    setSupportEmail(saved.supportEmail);
+    setSupportWhatsApp(saved.supportWhatsApp);
+    setSessionTimeout(saved.sessionTimeout);
+    setAuditLogEnabled(saved.auditLogEnabled);
+  }, []);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPwFeedback(null);
     if (!newPw) {
+      setPwFeedback({ type: 'error', text: 'Please enter a new password' });
       toast.error('Please enter a new password');
       return;
     }
     if (newPw.length < 6) {
+      setPwFeedback({ type: 'error', text: 'Admin password must be at least 6 characters' });
       toast.error('Admin password must be at least 6 characters');
       return;
     }
     if (newPw !== confirmPw) {
+      setPwFeedback({ type: 'error', text: 'New passwords do not match' });
       toast.error('New passwords do not match');
       return;
+    }
+    if (currentPw.trim()) {
+      const storedPw = localStorage.getItem('dc-admin-custom-password') || 'admin123';
+      if (currentPw !== storedPw) {
+        setPwFeedback({ type: 'error', text: 'Current admin password is incorrect' });
+        toast.error('Current admin password is incorrect');
+        return;
+      }
     }
 
     setSavingPw(true);
     try {
       const { error } = await changePassword(newPw, 'admin');
       if (error) throw new Error(error);
+      setPwFeedback({ type: 'success', text: 'Admin master password updated successfully!' });
       toast.success('Admin master password updated successfully!');
       setCurrentPw('');
       setNewPw('');
       setConfirmPw('');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update password');
+      const msg = err.message || 'Failed to update password';
+      setPwFeedback({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setSavingPw(false);
     }
   };
 
-  const handleSavePlatformSettings = (e: React.FormEvent) => {
+  const handleSavePlatformSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('General platform and support preferences saved!');
+    setSavingSettings(true);
+    setSettingsFeedback(null);
+    try {
+      await saveDbPlatformSettings({
+        supportPhone: supportPhone.trim() || '+91 98480 12345',
+        supportEmail: supportEmail.trim() || 'support@dealerconnect.ai',
+        supportWhatsApp: supportWhatsApp.trim() || supportPhone.trim(),
+        sessionTimeout,
+        auditLogEnabled,
+      });
+      setSettingsFeedback({ type: 'success', text: 'Platform security & support settings saved and synchronized!' });
+      toast.success('General platform and support preferences saved!');
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to save platform settings';
+      setSettingsFeedback({ type: 'error', text: msg });
+      toast.error(msg);
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   return (
@@ -149,6 +195,27 @@ export function Module14Settings() {
           </div>
 
           <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+            {pwFeedback && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pwFeedback.type === 'success'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive'
+                  }`}
+              >
+                {pwFeedback.text}
+              </div>
+            )}
+            {pwFeedback && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                  pwFeedback.type === 'success'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : 'border-destructive/30 bg-destructive/10 text-destructive'
+                }`}
+              >
+                {pwFeedback.text}
+              </div>
+            )}
             <div>
               <Label className="text-xs font-semibold">Current Password</Label>
               <Input
@@ -208,6 +275,27 @@ export function Module14Settings() {
         </div>
 
         <form onSubmit={handleSavePlatformSettings} className="space-y-4 text-xs">
+          {settingsFeedback && (
+            <div
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settingsFeedback.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
+                }`}
+            >
+              {settingsFeedback.text}
+            </div>
+          )}
+          {settingsFeedback && (
+            <div
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                settingsFeedback.type === 'success'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive'
+              }`}
+            >
+              {settingsFeedback.text}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label className="text-xs font-semibold">Helpline Phone Number</Label>
@@ -239,8 +327,8 @@ export function Module14Settings() {
           </div>
 
           <div className="pt-2 flex justify-end">
-            <Button type="submit" className="font-semibold gap-1.5 h-9">
-              <Save className="h-4 w-4" /> Save Support Settings
+            <Button type="submit" disabled={savingSettings} className="font-semibold gap-1.5 h-9">
+              <Save className="h-4 w-4" /> {savingSettings ? 'Saving...' : 'Save Support Settings'}
             </Button>
           </div>
         </form>

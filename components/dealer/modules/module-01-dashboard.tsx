@@ -44,7 +44,10 @@ export function Module01DealerDashboard({
     ).length;
     const outOfStock = products.filter((p) => p.stock_status === 'out_of_stock').length;
     const pendingEnquiries = enquiries.filter(
-      (e) => (e as any).status === 'pending' || (e as any).status === 'new'
+      (e) =>
+        e.status === 'pending' ||
+        e.status === 'viewed' ||
+        (e as any).status === 'new'
     ).length;
     const totalViews = products.reduce((sum, p) => sum + (p.view_count || 0), 0);
     const totalInventoryValue = products.reduce(
