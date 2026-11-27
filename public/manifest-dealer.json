@@ -1,0 +1,29 @@
+{
+  "id": "com.dealerconnectai.dealer",
+  "name": "DealerConnect AI — Merchant Portal",
+  "short_name": "Dealer Portal",
+  "description": "Showroom, inventory, live pricing, and incoming customer leads management for verified local dealers.",
+  "start_url": "/dealer",
+  "scope": "/dealer",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
+  "background_color": "#064e3b",
+  "theme_color": "#10b981",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}

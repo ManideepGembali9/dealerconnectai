@@ -1,0 +1,114 @@
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  darkMode: ['class'],
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic':
+          'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+      colors: {
+        'mono-black': '#09090b',
+        'mono-white': '#ffffff',
+        'mono-dark': '#18181b',
+        'mono-gray': '#71717a',
+        'mono-light': '#f4f4f5',
+        // Backward-compatible monochrome aliases
+        'dark-navy': '#09090b',
+        'golden-yellow': '#18181b',
+        'lemon-yellow': '#f4f4f5',
+        'golden-sand': '#e4e4e7',
+        'soft-gold': '#d4d4d8',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        chart: {
+          '1': '#09090b',
+          '2': '#27272a',
+          '3': '#52525b',
+          '4': '#71717a',
+          '5': '#a1a1aa',
+        },
+      },
+      keyframes: {
+        'accordion-down': {
+          from: {
+            height: '0',
+          },
+          to: {
+            height: 'var(--radix-accordion-content-height)',
+          },
+        },
+        'accordion-up': {
+          from: {
+            height: 'var(--radix-accordion-content-height)',
+          },
+          to: {
+            height: '0',
+          },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'shimmer': 'shimmer 2s infinite linear',
+        'float': 'float 3s ease-in-out infinite',
+        'pulse-ring': 'pulse-ring 2s infinite',
+        'slide-up': 'slide-up 0.4s ease-out both',
+        'fade-in': 'fade-in 0.3s ease-out both',
+      },
+    },
+  },
+  plugins: [require('tailwindcss-animate')],
+};
+export default config;

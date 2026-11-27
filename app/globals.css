@@ -1,0 +1,261 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ============================================================
+     PREMIUM BLACK & WHITE MONOCHROME SYSTEM:
+     Pure Black:   #000000 / #09090b
+     Obsidian:     #121214 / #18181b
+     Zinc Border:  #e4e4e7 / #27272a
+     Neutral Muted: #71717a / #a1a1aa
+     Clean White:  #ffffff / #fafafa
+     ============================================================ */
+
+  :root {
+    --background: 0 0% 100%;             /* Pure White: #FFFFFF */
+    --foreground: 0 0% 9%;               /* Deep Black: #171717 */
+    --card: 0 0% 100%;                   /* Pure White */
+    --card-foreground: 0 0% 9%;          /* Deep Black */
+    --popover: 0 0% 100%;                /* Pure White */
+    --popover-foreground: 0 0% 9%;       /* Deep Black */
+    --primary: 0 0% 9%;                  /* Solid Black: #171717 */
+    --primary-foreground: 0 0% 98%;      /* Crisp White: #FAFAFA */
+    --secondary: 0 0% 96%;               /* Subtle Light Gray: #F4F4F5 */
+    --secondary-foreground: 0 0% 9%;     /* Deep Black */
+    --muted: 0 0% 96%;                   /* Light Gray */
+    --muted-foreground: 0 0% 45%;        /* Medium Gray: #71717A */
+    --accent: 0 0% 93%;                  /* Soft Gray: #ECECED */
+    --accent-foreground: 0 0% 9%;        /* Deep Black */
+    --destructive: 0 0% 9%;              /* Black Destructive */
+    --destructive-foreground: 0 0% 98%;  /* White */
+    --border: 0 0% 89%;                  /* Clean Border: #E4E4E7 */
+    --input: 0 0% 89%;                   /* Clean Input Border */
+    --ring: 0 0% 9%;                     /* Black Focus Ring */
+    --success: 0 0% 9%;                  /* Black Success */
+    --success-foreground: 0 0% 98%;
+    --warning: 0 0% 30%;
+    --warning-foreground: 0 0% 98%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 0 0% 4%;               /* Deep Black: #09090B */
+    --foreground: 0 0% 98%;              /* Crisp White: #FAFAFA */
+    --card: 0 0% 8%;                     /* Dark Surface: #141416 */
+    --card-foreground: 0 0% 98%;         /* Crisp White */
+    --popover: 0 0% 8%;                  /* Dark Surface */
+    --popover-foreground: 0 0% 98%;      /* Crisp White */
+    --primary: 0 0% 98%;                 /* Solid White: #FFFFFF */
+    --primary-foreground: 0 0% 9%;       /* Deep Black: #09090B */
+    --secondary: 0 0% 13%;               /* Dark Neutral: #202024 */
+    --secondary-foreground: 0 0% 98%;    /* Crisp White */
+    --muted: 0 0% 13%;                   /* Dark Neutral */
+    --muted-foreground: 0 0% 64%;        /* Soft Gray: #A1A1AA */
+    --accent: 0 0% 16%;                  /* Dark Accent: #27272A */
+    --accent-foreground: 0 0% 98%;       /* Crisp White */
+    --destructive: 0 0% 98%;             /* White Destructive */
+    --destructive-foreground: 0 0% 9%;   /* Black */
+    --border: 0 0% 18%;                  /* Dark Border: #27272A */
+    --input: 0 0% 18%;                   /* Dark Input Border */
+    --ring: 0 0% 98%;                    /* White Focus Ring */
+    --success: 0 0% 98%;                 /* White Success */
+    --success-foreground: 0 0% 9%;
+    --warning: 0 0% 75%;
+    --warning-foreground: 0 0% 9%;
+  }
+
+  /* Universal monochrome preset support */
+  .theme-black-white,
+  .theme-gold-navy,
+  .theme-gold-black,
+  .theme-green-white,
+  .theme-corporate-blue,
+  .theme-royal-purple,
+  .theme-sunset-amber {
+    /* Respects :root and .dark variables above */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  /* ============================================================
+     GLOBAL SCROLLBAR ERADICATION (ARROW BUTTONS & TRACKS REMOVED)
+     Completely removes all visible vertical/horizontal scrollbars,
+     thumbs, tracks, and up/down arrow buttons across the entire app.
+     Preserves 100% natural touch scrolling on mobile and mouse wheel
+     or touchpad scrolling on desktops with smooth behavior.
+     ============================================================ */
+  html,
+  body,
+  *,
+  *::before,
+  *::after {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  *::-webkit-scrollbar-track {
+    display: none !important;
+    background: transparent !important;
+  }
+
+  *::-webkit-scrollbar-corner {
+    display: none !important;
+    background: transparent !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    -webkit-overflow-scrolling: touch;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-hide,
+  .no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .scrollbar-hide::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  .scrollbar-hide::-webkit-scrollbar-button,
+  .no-scrollbar::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  .scrollbar-hide::-webkit-scrollbar-thumb,
+  .no-scrollbar::-webkit-scrollbar-thumb {
+    display: none !important;
+  }
+  .scrollbar-hide::-webkit-scrollbar-track,
+  .no-scrollbar::-webkit-scrollbar-track {
+    display: none !important;
+  }
+  .mask-fade-r {
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  /* Monochrome Gradients */
+  .gold-gradient,
+  .navy-gradient,
+  .blue-gradient,
+  .brand-gradient {
+    background: linear-gradient(135deg, #09090b 0%, #27272a 50%, #3f3f46 100%);
+  }
+  .dark .gold-gradient,
+  .dark .navy-gradient,
+  .dark .blue-gradient,
+  .dark .brand-gradient {
+    background: linear-gradient(135deg, #18181b 0%, #27272a 50%, #3f3f46 100%);
+  }
+
+  .gold-gradient-text,
+  .navy-gradient-text,
+  .blue-gradient-text,
+  .brand-gradient-text {
+    background: linear-gradient(135deg, #09090b 0%, #52525b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .dark .gold-gradient-text,
+  .dark .navy-gradient-text,
+  .dark .blue-gradient-text,
+  .dark .brand-gradient-text {
+    background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(90deg, transparent, hsl(var(--muted)), transparent);
+  background-size: 1000px 100%;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.4); }
+  70% { box-shadow: 0 0 0 14px rgba(0, 0, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+}
+@keyframes pulse-ring-dark {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
+  70% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+.animate-pulse-ring { animation: pulse-ring 2s infinite; }
+.dark .animate-pulse-ring { animation: pulse-ring-dark 2s infinite; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.4s ease-out both; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.3s ease-out both; }
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scale-in 0.2s ease-out both; }

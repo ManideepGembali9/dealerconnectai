@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.dealerconnectai.app",
+      "sha256_cert_fingerprints": [
+        "14:6D:E9:7F:0E:52:D7:11:86:10:5E:72:42:F6:07:91:F8:78:B2:42:BC:3B:1F:B1:A6:49:EE:FB:F6:AC:78:E0"
+      ]
+    }
+  }
+]

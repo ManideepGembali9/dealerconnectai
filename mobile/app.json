@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "DealerConnect AI",
+    "slug": "dealerconnect-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dealerconnectai.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "DealerConnect AI requires camera access to allow dealers to capture and upload store product photos.",
+        "NSLocationWhenInUseUsageDescription": "DealerConnect AI uses your location to discover nearby shops, dealers, and check local product availability."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.dealerconnectai.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "INTERNET"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "dealerconnect"
+  }
+}

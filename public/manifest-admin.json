@@ -1,0 +1,29 @@
+{
+  "id": "com.dealerconnectai.admin",
+  "name": "DealerConnect AI — Admin Control Center",
+  "short_name": "Admin Portal",
+  "description": "Marketplace supervision, dealer verification approvals, catalog administration, and platform settings.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
+  "background_color": "#3b0764",
+  "theme_color": "#8b5cf6",
+  "categories": ["business", "management"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}

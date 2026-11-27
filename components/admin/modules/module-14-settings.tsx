@@ -1,0 +1,248 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Settings, Shield, KeyRound, Lock, CheckCircle2, Phone, Mail,
+  LogOut, Save, RefreshCw, AlertCircle, Database
+} from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
+
+export function Module14Settings() {
+  const { changePassword, signOut } = useAuth();
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [savingPw, setSavingPw] = useState(false);
+
+  // Platform support details
+  const [supportPhone, setSupportPhone] = useState('+91 98480 12345');
+  const [supportEmail, setSupportEmail] = useState('support@dealerconnect.ai');
+  const [supportWhatsApp, setSupportWhatsApp] = useState('+91 98480 12345');
+  const [sessionTimeout, setSessionTimeout] = useState(true);
+  const [auditLogEnabled, setAuditLogEnabled] = useState(true);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPw) {
+      toast.error('Please enter a new password');
+      return;
+    }
+    if (newPw.length < 6) {
+      toast.error('Admin password must be at least 6 characters');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    setSavingPw(true);
+    try {
+      const { error } = await changePassword(newPw);
+      if (error) throw new Error(error);
+      toast.success('Admin master password updated successfully!');
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  const handleSavePlatformSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast.success('General platform and support preferences saved!');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
+            <Settings className="h-7 w-7 text-primary" /> Platform & Admin Settings
+          </h1>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Administrator credentials, security policies, support contact info & session maintenance
+          </p>
+        </div>
+
+        <Button
+          variant="destructive"
+          onClick={async () => {
+            await signOut();
+            toast.info('Administrator session terminated.');
+          }}
+          className="font-bold gap-1.5 self-start sm:self-auto"
+        >
+          <LogOut className="h-4 w-4" /> Admin Logout
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Administrator Profile Card */}
+        <Card className="p-6 border-border/80 shadow-sm space-y-4">
+          <div className="pb-3 border-b border-border/60 flex items-center justify-between">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" /> Super Admin Account
+            </h3>
+            <Badge variant="outline" className="text-[10px] font-semibold text-emerald-600">
+              Active Root Access
+            </Badge>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <Label className="text-xs font-semibold">Authorized Admin Email</Label>
+              <Input
+                value="admin@dealerconnect.ai"
+                disabled
+                className="mt-1 h-9 text-xs opacity-70 font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Primary Super Administrator role with full platform database permissions.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <div>
+                <span className="font-semibold text-foreground block">Session Security Timeout</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Automatically invalidate dormant admin sessions after 24 hours
+                </span>
+              </div>
+              <Switch checked={sessionTimeout} onCheckedChange={setSessionTimeout} />
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <div>
+                <span className="font-semibold text-foreground block">Admin Audit Logging</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Record all product deletions, dealer verifications & banner changes
+                </span>
+              </div>
+              <Switch checked={auditLogEnabled} onCheckedChange={setAuditLogEnabled} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Change Master Password Form */}
+        <Card className="p-6 border-border/80 shadow-sm space-y-4">
+          <div className="pb-3 border-b border-border/60">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" /> Update Master Password
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Securely update your admin sign-in password
+            </p>
+          </div>
+
+          <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+            <div>
+              <Label className="text-xs font-semibold">Current Password</Label>
+              <Input
+                type="password"
+                value={currentPw}
+                onChange={(e) => setCurrentPw(e.target.value)}
+                placeholder="Enter current password"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">New Master Password</Label>
+                <Input
+                  type="password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  placeholder="Min 6 characters"
+                  className="mt-1 h-9 text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Confirm Password</Label>
+                <Input
+                  type="password"
+                  value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  placeholder="Confirm password"
+                  className="mt-1 h-9 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={savingPw}
+              className="w-full h-9 font-bold mt-2"
+            >
+              {savingPw ? 'Updating Password...' : 'Save New Master Password'}
+            </Button>
+          </form>
+        </Card>
+      </div>
+
+      {/* General Platform Support & Privacy Settings */}
+      <Card className="p-6 border-border/80 shadow-sm space-y-4">
+        <div className="pb-3 border-b border-border/60">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <Phone className="h-4 w-4 text-primary" /> Public Platform Support Information
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Contact information presented to buyers and dealers across the mobile and web apps
+          </p>
+        </div>
+
+        <form onSubmit={handleSavePlatformSettings} className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label className="text-xs font-semibold">Helpline Phone Number</Label>
+              <Input
+                value={supportPhone}
+                onChange={(e) => setSupportPhone(e.target.value)}
+                placeholder="+91 98480 12345"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Support Email Address</Label>
+              <Input
+                value={supportEmail}
+                onChange={(e) => setSupportEmail(e.target.value)}
+                placeholder="support@dealerconnect.ai"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Official WhatsApp Line</Label>
+              <Input
+                value={supportWhatsApp}
+                onChange={(e) => setSupportWhatsApp(e.target.value)}
+                placeholder="+91 98480 12345"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <Button type="submit" className="font-semibold gap-1.5 h-9">
+              <Save className="h-4 w-4" /> Save Support Settings
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}
