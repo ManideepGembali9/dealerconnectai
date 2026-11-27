@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PwaInstallButton } from '@/components/pwa-install-button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth';
 import { formatINR,getEffectivePrice } from '@/lib/format';
@@ -966,11 +965,7 @@ export function ProfileSettingsPanelContent({
           </select>
         </div>
 
-        {/* App Installation Row */}
-        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-          <span className="text-xs font-bold text-foreground">Customer Mobile App</span>
-          <PwaInstallButton portalName="Customer App" compact />
-        </div>
+
       </div>
 
       {/* Compact Alerts & Push Controls */}

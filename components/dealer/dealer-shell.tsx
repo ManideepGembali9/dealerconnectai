@@ -1,7 +1,6 @@
 'use client';
 
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { PwaInstallButton } from '@/components/pwa-install-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -326,7 +325,7 @@ export function DealerShell({
 
           {/* Right Topbar Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <PwaInstallButton portalName="Dealer App" compact className="hidden sm:inline-flex" />
+
             <LanguageSwitcher className="h-9 px-2.5 text-xs" />
             <ThemeToggle />
 

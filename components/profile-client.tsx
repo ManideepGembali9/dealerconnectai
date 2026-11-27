@@ -8,6 +8,7 @@ import { useTheme } from 'next-themes';
 import {
   AlertCircle,
   ArrowRight,
+  Bot,
   ChevronRight,
   Eye,
   EyeOff,
@@ -28,6 +29,7 @@ import {
 import { CustomerGoogleAuthButton } from '@/components/customer-google-auth';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { isVerifiedCustomer } from '@/components/profile/customer-subpage-shell';
+import { ProfileShoppingChat } from '@/components/chatbot';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -99,6 +101,7 @@ export function ProfileClient() {
   const [themeMounted, setThemeMounted] = useState(false);
   const [dealerApp, setDealerApp] = useState<DealerApplication | null>(null);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Guest Login & Signup State
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -555,6 +558,26 @@ export function ProfileClient() {
               );
             })}
           </div>
+        </section>
+
+        {/* AI Shopping Assistant Button */}
+        <section>
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            className="w-full flex items-center justify-between gap-3.5 px-4 py-3.5 rounded-2xl border border-[#292929] bg-[#151515] hover:bg-[#202020] active:bg-[#202020] transition-colors group"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#292929] bg-[#202020] text-[#FFFFFF]">
+                <Bot className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 text-left">
+                <p className="text-sm font-semibold text-[#FFFFFF] leading-tight">AI Shopping Assistant</p>
+                <p className="text-xs text-[#A0A0A0] truncate mt-0.5">Ask about prices, stock &amp; nearby shops</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[#A0A0A0] group-hover:text-[#FFFFFF] transition-colors" />
+          </button>
         </section>
 
         {/* Compact Secondary Section: Own a Shop? */}

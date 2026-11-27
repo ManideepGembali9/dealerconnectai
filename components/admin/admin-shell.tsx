@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo,useState } from 'react';
-import { PwaInstallButton } from '@/components/pwa-install-button';
 import { getStoredAdminMenu,type AdminMenuItem } from './admin-menu-config';
 import { LayoutNavigationManager } from './layout-navigation-manager';
 
@@ -386,7 +385,7 @@ export function AdminShell({
 
           {/* Right Topbar Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <PwaInstallButton portalName="Admin App" compact className="hidden sm:inline-flex" />
+
             <Button
               variant="outline"
               size="sm"
