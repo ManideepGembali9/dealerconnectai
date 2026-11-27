@@ -1,32 +1,47 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import {
-  Star, MapPin, Phone, MessageCircle, Navigation, Heart, Share2, Scale,
-  ShoppingCart, Check, Clock, Truck, Store, Zap, Shield, ChevronLeft,
-  ChevronRight, Sparkles, Package, Award, ThumbsUp
-} from 'lucide-react';
+import { ProductCard } from '@/components/product-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ProductCard } from '@/components/product-card';
-import { useApp } from '@/lib/providers';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth';
-import { fetchProductById, fetchSimilarProducts, fetchProductsByName, fetchReviewsByDealer, fetchApprovedDealers } from '@/lib/data';
-import { supabase } from '@/lib/supabase';
+import { fetchApprovedDealers,fetchProductById,fetchProductsByName,fetchReviewsByDealer,fetchSimilarProducts } from '@/lib/data';
 import { saveDbEnquiry } from '@/lib/firebase-db';
-import { formatINR, getEffectivePrice, getDiscountPercent, timeAgo } from '@/lib/format';
-import { haversineKm, formatDistance, estimateDriveTime } from '@/lib/geo';
-import type { Product, Review, Dealer } from '@/lib/types';
+import { formatINR,getDiscountPercent,getEffectivePrice,timeAgo } from '@/lib/format';
+import { estimateDriveTime,haversineKm } from '@/lib/geo';
+import { useApp } from '@/lib/providers';
+import { supabase } from '@/lib/supabase';
+import type { Dealer,Product,Review } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Heart,
+  MapPin,
+  MessageCircle,Navigation,
+  Package,
+  Phone,
+  Scale,
+  Share2,
+  Shield,
+  ShoppingCart,
+  Sparkles,
+  Star,
+  Store,
+  ThumbsUp,
+  Truck,
+  Zap
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 const stockConfig = {
@@ -39,7 +54,7 @@ const stockConfig = {
 export function ProductDetailClient({ id }: { id: string }) {
   const router = useRouter();
   const { customer, role } = useAuth();
-  const { location, wishlist, toggleWishlist, compare, toggleCompare, addRecentlyViewed, addToCart, cart, t } = useApp();
+  const { location, wishlist, toggleWishlist, compare, toggleCompare, addRecentlyViewed, addToCart, t } = useApp();
   const [product, setProduct] = useState<Product | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
   const [allVariants, setAllVariants] = useState<Product[]>([]);
@@ -324,10 +339,10 @@ export function ProductDetailClient({ id }: { id: string }) {
                 <Store className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm font-black text-foreground group-hover:underline flex items-center gap-1.5">
-                  Available in {availableShops.length} Local Showrooms
+                <div className="text-xs sm:text-sm font-black text-foreground group-hover:underline flex items-center gap-1.5">
+                  <span>Available in {availableShops.length} Local Showrooms</span>
                   <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">Verified Stock</Badge>
-                </p>
+                </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Tap to view exact showroom locations, live stock, and best local prices
                 </p>

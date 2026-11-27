@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings, KeyRound, Lock, LogOut, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import type { Dealer } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
+import type { Dealer } from '@/lib/types';
+import { KeyRound,LogOut,Settings,ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 type Module14Props = {

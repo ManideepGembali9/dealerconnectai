@@ -1,15 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Bell, Check, Package, Store, TrendingUp, BellOff } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 import { timeAgo } from '@/lib/format';
+import { supabase } from '@/lib/supabase';
+import { Bell,BellOff,Check,Package,Store,TrendingUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 
 export function CustomerNotificationsClient() {
   const router = useRouter();

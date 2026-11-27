@@ -1,28 +1,40 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import {
-  Bell, BellRing, Check, CheckCheck, Trash2, Package, DollarSign, MapPin,
-  Sparkles, Settings, RefreshCw, PackageCheck, TrendingDown, Store, X,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { type Notification } from '@/lib/supabase';
+import { Switch } from '@/components/ui/switch';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { timeAgo } from '@/lib/format';
 import {
-  fetchNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification,
-  subscribeToPush, unsubscribeFromPush, getPushSubscription, updatePushPreferences,
-  getNotificationPrefs, setNotificationPrefs, getCustomerId,
+  deleteNotification,
+  fetchNotifications,
+  getNotificationPrefs,
+  getPushSubscription,
+  markAllNotificationsRead,
+  markNotificationRead,
+  setNotificationPrefs,
+  subscribeToPush,unsubscribeFromPush,
+  updatePushPreferences
 } from '@/lib/notifications';
 import { useApp } from '@/lib/providers';
-import { timeAgo } from '@/lib/format';
+import { type Notification } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
+import {
+  Bell,BellRing,Check,CheckCheck,
+  MapPin,
+  PackageCheck,
+  RefreshCw,
+  Settings,
+  Sparkles,
+  Trash2,
+  TrendingDown,
+  X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useCallback,useEffect,useState } from 'react';
+import { toast } from 'sonner';
 
 export function NotificationsClient() {
   const { location } = useApp();

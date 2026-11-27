@@ -1,26 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Sliders, ArrowUp, ArrowDown, Eye, EyeOff, Lock, CheckCircle2,
-  RotateCcw, Save, ShieldAlert, Sparkles, FolderTree, LayoutDashboard,
-  PanelsTopLeft, Store, Package
-} from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
-  type AdminMenuItem,
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle,
+} from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { useApp } from '@/lib/providers';
+import {
+  ArrowDown,
+  ArrowUp,
+  Lock,
+  RotateCcw,Save,ShieldAlert,
+  Sliders
+} from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import {
   DEFAULT_ADMIN_MENU,
   saveStoredAdminMenu,
+  type AdminMenuItem,
 } from './admin-menu-config';
-import { useApp } from '@/lib/providers';
-import { toast } from 'sonner';
 
 type LayoutManagerProps = {
   open: boolean;
@@ -37,7 +41,6 @@ export function LayoutNavigationManager({
 }: LayoutManagerProps) {
   const { appSettings, updateAppSettings } = useApp();
   const [draftMenu, setDraftMenu] = useState<AdminMenuItem[]>(() => [...menuItems]);
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
   const [saving, setSaving] = useState(false);
 
   // Homepage sections draft

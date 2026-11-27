@@ -1,10 +1,9 @@
 'use client';
 
-import { HelpCircle, Phone, Mail, MessageCircle, ShieldCheck, ExternalLink } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import type { Dealer } from '@/lib/types';
+import { HelpCircle,Mail,MessageCircle,Phone,ShieldCheck } from 'lucide-react';
 
 export function Module13DealerSupport({ dealer }: { dealer: Dealer }) {
   return (

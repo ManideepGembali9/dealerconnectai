@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { verifyOtp } from '@/lib/otp-store';
+import {
+  verifyOtp,
+  extractCookieValue,
+  createResetSessionToken,
+} from '@/lib/otp-store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -60,8 +64,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Standard in-memory verification (supports generated OTP & test code 123456)
-    const result = verifyOtp(cleanId, cleanOtp);
+    // Standard verification (supports signed stateless cookie for Vercel, local cache & test code 123456)
+    const otpCookie = extractCookieValue(request.headers.get('cookie'), 'dc_otp_session');
+    const result = verifyOtp(cleanId, cleanOtp, otpCookie);
     if (!result.valid) {
       return NextResponse.json(
         { error: result.error || 'Invalid OTP code' },
@@ -69,11 +74,20 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    const resetCookie = createResetSessionToken(cleanId, result.resetToken!, 15);
+    const response = NextResponse.json({
       success: true,
       message: 'OTP verified successfully',
       resetToken: result.resetToken,
     });
+    response.cookies.set('dc_reset_session', resetCookie, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to verify OTP' },

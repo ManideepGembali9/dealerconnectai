@@ -1,19 +1,19 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { MapPin, Navigation, Search, Star, Phone, MessageCircle, ShoppingBag, Navigation2, Store, Clock, ChevronRight, Loader2, LocateFixed, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
+import { fetchApprovedDealers,fetchCategories,fetchDealersByPin } from '@/lib/data';
+import { estimateDriveTime,formatDistance,getAllPinCentroids,getPinCentroid,haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
-import { fetchDealersByPin, fetchCategories, fetchApprovedDealers } from '@/lib/data';
-import { haversineKm, formatDistance, estimateDriveTime, getPinCentroid, getAllPinCentroids } from '@/lib/geo';
-import type { Dealer, Category } from '@/lib/types';
+import type { Category,Dealer } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Clock,LocateFixed,MapPin,MessageCircle,Navigation,Navigation2,Phone,Search,ShoppingBag,Star,Store,X } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useCallback,useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type SortKey = 'nearest' | 'rating' | 'products';
@@ -35,7 +35,7 @@ function isShopOpen(workingHours: Record<string, string>): boolean {
 }
 
 export function NearbyClient() {
-  const { location, setLocation, t } = useApp();
+  const { location, setLocation } = useApp();
   const [pin, setPin] = useState(location.pinCode ?? '532440');
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -341,8 +341,8 @@ export function NearbyClient() {
           ) : (
             <div className="space-y-3">
               {filteredDealers.map(({ dealer, distance, isOpen }) => (
-                <Link key={dealer.id} href={`/dealer/${dealer.id}`}>
-                  <Card className="group flex gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
+                <Card key={dealer.id} className="group flex flex-col sm:flex-row gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <Link href={`/dealer/${dealer.id}`} className="flex flex-1 gap-4 min-w-0">
                     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
                       <Image
                         src={dealer.logo_url ?? 'https://images.pexels.com/photos/264537/pexels-photo-264537.jpeg?auto=compress&cs=tinysrgb&w=200'}
@@ -352,7 +352,7 @@ export function NearbyClient() {
                         className="object-cover transition-transform group-hover:scale-105"
                       />
                     </div>
-                    <div className="flex flex-1 flex-col">
+                    <div className="flex flex-1 flex-col min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-base font-semibold group-hover:text-primary">{dealer.shop_name}</h3>
@@ -402,23 +402,23 @@ export function NearbyClient() {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-center justify-center gap-2 pl-2">
-                      <Button asChild size="sm" variant="outline" className="w-28">
-                        <Link href={`tel:${dealer.phone}`}><Phone className="mr-1 h-3.5 w-3.5" /> Call</Link>
+                  </Link>
+                  <div className="flex sm:flex-col items-center justify-center gap-2 sm:pl-2 shrink-0">
+                    <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none sm:w-28">
+                      <a href={`tel:${dealer.phone}`}><Phone className="mr-1 h-3.5 w-3.5" /> Call</a>
+                    </Button>
+                    {dealer.whatsapp && (
+                      <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none sm:w-28 border-success/40 text-success hover:bg-success/10">
+                        <a href={`https://wa.me/91${dealer.whatsapp}`} target="_blank" rel="noopener noreferrer"><MessageCircle className="mr-1 h-3.5 w-3.5" /> Chat</a>
                       </Button>
-                      {dealer.whatsapp && (
-                        <Button asChild size="sm" variant="outline" className="w-28 border-success/40 text-success hover:bg-success/10">
-                          <Link href={`https://wa.me/91${dealer.whatsapp}`} target="_blank"><MessageCircle className="mr-1 h-3.5 w-3.5" /> Chat</Link>
-                        </Button>
-                      )}
-                      <Button asChild size="sm" className="w-28">
-                        <Link href={`https://www.google.com/maps/dir/?api=1&destination=${dealer.map_lat},${dealer.map_lng}`} target="_blank">
-                          <Navigation className="mr-1 h-3.5 w-3.5" /> Directions
-                        </Link>
-                      </Button>
-                    </div>
-                  </Card>
-                </Link>
+                    )}
+                    <Button asChild size="sm" className="flex-1 sm:flex-none sm:w-28">
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${dealer.map_lat},${dealer.map_lng}`} target="_blank" rel="noopener noreferrer">
+                        <Navigation className="mr-1 h-3.5 w-3.5" /> Directions
+                      </a>
+                    </Button>
+                  </div>
+                </Card>
               ))}
             </div>
           )}

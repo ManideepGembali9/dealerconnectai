@@ -1,27 +1,27 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, MapPin, SlidersHorizontal, X, Check, Mic, Camera, Sparkles, Navigation, History, TrendingUp, Store } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/product-card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
+import { Sheet,SheetContent,SheetHeader,SheetTitle,SheetTrigger } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
-import { useApp } from '@/lib/providers';
+import { aiSearchProducts } from '@/lib/ai';
 import { useAuth } from '@/lib/auth';
 import { saveSearchHistory } from '@/lib/customer';
-import { fetchCategories, fetchProducts, fetchDealersByPin } from '@/lib/data';
+import { fetchCategories,fetchDealersByPin,fetchProducts } from '@/lib/data';
 import { getEffectivePrice } from '@/lib/format';
-import { haversineKm, getPinCentroid } from '@/lib/geo';
-import { aiSearchProducts } from '@/lib/ai';
-import type { Category, Product, Dealer } from '@/lib/supabase';
+import { getPinCentroid,haversineKm } from '@/lib/geo';
+import { useApp } from '@/lib/providers';
+import type { Category,Dealer,Product } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { Camera,History,MapPin,Mic,Search,SlidersHorizontal,Sparkles,X } from 'lucide-react';
+import { useRouter,useSearchParams } from 'next/navigation';
+import { useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type SortKey = 'relevance' | 'price_low' | 'price_high' | 'nearest' | 'rating' | 'offers';
@@ -93,8 +93,6 @@ export function SearchClient() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const dealerMap = useMemo(() => new Map(dealers.map((d) => [d.id, d])), [dealers]);
 
   const filtered = useMemo(() => {
     let results = [...allProducts];

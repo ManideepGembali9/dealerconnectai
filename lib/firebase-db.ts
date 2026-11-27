@@ -1,11 +1,10 @@
-import { db, auth as firebaseAuth, firebaseConfig } from './firebase';
+import { getFirebaseDb } from './firebase';
 import {
   collection,
   doc,
   getDocs,
   getDoc,
   setDoc,
-  updateDoc,
   deleteDoc,
 } from 'firebase/firestore';
 import type {
@@ -18,12 +17,9 @@ import type {
   Enquiry,
   AppSettings,
   PushNotification,
-  CustomerProfile,
   CustomerFavorite,
   CustomerSearchHistory,
   Message,
-  Notification,
-  ModerationLog,
   DealerApplication,
   DealerApplicationStatus,
 } from './types';
@@ -44,6 +40,7 @@ const KEY_BRANDS = `${STORAGE_PREFIX}brands`;
 const KEY_DEALERS = `${STORAGE_PREFIX}dealers`;
 const KEY_PRODUCTS = `${STORAGE_PREFIX}products`;
 const KEY_NOTIFICATIONS = `${STORAGE_PREFIX}notifications`;
+const KEY_CUSTOMER_NOTIFICATIONS = `${STORAGE_PREFIX}customer_notifications`;
 const KEY_MESSAGES = `${STORAGE_PREFIX}messages`;
 const KEY_FAVORITES = `${STORAGE_PREFIX}favorites`;
 const KEY_SEARCH_HISTORY = `${STORAGE_PREFIX}search_history`;
@@ -89,11 +86,6 @@ function setLocal<T>(key: string, data: T): void {
   } catch {}
 }
 
-const isDemoFirebase =
-  !process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-  firebaseConfig.apiKey?.startsWith('AIzaSyDemo') ||
-  firebaseConfig.projectId === 'dealerconnectai';
-
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2000): Promise<T> {
   // Catch any background failure to avoid unhandled rejection crashes
   promise.catch(() => {});
@@ -107,11 +99,47 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2000): Promise<T>
   ]);
 }
 
+async function readFirestoreCollection<T>(colName: string, timeoutMs = 2000): Promise<T[] | null> {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  try {
+    const snap = await withTimeout(getDocs(collection(db, colName)), timeoutMs);
+    if (snap && !snap.empty) {
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+    }
+  } catch {}
+  return null;
+}
+
+async function writeFirestoreDoc(
+  colName: string,
+  docId: string,
+  data: any,
+  merge = true,
+  timeoutMs = 3000
+): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  try {
+    const ref = doc(db, colName, docId);
+    await withTimeout(merge ? setDoc(ref, data, { merge: true }) : setDoc(ref, data), timeoutMs);
+  } catch {}
+}
+
+async function deleteFirestoreDoc(colName: string, docId: string, timeoutMs = 3000): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  try {
+    await withTimeout(deleteDoc(doc(db, colName, docId)), timeoutMs);
+  } catch {}
+}
+
 // ==================== APP SETTINGS ====================
 
 export async function getDbAppSettings(): Promise<AppSettings> {
   const local = getLocal<AppSettings>(KEY_SETTINGS, INITIAL_APP_SETTINGS);
-  if (typeof window === 'undefined' || isDemoFirebase) return local;
+  const db = getFirebaseDb();
+  if (!db) return local;
 
   try {
     const snap = await withTimeout(getDoc(doc(db, 'settings', 'app')));
@@ -132,12 +160,7 @@ export async function saveDbAppSettings(settings: Partial<AppSettings>): Promise
     updated_at: new Date().toISOString(),
   };
   setLocal(KEY_SETTINGS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'settings', 'app'), updated, { merge: true }), 3000);
-    } catch {}
-  }
+  await writeFirestoreDoc('settings', 'app', updated);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('dc-settings-updated', { detail: updated }));
@@ -150,18 +173,11 @@ export async function saveDbAppSettings(settings: Partial<AppSettings>): Promise
 
 export async function getDbCategories(): Promise<Category[]> {
   const local = getLocal<Category[]>(KEY_CATEGORIES, INITIAL_CATEGORIES);
-  if (typeof window === 'undefined' || isDemoFirebase) return local;
-
-  try {
-    const snap = await withTimeout(getDocs(collection(db, 'categories')));
-    if (snap && !snap.empty) {
-      const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Category));
-      if (list.length >= INITIAL_CATEGORIES.length) {
-        setLocal(KEY_CATEGORIES, list);
-        return list;
-      }
-    }
-  } catch {}
+  const list = await readFirestoreCollection<Category>('categories');
+  if (list && list.length >= INITIAL_CATEGORIES.length) {
+    setLocal(KEY_CATEGORIES, list);
+    return list;
+  }
   return local;
 }
 
@@ -174,12 +190,7 @@ export async function saveDbCategory(category: Category): Promise<void> {
   const index = list.findIndex((c) => c.id === category.id);
   const updated = index >= 0 ? list.map((c) => (c.id === category.id ? category : c)) : [...list, category];
   setLocal(KEY_CATEGORIES, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'categories', category.id), category, { merge: true }), 3000);
-    } catch {}
-  }
+  await writeFirestoreDoc('categories', category.id, category);
 }
 
 // ==================== BRANDS ====================
@@ -192,16 +203,11 @@ export async function getDbBrands(): Promise<Brand[]> {
     local = [...local, ...missing];
     setLocal(KEY_BRANDS, local);
   }
-  if (typeof window === 'undefined' || isDemoFirebase) return local;
-
-  try {
-    const snap = await withTimeout(getDocs(collection(db, 'brands')));
-    if (snap && !snap.empty) {
-      const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Brand));
-      setLocal(KEY_BRANDS, list);
-      return list;
-    }
-  } catch {}
+  const remote = await readFirestoreCollection<Brand>('brands');
+  if (remote) {
+    setLocal(KEY_BRANDS, remote);
+    return remote;
+  }
   return local;
 }
 
@@ -209,16 +215,11 @@ export async function getDbBrands(): Promise<Brand[]> {
 
 export async function getDbDealers(): Promise<Dealer[]> {
   const local = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
-  if (typeof window === 'undefined' || isDemoFirebase) return local;
-
-  try {
-    const snap = await withTimeout(getDocs(collection(db, 'dealers')));
-    if (snap && !snap.empty) {
-      const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Dealer));
-      setLocal(KEY_DEALERS, list);
-      return list;
-    }
-  } catch {}
+  const remote = await readFirestoreCollection<Dealer>('dealers');
+  if (remote) {
+    setLocal(KEY_DEALERS, remote);
+    return remote;
+  }
   return local;
 }
 
@@ -232,13 +233,7 @@ export async function saveDbDealer(dealer: Dealer): Promise<void> {
   const index = list.findIndex((d) => d.id === dealer.id);
   const updated = index >= 0 ? list.map((d) => (d.id === dealer.id ? dealer : d)) : [...list, dealer];
   setLocal(KEY_DEALERS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'dealers', dealer.id), dealer, { merge: true }), 3000);
-    } catch {}
-  }
-
+  await writeFirestoreDoc('dealers', dealer.id, dealer);
   broadcastSync('dealers', dealer);
 }
 
@@ -246,13 +241,7 @@ export async function deleteDbDealer(id: string): Promise<void> {
   const list = await getDbDealers();
   const updated = list.filter((d) => d.id !== id);
   setLocal(KEY_DEALERS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(deleteDoc(doc(db, 'dealers', id)), 3000);
-    } catch {}
-  }
-
+  await deleteFirestoreDoc('dealers', id);
   broadcastSync('dealers', { id, deleted: true });
 }
 
@@ -276,14 +265,10 @@ export async function getDbProducts(opts?: {
     setLocal(KEY_PRODUCTS, list);
   }
 
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      const snap = await withTimeout(getDocs(collection(db, 'products')));
-      if (snap && !snap.empty) {
-        list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Product));
-        setLocal(KEY_PRODUCTS, list);
-      }
-    } catch {}
+  const remote = await readFirestoreCollection<Product>('products');
+  if (remote) {
+    list = remote;
+    setLocal(KEY_PRODUCTS, list);
   }
 
   let filtered = [...list];
@@ -354,13 +339,7 @@ export async function saveDbProduct(product: Product): Promise<void> {
   const index = list.findIndex((p) => p.id === product.id);
   const updated = index >= 0 ? list.map((p) => (p.id === product.id ? product : p)) : [...list, product];
   setLocal(KEY_PRODUCTS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'products', product.id), product, { merge: true }), 3000);
-    } catch {}
-  }
-
+  await writeFirestoreDoc('products', product.id, product);
   broadcastSync('products', product);
 }
 
@@ -368,13 +347,7 @@ export async function deleteDbProduct(id: string): Promise<void> {
   const list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
   const updated = list.filter((p) => p.id !== id);
   setLocal(KEY_PRODUCTS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(deleteDoc(doc(db, 'products', id)), 3000);
-    } catch {}
-  }
-
+  await deleteFirestoreDoc('products', id);
   broadcastSync('products', { id, deleted: true });
 }
 
@@ -395,14 +368,10 @@ export async function getDbMessages(dealerId?: string, customerId?: string): Pro
     },
   ]);
 
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      const snap = await withTimeout(getDocs(collection(db, 'messages')));
-      if (snap && !snap.empty) {
-        list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Message));
-        setLocal(KEY_MESSAGES, list);
-      }
-    } catch {}
+  const remote = await readFirestoreCollection<Message>('messages');
+  if (remote) {
+    list = remote;
+    setLocal(KEY_MESSAGES, list);
   }
 
   if (dealerId && customerId) {
@@ -427,13 +396,7 @@ export async function saveDbMessage(message: Omit<Message, 'id' | 'created_at'>)
   const list = getLocal<Message[]>(KEY_MESSAGES, []);
   const updated = [...list, newMsg];
   setLocal(KEY_MESSAGES, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'messages', newMsg.id), newMsg), 3000);
-    } catch {}
-  }
-
+  await writeFirestoreDoc('messages', newMsg.id, newMsg, false);
   return newMsg;
 }
 
@@ -470,16 +433,11 @@ export async function getDbNotifications(): Promise<PushNotification[]> {
       delivery_status: 'sent',
     },
   ]);
-  if (typeof window === 'undefined' || isDemoFirebase) return local;
-
-  try {
-    const snap = await withTimeout(getDocs(collection(db, 'push_notifications')));
-    if (snap && !snap.empty) {
-      const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as PushNotification));
-      setLocal(KEY_NOTIFICATIONS, list);
-      return list;
-    }
-  } catch {}
+  const remote = await readFirestoreCollection<PushNotification>('push_notifications');
+  if (remote) {
+    setLocal(KEY_NOTIFICATIONS, remote);
+    return remote;
+  }
   return local;
 }
 
@@ -496,12 +454,7 @@ export async function sendDbNotification(
   const current = await getDbNotifications();
   const updated = [newNotif, ...current];
   setLocal(KEY_NOTIFICATIONS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'push_notifications', newNotif.id), newNotif), 3000);
-    } catch {}
-  }
+  await writeFirestoreDoc('push_notifications', newNotif.id, newNotif, false);
 
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
     try {
@@ -524,16 +477,10 @@ export async function sendDbNotification(
 export async function getDbFavorites(userId: string): Promise<CustomerFavorite[]> {
   const local = getLocal<CustomerFavorite[]>(KEY_FAVORITES, []);
   const userFavorites = local.filter((f) => f.user_id === userId);
-
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      const snap = await withTimeout(getDocs(collection(db, 'customer_favorites')));
-      if (snap && !snap.empty) {
-        const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as CustomerFavorite));
-        setLocal(KEY_FAVORITES, list);
-        return list.filter((f: any) => f.user_id === userId);
-      }
-    } catch {}
+  const remote = await readFirestoreCollection<CustomerFavorite>('customer_favorites');
+  if (remote) {
+    setLocal(KEY_FAVORITES, remote);
+    return remote.filter((f) => f.user_id === userId);
   }
   return userFavorites;
 }
@@ -552,11 +499,7 @@ export async function toggleDbFavorite(
     const target = list[existingIndex];
     const updated = list.filter((_, i) => i !== existingIndex);
     setLocal(KEY_FAVORITES, updated);
-    if (!isDemoFirebase) {
-      try {
-        await withTimeout(deleteDoc(doc(db, 'customer_favorites', target.id)), 2000);
-      } catch {}
-    }
+    await deleteFirestoreDoc('customer_favorites', target.id, 2000);
     return { isFavorite: false };
   } else {
     const newFav: CustomerFavorite = {
@@ -569,11 +512,7 @@ export async function toggleDbFavorite(
     };
     const updated = [...list, newFav];
     setLocal(KEY_FAVORITES, updated);
-    if (!isDemoFirebase) {
-      try {
-        await withTimeout(setDoc(doc(db, 'customer_favorites', newFav.id), newFav), 2000);
-      } catch {}
-    }
+    await writeFirestoreDoc('customer_favorites', newFav.id, newFav, false, 2000);
     return { isFavorite: true };
   }
 }
@@ -609,12 +548,7 @@ export async function saveDbSearchHistory(
   const list = getLocal<CustomerSearchHistory[]>(KEY_SEARCH_HISTORY, []);
   const updated = [newHistory, ...list.filter((x) => x.query.toLowerCase() !== queryText.toLowerCase())].slice(0, 20);
   setLocal(KEY_SEARCH_HISTORY, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'customer_search_history', newHistory.id), newHistory), 2000);
-    } catch {}
-  }
+  await writeFirestoreDoc('customer_search_history', newHistory.id, newHistory, false, 2000);
 }
 
 // ==================== REVIEWS ====================
@@ -661,12 +595,7 @@ export async function saveDbReview(review: Review): Promise<void> {
   const list = await getDbReviews();
   const updated = [review, ...list.filter((r) => r.id !== review.id)];
   setLocal(KEY_REVIEWS, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'reviews', review.id), review, { merge: true }), 2000);
-    } catch {}
-  }
+  await writeFirestoreDoc('reviews', review.id, review, true, 2000);
 }
 
 // ==================== ENQUIRIES ====================
@@ -706,14 +635,10 @@ const INITIAL_ENQUIRIES: Enquiry[] = [
 
 export async function getDbEnquiries(dealerId?: string): Promise<Enquiry[]> {
   let list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      const snap = await withTimeout(getDocs(collection(db, 'enquiries')));
-      if (snap && !snap.empty) {
-        list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Enquiry));
-        setLocal(KEY_ENQUIRIES, list);
-      }
-    } catch {}
+  const remote = await readFirestoreCollection<Enquiry>('enquiries');
+  if (remote) {
+    list = remote;
+    setLocal(KEY_ENQUIRIES, list);
   }
   if (dealerId) {
     return list.filter((e) => e.dealer_id === dealerId);
@@ -737,13 +662,7 @@ export async function saveDbEnquiry(enquiry: Partial<Enquiry>): Promise<Enquiry>
   const idx = list.findIndex((e) => e.id === newEnq.id);
   const updated = idx >= 0 ? list.map((e) => (e.id === newEnq.id ? newEnq : e)) : [newEnq, ...list];
   setLocal(KEY_ENQUIRIES, updated);
-
-  if (!isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'enquiries', newEnq.id), newEnq, { merge: true }), 3000);
-    } catch {}
-  }
-
+  await writeFirestoreDoc('enquiries', newEnq.id, newEnq);
   broadcastSync('enquiries', newEnq);
   return newEnq;
 }
@@ -788,14 +707,10 @@ const INITIAL_DEALER_APPLICATIONS: DealerApplication[] = [
 
 export async function getDbDealerApplications(): Promise<DealerApplication[]> {
   let list = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      const snap = await withTimeout(getDocs(collection(db, 'dealer_applications')), 3000);
-      if (snap && !snap.empty) {
-        list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as DealerApplication));
-        setLocal(KEY_DEALER_APPLICATIONS, list);
-      }
-    } catch {}
+  const remote = await readFirestoreCollection<DealerApplication>('dealer_applications', 3000);
+  if (remote) {
+    list = remote;
+    setLocal(KEY_DEALER_APPLICATIONS, list);
   }
   return list;
 }
@@ -822,12 +737,7 @@ export async function saveDbDealerApplication(application: DealerApplication): P
     list = [saved, ...list];
   }
   setLocal(KEY_DEALER_APPLICATIONS, list);
-
-  if (typeof window !== 'undefined' && !isDemoFirebase) {
-    try {
-      await withTimeout(setDoc(doc(db, 'dealer_applications', saved.id), saved, { merge: true }), 3000);
-    } catch {}
-  }
+  await writeFirestoreDoc('dealer_applications', saved.id, saved);
 
   // Notify admin about the new or updated application
   try {
@@ -995,6 +905,12 @@ export async function updateDbDealerApplicationStatus(
 // FLUENT FIRESTORE QUERY BUILDER (Full compatibility adapter)
 // ============================================================
 
+function storageKeyForTable(tableName: string): string {
+  if (tableName === 'notifications') return KEY_CUSTOMER_NOTIFICATIONS;
+  if (tableName === 'push_notifications') return KEY_NOTIFICATIONS;
+  return `${STORAGE_PREFIX}${tableName}`;
+}
+
 export function createFirebaseQueryBuilder(tableName: string) {
   let filterList: Array<{ col: string; val: any; op?: string }> = [];
   let sortField: string | null = null;
@@ -1040,8 +956,11 @@ export function createFirebaseQueryBuilder(tableName: string) {
       const res = await builder.execute();
       return { data: res[0] ?? null, error: null };
     },
-    then: (resolve: (val: { data: any; error: any; count?: number }) => any) => {
-      return builder.execute().then((data: any) => resolve({ data, error: null, count: data.length }));
+    then: (resolve: (val: { data: any; error: any; count?: number }) => any, reject?: (err: any) => any) => {
+      return builder.execute().then(
+        (data: any) => resolve({ data, error: null, count: data.length }),
+        reject
+      );
     },
     execute: async (): Promise<any[]> => {
       let items: any[] = [];
@@ -1049,15 +968,49 @@ export function createFirebaseQueryBuilder(tableName: string) {
       else if (tableName === 'dealers') items = await getDbDealers();
       else if (tableName === 'categories') items = await getDbCategories();
       else if (tableName === 'brands') items = await getDbBrands();
-      else if (tableName === 'messages') items = await getDbMessages();
-      else if (tableName === 'notifications' || tableName === 'push_notifications') items = await getDbNotifications();
-      else if (tableName === 'reviews') items = await getDbReviews();
-      else if (tableName === 'enquiries') items = await getDbEnquiries();
-      else if (tableName === 'dealer_applications') items = await getDbDealerApplications();
-      else if (tableName === 'customer_favorites') items = getLocal(KEY_FAVORITES, []);
-      else if (tableName === 'customer_search_history') items = getLocal(KEY_SEARCH_HISTORY, []);
-      else if (tableName === 'moderation_logs') items = getLocal(KEY_MODERATION, []);
-      else items = getLocal(`${STORAGE_PREFIX}${tableName}`, []);
+      else if (tableName === 'messages') {
+        const [msgs, dealers] = await Promise.all([getDbMessages(), getDbDealers()]);
+        items = msgs.map((m) => ({
+          ...m,
+          dealer: m.dealer ?? dealers.find((d) => d.id === m.dealer_id) ?? null,
+        }));
+      } else if (tableName === 'push_notifications') {
+        items = await getDbNotifications();
+      } else if (tableName === 'notifications') {
+        items = getLocal<any[]>(KEY_CUSTOMER_NOTIFICATIONS, []);
+      } else if (tableName === 'reviews') {
+        items = await getDbReviews();
+      } else if (tableName === 'enquiries') {
+        const [enqs, dealers, products] = await Promise.all([
+          getDbEnquiries(),
+          getDbDealers(),
+          getDbProducts({ includeUnapproved: true }),
+        ]);
+        items = enqs.map((e: any) => ({
+          ...e,
+          dealer: e.dealer ?? dealers.find((d) => d.id === e.dealer_id) ?? null,
+          product: e.product ?? products.find((p) => p.id === e.product_id) ?? null,
+        }));
+      } else if (tableName === 'dealer_applications') {
+        items = await getDbDealerApplications();
+      } else if (tableName === 'customer_favorites') {
+        const favs = getLocal<any[]>(KEY_FAVORITES, []);
+        const [dealers, products] = await Promise.all([
+          getDbDealers(),
+          getDbProducts({ includeUnapproved: true }),
+        ]);
+        items = favs.map((f: any) => ({
+          ...f,
+          dealer: f.dealer ?? (f.dealer_id ? dealers.find((d) => d.id === f.dealer_id) ?? null : null),
+          product: f.product ?? (f.product_id ? products.find((p) => p.id === f.product_id) ?? null : null),
+        }));
+      } else if (tableName === 'customer_search_history') {
+        items = getLocal(KEY_SEARCH_HISTORY, []);
+      } else if (tableName === 'moderation_logs') {
+        items = getLocal(KEY_MODERATION, []);
+      } else {
+        items = getLocal(storageKeyForTable(tableName), []);
+      }
 
       let res = [...items];
       for (const f of filterList) {
@@ -1098,10 +1051,14 @@ export function createFirebaseQueryBuilder(tableName: string) {
       return res;
     },
     insert: (data: any) => {
-      const items = Array.isArray(data) ? data : [data];
+      const items = (Array.isArray(data) ? data : [data]).map((item) => ({
+        ...item,
+        id: item.id || `id-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        created_at: item.created_at || new Date().toISOString(),
+        is_read: item.is_read ?? false,
+      }));
       const promise = (async () => {
         for (const item of items) {
-          if (!item.id) item.id = `id-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
           if (tableName === 'products') await saveDbProduct(item);
           else if (tableName === 'dealers') await saveDbDealer(item);
           else if (tableName === 'messages') await saveDbMessage(item);
@@ -1114,120 +1071,142 @@ export function createFirebaseQueryBuilder(tableName: string) {
             const list = getLocal<any[]>(KEY_SEARCH_HISTORY, []);
             setLocal(KEY_SEARCH_HISTORY, [...list, item]);
           } else {
-            const list = getLocal<any[]>(`${STORAGE_PREFIX}${tableName}`, []);
-            setLocal(`${STORAGE_PREFIX}${tableName}`, [...list, item]);
+            const key = storageKeyForTable(tableName);
+            const list = getLocal<any[]>(key, []);
+            setLocal(key, [...list, item]);
           }
         }
         return { data: items[0], error: null };
       })();
 
-      const insertBuilder: any = promise;
-      insertBuilder.select = (_f?: string) => ({
-        single: async () => ({ data: items[0], error: null }),
-        maybeSingle: async () => ({ data: items[0], error: null }),
-        then: (resolve: any) => promise.then(resolve),
-      });
+      const insertBuilder: any = {
+        then: (resolve: any, reject?: any) => promise.then(resolve, reject),
+        select: (_f?: string) => ({
+          single: async () => promise.then(() => ({ data: items[0], error: null })),
+          maybeSingle: async () => promise.then(() => ({ data: items[0], error: null })),
+          then: (resolve: any, reject?: any) => promise.then(resolve, reject),
+        }),
+      };
       return insertBuilder;
     },
     upsert: (data: any, _opts?: any) => {
       const items = Array.isArray(data) ? data : [data];
       const promise = (async () => {
+        const key = storageKeyForTable(tableName);
         for (const item of items) {
           if (!item.id) item.id = item.customer_id || `id-${Date.now()}`;
-          const list = getLocal<any[]>(`${STORAGE_PREFIX}${tableName}`, []);
-          const idx = list.findIndex((x) => x.id === item.id || (item.customer_id && x.customer_id === item.customer_id));
+          const list = getLocal<any[]>(key, []);
+          const idx = list.findIndex(
+            (x) => x.id === item.id || (item.customer_id && x.customer_id === item.customer_id)
+          );
           if (idx >= 0) list[idx] = { ...list[idx], ...item };
           else list.push(item);
-          setLocal(`${STORAGE_PREFIX}${tableName}`, list);
+          setLocal(key, list);
         }
         return { data: items[0], error: null };
       })();
       return promise;
     },
     update: (data: any) => {
-      const chain: any = {
-        eq: (col: string, val: any) => {
-          const promise = (async () => {
+      const updateFilters: Array<{ col: string; val: any }> = [];
+      let cachedExec: Promise<{ error: any }> | null = null;
+
+      const runUpdate = () => {
+        if (!cachedExec) {
+          cachedExec = (async () => {
+            const matches = (item: any) => updateFilters.every((f) => item[f.col] === f.val);
             if (tableName === 'products') {
-              const list = await getDbProducts();
+              const list = await getDbProducts({ includeUnapproved: true });
               for (const item of list) {
-                if (item[col as keyof Product] === val) {
-                  await saveDbProduct({ ...item, ...data });
-                }
+                if (matches(item)) await saveDbProduct({ ...item, ...data });
               }
             } else if (tableName === 'dealers') {
               const list = await getDbDealers();
               for (const item of list) {
-                if (item[col as keyof Dealer] === val) {
-                  await saveDbDealer({ ...item, ...data });
-                }
+                if (matches(item)) await saveDbDealer({ ...item, ...data });
               }
             } else if (tableName === 'messages') {
               const list = getLocal<any[]>(KEY_MESSAGES, []);
-              const updated = list.map((m) => (m[col] === val ? { ...m, ...data } : m));
-              setLocal(KEY_MESSAGES, updated);
+              setLocal(KEY_MESSAGES, list.map((m) => (matches(m) ? { ...m, ...data } : m)));
             } else if (tableName === 'enquiries') {
               const list = await getDbEnquiries();
               for (const item of list) {
-                if ((item as any)[col] === val) {
-                  await saveDbEnquiry({ ...item, ...data });
-                }
+                if (matches(item)) await saveDbEnquiry({ ...item, ...data });
               }
             } else if (tableName === 'dealer_applications') {
               const list = await getDbDealerApplications();
               for (const item of list) {
-                if ((item as any)[col] === val) {
-                  await saveDbDealerApplication({ ...item, ...data });
-                }
+                if (matches(item)) await saveDbDealerApplication({ ...item, ...data });
               }
             } else {
-              const list = getLocal<any[]>(`${STORAGE_PREFIX}${tableName}`, []);
-              const updated = list.map((m) => (m[col] === val ? { ...m, ...data } : m));
-              setLocal(`${STORAGE_PREFIX}${tableName}`, updated);
+              const key = storageKeyForTable(tableName);
+              const list = getLocal<any[]>(key, []);
+              setLocal(key, list.map((m) => (matches(m) ? { ...m, ...data } : m)));
             }
             return { error: null };
           })();
+        }
+        return cachedExec;
+      };
 
-          const chainedUpdate: any = promise;
-          chainedUpdate.eq = (nextCol: string, nextVal: any) => chain.eq(nextCol, nextVal);
-          chainedUpdate.select = () => ({
-            single: async () => ({ data, error: null }),
-            maybeSingle: async () => ({ data, error: null }),
-            then: (resolve: any) => promise.then(resolve),
-          });
-          return chainedUpdate;
+      const chain: any = {
+        eq: (col: string, val: any) => {
+          updateFilters.push({ col, val });
+          return chain;
         },
+        select: () => ({
+          single: async () => {
+            await runUpdate();
+            return { data, error: null };
+          },
+          maybeSingle: async () => {
+            await runUpdate();
+            return { data, error: null };
+          },
+          then: (resolve: any, reject?: any) => runUpdate().then(resolve, reject),
+        }),
+        then: (resolve: any, reject?: any) => runUpdate().then(resolve, reject),
       };
       return chain;
     },
     delete: () => {
-      const chain: any = {
-        eq: (col: string, val: any) => {
-          const promise = (async () => {
+      const deleteFilters: Array<{ col: string; val: any }> = [];
+      let cachedExec: Promise<{ error: any }> | null = null;
+
+      const runDelete = () => {
+        if (!cachedExec) {
+          cachedExec = (async () => {
+            const matches = (item: any) => deleteFilters.every((f) => item[f.col] === f.val);
             if (tableName === 'products') {
-              const list = await getDbProducts();
+              const list = await getDbProducts({ includeUnapproved: true });
               for (const item of list) {
-                if (item[col as keyof Product] === val) await deleteDbProduct(item.id);
+                if (matches(item)) await deleteDbProduct(item.id);
               }
             } else if (tableName === 'dealers') {
               const list = await getDbDealers();
               for (const item of list) {
-                if (item[col as keyof Dealer] === val) await deleteDbDealer(item.id);
+                if (matches(item)) await deleteDbDealer(item.id);
               }
             } else if (tableName === 'customer_favorites') {
               const list = getLocal<any[]>(KEY_FAVORITES, []);
-              setLocal(KEY_FAVORITES, list.filter((x) => x[col] !== val));
+              setLocal(KEY_FAVORITES, list.filter((x) => !matches(x)));
             } else {
-              const list = getLocal<any[]>(`${STORAGE_PREFIX}${tableName}`, []);
-              setLocal(`${STORAGE_PREFIX}${tableName}`, list.filter((x) => x[col] !== val));
+              const key = storageKeyForTable(tableName);
+              const list = getLocal<any[]>(key, []);
+              setLocal(key, list.filter((x) => !matches(x)));
             }
             return { error: null };
           })();
+        }
+        return cachedExec;
+      };
 
-          const chainedDelete: any = promise;
-          chainedDelete.eq = (nextCol: string, nextVal: any) => chain.eq(nextCol, nextVal);
-          return chainedDelete;
+      const chain: any = {
+        eq: (col: string, val: any) => {
+          deleteFilters.push({ col, val });
+          return chain;
         },
+        then: (resolve: any, reject?: any) => runDelete().then(resolve, reject),
       };
       return chain;
     },

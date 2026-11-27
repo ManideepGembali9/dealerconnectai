@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { setOtp } from '@/lib/otp-store';
+import { setOtp, createOtpSessionToken } from '@/lib/otp-store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Safe dynamic node require helper to bypass Next.js 13 client-swc bundler on native Node packages
-function getSafeNodeModule<T = any>(moduleName: string): T | null {
+async function loadNodemailer(): Promise<any | null> {
   try {
-    // eslint-disable-next-line no-eval
-    return eval('require')(moduleName);
+    const mod = await import('nodemailer');
+    return mod.default || mod;
   } catch (e) {
-    console.warn(`Dynamic require for ${moduleName} notice:`, e);
+    console.warn('Nodemailer import notice:', e);
     return null;
   }
 }
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
       const smtpPass = process.env.SMTP_PASS;
       const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@dealerconnect.ai';
 
-      const nodemailer = getSafeNodeModule('nodemailer');
+      const nodemailer = await loadNodemailer();
 
       if (nodemailer && smtpHost && smtpUser && smtpPass) {
         try {
@@ -178,7 +177,8 @@ export async function POST(request: Request) {
       masked = `+91 ${digits.slice(0, 2)}***${digits.slice(-4)}`;
     }
 
-    return NextResponse.json({
+    const sessionToken = createOtpSessionToken(cleanId, otp, selectedChannel as any, 10);
+    const response = NextResponse.json({
       success: true,
       message: `Verification code sent via ${selectedChannel.toUpperCase()}`,
       channel: selectedChannel,
@@ -187,6 +187,14 @@ export async function POST(request: Request) {
       deliveryDetails,
       testOtp: otp,
     });
+    response.cookies.set('dc_otp_session', sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 10 * 60,
+    });
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to dispatch verification code' },

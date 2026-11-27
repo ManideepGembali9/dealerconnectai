@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Heart, Search, MessageSquare, Star, MapPin, TrendingUp, Package, Store, Sparkles, ArrowRight, Clock } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
-import { supabase, type Product, type Dealer } from '@/lib/supabase';
-import { formatINR, getEffectivePrice, timeAgo } from '@/lib/format';
+import { formatINR,getEffectivePrice,timeAgo } from '@/lib/format';
+import { supabase,type Dealer,type Product } from '@/lib/supabase';
+import { Heart,MapPin,MessageSquare,Search,Sparkles,Star,Store,TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 
 export function CustomerDashboardClient() {
   const router = useRouter();

@@ -1,23 +1,28 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  FolderTree, Plus, Search, Edit, Trash2, ArrowUp, ArrowDown,
-  Eye, EyeOff, Check, X, Layers, Sparkles, Image as ImageIcon
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
 } from '@/components/ui/select';
-import type { Category, CategoryGroup, Product } from '@/lib/types';
-import { saveDbCategory, getDbCategoryGroups } from '@/lib/firebase-db';
+import { getDbCategoryGroups,saveDbCategory } from '@/lib/firebase-db';
+import type { Category,Product } from '@/lib/types';
+import {
+  ArrowDown,
+  ArrowUp,
+  Edit,
+  FolderTree,Plus,Search,
+  Trash2
+} from 'lucide-react';
+import { useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module05Props = {

@@ -5,7 +5,7 @@
 
 import { firebaseDb } from './firebase-db';
 
-export * from './types';
+export type * from './types';
 
 // Redirect all database queries to Firebase Firestore
 export const supabase = firebaseDb;

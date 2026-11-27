@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyResetToken, clearOtp } from '@/lib/otp-store';
+import { verifyResetToken, clearOtp, extractCookieValue } from '@/lib/otp-store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -25,8 +25,9 @@ export async function POST(request: Request) {
 
     const cleanId = identifier.trim().toLowerCase();
 
-    // Verify token validity
-    const isValidToken = verifyResetToken(cleanId, resetToken);
+    // Verify token validity (supports signed stateless cookie for Vercel + local map)
+    const resetCookie = extractCookieValue(request.headers.get('cookie'), 'dc_reset_session');
+    const isValidToken = verifyResetToken(cleanId, resetToken, resetCookie);
     if (!isValidToken && !resetToken.startsWith('tok-')) {
       return NextResponse.json(
         { error: 'Invalid or expired password reset session. Please request a new OTP.' },
@@ -34,13 +35,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Clear OTP from memory store
+    // Clear OTP from memory store and expire session cookies
     clearOtp(cleanId);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Password has been successfully updated! You can now sign in with your new password.',
     });
+    response.cookies.set('dc_otp_session', '', { path: '/', maxAge: 0 });
+    response.cookies.set('dc_reset_session', '', { path: '/', maxAge: 0 });
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to update password' },

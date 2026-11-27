@@ -1,29 +1,42 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import {
-  Store, LayoutDashboard, Package, PlusCircle, Boxes, DollarSign,
-  CheckCircle2, MessageSquareText, Star, Bell, BarChart3, Truck,
-  HelpCircle, Settings, LogOut, Menu, X, ChevronRight, ChevronLeft,
-  ArrowUpRight, ExternalLink
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from '@/components/ui/sheet';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { useApp } from '@/lib/providers';
-import { DEALER_MENU_ITEMS, type DealerMenuItem } from './dealer-menu-config';
-import type { Dealer } from '@/lib/types';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,
+  DropdownMenuSeparator,DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet,SheetContent,SheetHeader,SheetTitle,SheetTrigger,
+} from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth';
+import { useApp } from '@/lib/providers';
+import type { Dealer } from '@/lib/types';
+import {
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  Boxes,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  HelpCircle,
+  LayoutDashboard,
+  LogOut,Menu,
+  MessageSquareText,
+  Package,PlusCircle,
+  Settings,
+  Star,
+  Store,
+  Truck
+} from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { DEALER_MENU_ITEMS,type DealerMenuItem } from './dealer-menu-config';
 
 function renderDealerIcon(iconName: string, className = 'h-4 w-4') {
   switch (iconName) {
@@ -73,7 +86,7 @@ export function DealerShell({
 
   const handleSelectTab = async (item: DealerMenuItem) => {
     if (item.id === '15-logout') {
-      await signOut();
+      await signOut('dealer');
       toast.info('Signed out of Dealer Merchant Portal');
       return;
     }
@@ -82,7 +95,7 @@ export function DealerShell({
   };
 
   const handleLogout = async () => {
-    await signOut();
+    await signOut('dealer');
     toast.info('Signed out of Dealer Merchant Portal');
   };
 

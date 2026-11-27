@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/lib/auth';
 import { AdminLoginScreen } from '@/components/admin/admin-login-screen';
 import { AdminShell } from '@/components/admin/admin-shell';
+import { useAuth } from '@/lib/auth';
+import { useCallback,useEffect,useState } from 'react';
 
 // 14 Modular Control Center Subsystems
 import { Module01Dashboard } from '@/components/admin/modules/module-01-dashboard';
@@ -22,18 +22,17 @@ import { Module13Customization } from '@/components/admin/modules/module-13-cust
 import { Module14Settings } from '@/components/admin/modules/module-14-settings';
 
 import {
-  getDbDealers,
-  getDbProducts,
-  getDbCategories,
-  getDbBrands,
-  getDbReviews,
-  getDbMessages,
-  saveDbDealer,
   deleteDbDealer,
+  getDbBrands,
+  getDbCategories,
+  getDbDealers,
+  getDbMessages,
+  getDbProducts,
+  getDbReviews,
+  saveDbDealer,
 } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
-import type { Dealer, Product, Category, Brand, Review, Enquiry } from '@/lib/types';
-import { toast } from 'sonner';
+import type { Brand,Category,Dealer,Enquiry,Product,Review } from '@/lib/types';
 
 export function AdminDashboardClient() {
   const { role, loading: authLoading } = useAuth();

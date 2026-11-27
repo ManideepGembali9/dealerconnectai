@@ -1,19 +1,24 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  Boxes, Search, Store, AlertTriangle, CheckCircle2, DollarSign,
-  TrendingUp, ShieldAlert, Package, Filter, ArrowUpRight
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
 } from '@/components/ui/select';
-import type { Product, Dealer } from '@/lib/types';
-import { formatINR, getEffectivePrice } from '@/lib/format';
+import { formatINR,getEffectivePrice } from '@/lib/format';
+import type { Dealer,Product } from '@/lib/types';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Boxes,
+  CheckCircle2,
+  Search,
+  ShieldAlert,
+  Store
+} from 'lucide-react';
+import { useMemo,useState } from 'react';
 
 type Module07Props = {
   products: Product[];
@@ -183,7 +188,6 @@ export function Module07Inventory({ products, dealers, onNavigateTab }: Module07
               ) : (
                 filteredItems.map((p) => {
                   const effective = getEffectivePrice(p.price, p.discount_price);
-                  const isOutOfStock = p.stock_status === 'out_of_stock';
                   return (
                     <tr key={p.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3.5">

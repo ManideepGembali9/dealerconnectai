@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Star, MessageSquare, ShieldCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import type { Review, Dealer } from '@/lib/types';
 import { timeAgo } from '@/lib/format';
+import type { Dealer,Review } from '@/lib/types';
+import { Star } from 'lucide-react';
+import { useMemo } from 'react';
 
 type Module09Props = {
   dealer: Dealer;

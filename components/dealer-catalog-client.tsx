@@ -3,10 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import {
-  Package, Search, Plus, Check, X, Edit, Trash2, Power, Loader2,
-  ShoppingCart, Store, Tag, Save, PackageCheck, AlertCircle,
-  Zap, Sparkles, Upload, MapPin, Camera, CheckCircle2, ChevronRight,
-  ChevronDown, Filter,
+  Package, Search, Plus, Check, Edit, Trash2, Power, Loader2,
+  ShoppingCart, Store, Tag, Save, PackageCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,9 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -30,13 +27,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatINR } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { supabase, type Product, type Category, type Brand, type DealerInventory, type Dealer } from '@/lib/supabase';
+import { supabase, type Product, type Category, type DealerInventory, type Dealer } from '@/lib/supabase';
 import { saveDbProduct, broadcastSync } from '@/lib/firebase-db';
 import {
-  fetchMasterCatalog, fetchCategories, fetchBrands,
+  fetchMasterCatalog, fetchCategories,
   addProductToInventory, updateDealerInventory, removeDealerInventory,
   toggleInventoryActive, fetchDealerInventory, fetchDealerInventoryProductIds,
-  quickAddToInventory, bulkQuickAddToInventory, aiSearchCatalog,
+  quickAddToInventory,
   type DealerInventoryInput,
 } from '@/lib/catalog';
 
@@ -44,31 +41,27 @@ export function DealerCatalogClient({ dealer }: { dealer: Dealer }) {
   const [tab, setTab] = useState('browse');
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
   const [inventory, setInventory] = useState<DealerInventory[]>([]);
   const [inventoryProductIds, setInventoryProductIds] = useState<Set<string>>(new Set());
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [saving, setSaving] = useState(false);
   const [editTarget, setEditTarget] = useState<DealerInventory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DealerInventory | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cat, inv, cats, brnds] = await Promise.all([
+      const [cat, inv, cats] = await Promise.all([
         fetchMasterCatalog(),
         fetchDealerInventory(dealer.id),
         fetchCategories(),
-        fetchBrands(),
       ]);
       setCatalog(cat);
       setInventory(inv);
       setInventoryProductIds(await fetchDealerInventoryProductIds(dealer.id));
       setCategories(cats);
-      setBrands(brnds);
     } catch (e: any) {
       toast.error(e.message ?? 'Failed to load catalog');
     } finally { setLoading(false); }
@@ -499,6 +492,7 @@ function InventoryEditDialog({
           <DialogTitle className="flex items-center gap-2">
             <Store className="h-5 w-5 text-primary" /> Edit Store Details
           </DialogTitle>
+          <DialogDescription className="sr-only">Update pricing, quantity, and condition for this product in your store.</DialogDescription>
         </DialogHeader>
 
         {/* Product summary — read only */}

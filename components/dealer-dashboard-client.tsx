@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Store, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 import { fetchReviewsByDealer } from '@/lib/data';
-import type { Dealer, Product, Enquiry, Review } from '@/lib/types';
-import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import type { Dealer,Enquiry,Product,Review } from '@/lib/types';
+import { AlertCircle,Loader2 } from 'lucide-react';
+import { useCallback,useEffect,useMemo,useState } from 'react';
 
 // Shell & Screens
-import { DealerShell } from './dealer/dealer-shell';
 import { DealerLoginScreen } from './dealer/dealer-login-screen';
 import { DealerPendingScreen } from './dealer/dealer-pending-screen';
+import { DealerShell } from './dealer/dealer-shell';
 
 // 14 Ordered Modules
 import { Module01DealerDashboard } from './dealer/modules/module-01-dashboard';
@@ -37,7 +36,6 @@ export function DealerDashboardClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
 
   // Load Dealer Profile
   const loadDealerProfile = useCallback(async (dealerId: string) => {
@@ -113,17 +111,12 @@ export function DealerDashboardClient() {
     const targetId = authDealer?.id || dealer?.id;
     if (!targetId) return;
 
-    setDataLoading(true);
-    try {
-      await Promise.all([
-        loadDealerProfile(targetId),
-        loadProducts(targetId),
-        loadEnquiries(targetId),
-        loadReviews(targetId),
-      ]);
-    } finally {
-      setDataLoading(false);
-    }
+    await Promise.all([
+      loadDealerProfile(targetId),
+      loadProducts(targetId),
+      loadEnquiries(targetId),
+      loadReviews(targetId),
+    ]);
   }, [authDealer?.id, dealer?.id, loadDealerProfile, loadProducts, loadEnquiries, loadReviews]);
 
   useEffect(() => {

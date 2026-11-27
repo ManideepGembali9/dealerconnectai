@@ -1,43 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import {
-  Store,
-  Lock,
-  Mail,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  ArrowRight,
-  CheckCircle2,
-  UserX,
-  Phone,
-  KeyRound,
-  Smartphone,
-  RefreshCw,
-  ShieldCheck,
-  Check,
-  Sparkles,
-  Building,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { DealerRegistrationForm } from '@/components/dealer-registration-form';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { DealerRegistrationForm } from '@/components/dealer-registration-form';
-import { getDbDealers, getDbDealerApplications } from '@/lib/firebase-db';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
+import { getDbDealerApplications,getDbDealers } from '@/lib/firebase-db';
 import type { Dealer } from '@/lib/types';
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Lock,
+  Mail,
+  RefreshCw,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Store,
+  UserX
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 type DealerLoginProps = {
@@ -500,6 +498,8 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
       {/* ============================================================= */}
       <Dialog open={regModalOpen} onOpenChange={setRegModalOpen}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 rounded-3xl border-border shadow-2xl">
+          <DialogTitle className="sr-only">New Dealership Application</DialogTitle>
+          <DialogDescription className="sr-only">Complete your shop registration form to apply for a verified dealer account.</DialogDescription>
           <div className="p-4 sm:p-6">
             <DealerRegistrationForm
               onCancel={() => setRegModalOpen(false)}

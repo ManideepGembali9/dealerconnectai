@@ -1,14 +1,23 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { ThemeProvider, AppProvider } from '@/lib/providers';
 import { AuthProvider } from '@/lib/auth';
 import { ClientShell } from '@/components/client-shell';
 import { PermissionPrompt } from '@/components/permission-prompt';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { Toaster } from '@/components/ui/sonner';
+import { getAppUrl } from '@/lib/utils';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#D4AF37',
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://dealerconnectai.app'),
+  metadataBase: new URL(getAppUrl()),
   title: {
     default: 'DealerConnect AI — Find Local Shops, Compare Prices Nearby',
     template: '%s | DealerConnect AI',
@@ -21,13 +30,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'DealerConnect AI',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    viewportFit: 'cover',
-  },
-  themeColor: '#D4AF37',
   openGraph: {
     type: 'website',
     locale: 'en_IN',

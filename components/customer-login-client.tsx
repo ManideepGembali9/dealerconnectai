@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Store, Shield, User, LogIn, Loader2, Mail, Lock, Store as StoreIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
+import { Loader2,Lock,LogIn,Mail,Store as StoreIcon,User } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function CustomerLoginClient() {
@@ -19,6 +19,13 @@ export function CustomerLoginClient() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const getRedirectPath = () => {
+    if (typeof window === 'undefined') return '/profile';
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('redirect');
+    return r && r.startsWith('/') ? r : '/profile';
+  };
+
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
@@ -27,7 +34,7 @@ export function CustomerLoginClient() {
         toast.error(error);
       } else {
         toast.success('Signed in with Google!');
-        router.push('/customer/dashboard');
+        router.push(getRedirectPath());
       }
     } catch {
       toast.error('Google sign in failed. Please try again.');
@@ -46,7 +53,7 @@ export function CustomerLoginClient() {
         toast.error(error);
       } else {
         toast.success('Welcome back!');
-        router.push('/customer/dashboard');
+        router.push(getRedirectPath());
       }
     } catch {
       toast.error('Login failed. Please try again.');

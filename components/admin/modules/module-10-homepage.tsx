@@ -1,22 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  PanelsTopLeft, ArrowUp, ArrowDown, Eye, Plus, Save, Trash2,
-  Image as ImageIcon, Sparkles, CheckCircle2, RotateCcw, Sliders
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
 import { useApp } from '@/lib/providers';
-import type { AppSettings, Product, Dealer, Category } from '@/lib/types';
+import type { Category,Dealer,Product } from '@/lib/types';
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  Image as ImageIcon,
+  PanelsTopLeft,
+  Plus,Save,Trash2
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 type Module10Props = {

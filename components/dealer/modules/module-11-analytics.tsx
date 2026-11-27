@@ -1,15 +1,24 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { formatCompact,formatINR,getEffectivePrice } from '@/lib/format';
+import type { Dealer,Enquiry,Product } from '@/lib/types';
+import {
+  BarChart3,
+  DollarSign,
+  Eye,
+  MessageSquare,
+  TrendingUp
+} from 'lucide-react';
 import { useMemo } from 'react';
 import {
-  BarChart3, Eye, TrendingUp, DollarSign, Package, Star, MessageSquare
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import type { Product, Dealer, Enquiry } from '@/lib/types';
-import { formatCompact, formatINR, getEffectivePrice } from '@/lib/format';
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,YAxis
 } from 'recharts';
 
 type Module11Props = {

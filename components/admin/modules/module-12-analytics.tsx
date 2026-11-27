@@ -1,22 +1,31 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { formatCompact } from '@/lib/format';
+import type { Category,Dealer,Enquiry,Product } from '@/lib/types';
+import {
+  BarChart3,
+  Download,
+  Eye,
+  MessageSquare,
+  Search,
+  Store,
+  TrendingUp,Users
+} from 'lucide-react';
 import { useMemo } from 'react';
 import {
-  BarChart3, TrendingUp, Users, Store, Package, Eye, Search,
-  Download, MapPin, CheckCircle2, MessageSquare
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import type { Dealer, Product, Category, Enquiry } from '@/lib/types';
-import { formatCompact, formatINR } from '@/lib/format';
-import {
-  ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, PieChart, Pie, Cell
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,YAxis
 } from 'recharts';
 import { toast } from 'sonner';
-
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#6366f1'];
 
 type Module12Props = {
   dealers: Dealer[];
@@ -42,13 +51,6 @@ export function Module12Analytics({
       .slice(0, 7);
   }, [products]);
 
-  // Top searched products
-  const topSearchedProducts = useMemo(() => {
-    return [...products]
-      .sort((a, b) => (b.search_count || 0) - (a.search_count || 0))
-      .slice(0, 7);
-  }, [products]);
-
   // Search queries frequency from search_logs
   const topQueries = useMemo(() => {
     const map: Record<string, number> = {};
@@ -61,21 +63,6 @@ export function Module12Analytics({
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
   }, [searchLogs]);
-
-  // Top pin codes from search_logs & dealers
-  const topPins = useMemo(() => {
-    const map: Record<string, number> = {};
-    searchLogs.forEach((l) => {
-      if (l.pin_code) map[l.pin_code] = (map[l.pin_code] || 0) + 1;
-    });
-    dealers.forEach((d) => {
-      if (d.pin_code) map[d.pin_code] = (map[d.pin_code] || 0) + 1;
-    });
-    return Object.entries(map)
-      .map(([pin, count]) => ({ pin, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
-  }, [searchLogs, dealers]);
 
   // Dealer activity breakdown
   const dealerActivity = useMemo(() => {

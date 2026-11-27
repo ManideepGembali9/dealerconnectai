@@ -1,19 +1,39 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { formatCompact,timeAgo } from '@/lib/format';
+import type { Category,Dealer,Enquiry,Product,Review } from '@/lib/types';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Bell,
+  CheckCircle2,
+  Clock,
+  FolderTree,
+  MessageSquare,
+  Package,
+  PanelsTopLeft,
+  Plus,
+  Shield,
+  Sliders,
+  Sparkles,
+  Store,
+  TrendingUp,
+  Users
+} from 'lucide-react';
 import { useMemo } from 'react';
 import {
-  Users, Store, Clock, CheckCircle2, Package, FolderTree, AlertTriangle,
-  TrendingUp, MessageSquare, Shield, Sparkles, Eye, ArrowUpRight, Plus,
-  Bell, PanelsTopLeft, Sliders
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import type { Dealer, Product, Category, Review, Enquiry, PushNotification } from '@/lib/types';
-import { formatCompact, formatINR, timeAgo } from '@/lib/format';
-import {
-  ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis,
-  Tooltip, PieChart, Pie, Cell
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,YAxis
 } from 'recharts';
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#6366f1'];

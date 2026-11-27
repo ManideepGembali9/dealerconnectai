@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Bell, ShieldCheck, MessageSquare, Clock } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { getDbNotifications } from '@/lib/firebase-db';
-import type { PushNotification, Dealer } from '@/lib/types';
 import { timeAgo } from '@/lib/format';
+import type { Dealer,PushNotification } from '@/lib/types';
+import { Bell } from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 type Module10Props = {
   dealer: Dealer;
@@ -14,7 +14,6 @@ type Module10Props = {
 
 export function Module10DealerNotifications({ dealer }: Module10Props) {
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -26,9 +25,6 @@ export function Module10DealerNotifications({ dealer }: Module10Props) {
         );
         setNotifications(relevant);
       } catch {}
-      finally {
-        setLoading(false);
-      }
     })();
   }, []);
 

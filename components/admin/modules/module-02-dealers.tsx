@@ -1,46 +1,5 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import {
-  Store,
-  Search,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  ShieldCheck,
-  Eye,
-  Trash2,
-  MapPin,
-  Phone,
-  Mail,
-  Clock,
-  Check,
-  X,
-  Building,
-  Filter,
-  RotateCcw,
-  AlertCircle,
-  Sparkles,
-  FileText,
-  Truck,
-  Send,
-  Navigation,
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,14 +10,46 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
-  getDbDealerApplications,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import {
   approveDbDealerApplication,
+  getDbDealerApplications,
   rejectDbDealerApplication,
   updateDbDealerApplicationStatus,
 } from '@/lib/firebase-db';
-import type { Dealer, DealerApplication, DealerApplicationStatus } from '@/lib/types';
 import { timeAgo } from '@/lib/format';
+import type { Dealer,DealerApplication } from '@/lib/types';
+import {
+  AlertCircle,
+  Building,
+  Check,
+  Eye,
+  FileText,
+  Mail,
+  MapPin,
+  Phone,
+  Search,
+  ShieldCheck,
+  Store,
+  Trash2,
+  Truck,
+  X
+} from 'lucide-react';
+import { useCallback,useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module02Props = {

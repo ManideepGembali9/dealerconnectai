@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Package, ShieldCheck, Clock, Layers } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminCatalogClient } from '@/components/admin-catalog-client';
 import { AdminDealerProductsReview } from '@/components/admin/admin-dealer-products-review';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Layers,Package,ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
 
 export function Module04Products() {
   const [activeTab, setActiveTab] = useState<'master' | 'dealer-submissions'>('master');

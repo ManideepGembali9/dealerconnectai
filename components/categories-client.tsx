@@ -1,74 +1,68 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import {
-  Search,
-  ChevronRight,
-  Store,
-  MapPin,
-  Star,
-  Phone,
-  MessageSquare,
-  Sparkles,
-  Filter,
-  CheckCircle2,
-  ArrowLeft,
-  X,
-  Monitor,
-  Smartphone,
-  ShoppingBasket,
-  Shirt,
-  WashingMachine,
-  Apple,
-  Footprints,
-  SprayCan,
-  Sofa,
-  Pill,
-  Tv,
-  Refrigerator,
-  Zap,
-  Watch,
-  Glasses,
-  Gem,
-  CircleDot,
-  Palette,
-  ShoppingBag,
-  Utensils,
-  Cake,
-  Cookie,
-  Armchair,
-  CookingPot,
-  Wrench,
-  Gift,
-  Flower2,
-  HeartPulse,
-  Baby,
-  Dumbbell,
-  BookOpen,
-  Gamepad2,
-  Music,
-  Car,
-  Dog,
-  Sprout,
-  Cpu,
-  Home as HomeIcon,
-  Trophy,
-  Tag,
-  type LucideIcon,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/product-card';
-import { fetchCategories, fetchApprovedDealers, fetchProducts } from '@/lib/data';
-import { CATEGORY_GROUPS, INITIAL_CATEGORIES } from '@/lib/seed-data';
-import type { Category, Dealer, Product } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { fetchApprovedDealers,fetchCategories,fetchProducts } from '@/lib/data';
+import { CATEGORY_GROUPS,INITIAL_CATEGORIES } from '@/lib/seed-data';
+import type { Category,Dealer,Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/lib/providers';
+import {
+  Apple,
+  Armchair,
+  ArrowLeft,
+  Baby,
+  BookOpen,
+  Cake,
+  Car,
+  CircleDot,
+  Cookie,
+  CookingPot,
+  Cpu,
+  Dog,
+  Dumbbell,
+  Filter,
+  Flower2,
+  Footprints,
+  Gamepad2,
+  Gem,
+  Gift,
+  Glasses,
+  HeartPulse,
+  Home as HomeIcon,
+  MessageSquare,
+  Monitor,
+  Music,
+  Palette,
+  Phone,
+  Pill,
+  Refrigerator,
+  Search,
+  Shirt,
+  ShoppingBag,
+  ShoppingBasket,
+  Smartphone,
+  Sofa,
+  SprayCan,
+  Sprout,
+  Star,
+  Store,
+  Tag,
+  Trophy,
+  Tv,
+  Utensils,
+  WashingMachine,
+  Watch,
+  Wrench,
+  X,
+  Zap,
+  type LucideIcon
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useMemo,useState } from 'react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Monitor,
@@ -134,7 +128,6 @@ function getCategoryIcon(cat: Category): LucideIcon {
 }
 
 export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?: string } = {}) {
-  const { t } = useApp();
   const router = useRouter();
 
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);

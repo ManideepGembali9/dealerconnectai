@@ -27,34 +27,6 @@ import {
   SprayCan,
   Sofa,
   Pill,
-  Tv,
-  Refrigerator,
-  Zap,
-  Watch,
-  Glasses,
-  Gem,
-  CircleDot,
-  Palette,
-  ShoppingBag,
-  Utensils,
-  Cake,
-  Cookie,
-  Armchair,
-  CookingPot,
-  Wrench,
-  Gift,
-  Flower2,
-  HeartPulse,
-  Baby,
-  Dumbbell,
-  BookOpen,
-  Gamepad2,
-  Music,
-  Car,
-  Dog,
-  Sprout,
-  Tag,
-  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -74,43 +47,6 @@ import type { Category, Dealer, Product } from '@/lib/types';
 import { haversineKm } from '@/lib/geo';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  Tv,
-  Smartphone,
-  Refrigerator,
-  Zap,
-  Watch,
-  Glasses,
-  Gem,
-  CircleDot,
-  Palette,
-  ShoppingBag,
-  Utensils,
-  Cake,
-  Cookie,
-  Armchair,
-  CookingPot,
-  Wrench,
-  Gift,
-  Flower2,
-  HeartPulse,
-  Baby,
-  Dumbbell,
-  BookOpen,
-  Gamepad2,
-  Music,
-  Car,
-  Dog,
-  Sprout,
-  Tag,
-  Monitor,
-  ShoppingBasket,
-  WashingMachine,
-  SprayCan,
-  Sofa,
-  Pill,
-};
 
 // Exactly 10 popular categories with Lucide icons (Amazon-inspired layout)
 const POPULAR_CATEGORIES_CONFIG = [
@@ -135,7 +71,6 @@ export function HomeClient() {
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [offers, setOffers] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Popular Categories Horizontal Scroll Tracking
   const [categoryScrollProgress, setCategoryScrollProgress] = useState(0);
@@ -207,8 +142,6 @@ export function HomeClient() {
       }
     } catch (err) {
       console.error('Home load error:', err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -269,7 +202,7 @@ export function HomeClient() {
           setIsListening(false);
         };
         return;
-      } catch {}
+      } catch { }
     }
 
     // Fallback simulation
@@ -357,13 +290,13 @@ export function HomeClient() {
 
   return (
     <div suppressHydrationWarning className="flex flex-col min-h-screen bg-background text-foreground transition-colors touch-pan-y pb-28 sm:pb-16">
-      
+
       {/* ============================================================
           1. TOP SEARCH BAR (AT HOME PAGE STARTING, NO SEARCH BUTTON)
          ============================================================ */}
       <section className="border-b border-border bg-card px-4 pt-6 pb-6 sm:px-6">
         <div className="mx-auto max-w-3xl text-center">
-          
+
           <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
             Local Shop Product Finder
           </h1>
@@ -699,6 +632,7 @@ export function HomeClient() {
             <DialogTitle className="text-lg font-black text-foreground flex items-center justify-center gap-2">
               <Mic className="h-5 w-5 text-foreground" /> {t('voiceSearch')}
             </DialogTitle>
+            <DialogDescription className="sr-only">Speak a product name or category to search local shops.</DialogDescription>
           </DialogHeader>
 
           <div className="my-6 flex flex-col items-center">
@@ -750,6 +684,7 @@ export function HomeClient() {
             <DialogTitle className="text-lg font-black text-foreground flex items-center justify-center gap-2">
               <Camera className="h-5 w-5 text-foreground" /> {t('imageSearch')}
             </DialogTitle>
+            <DialogDescription className="sr-only">Upload or capture a product photo to search nearby dealer stock.</DialogDescription>
           </DialogHeader>
 
           <div className="my-6 flex flex-col items-center">

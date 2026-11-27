@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  Boxes, Search, CheckCircle2, AlertTriangle, ArrowUpDown,
-  DollarSign, Package, Save, Check
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import type { Product, Dealer } from '@/lib/types';
-import { formatINR, getEffectivePrice } from '@/lib/format';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { formatINR,getEffectivePrice } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import type { Dealer,Product } from '@/lib/types';
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle2,
+  DollarSign,Package,
+  Search
+} from 'lucide-react';
+import { useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module05Props = {

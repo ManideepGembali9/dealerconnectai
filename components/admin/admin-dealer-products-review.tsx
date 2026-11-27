@@ -1,27 +1,37 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import Image from 'next/image';
-import {
-  Package, Search, CheckCircle2, XCircle, AlertTriangle, Clock,
-  Eye, Filter, Store, Phone, MapPin, Tag, ShieldCheck, DollarSign,
-  Layers, RefreshCw, ThumbsUp, ThumbsDown, MessageSquare
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle
 } from '@/components/ui/dialog';
-import { getDbProducts, saveDbProduct, getDbDealers, broadcastSync } from '@/lib/firebase-db';
-import type { Product, Dealer } from '@/lib/types';
-import { formatINR, getEffectivePrice, getDiscountPercent } from '@/lib/format';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,SelectContent,SelectItem,SelectTrigger,SelectValue
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { broadcastSync,getDbDealers,getDbProducts,saveDbProduct } from '@/lib/firebase-db';
+import { formatINR,getDiscountPercent,getEffectivePrice } from '@/lib/format';
+import type { Dealer,Product } from '@/lib/types';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  MapPin,
+  Package,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Store,
+  XCircle
+} from 'lucide-react';
+import Image from 'next/image';
+import { useCallback,useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 export type EnrichedProduct = Product & { submittingDealer?: Dealer };

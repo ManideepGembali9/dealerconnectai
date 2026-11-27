@@ -1,4 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+
+export const viewport: Viewport = {
+  themeColor: '#8b5cf6',
+};
 
 export const metadata: Metadata = {
   title: 'DealerConnect AI — Admin Control Center',
@@ -9,7 +13,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Admin Portal',
   },
-  themeColor: '#8b5cf6',
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

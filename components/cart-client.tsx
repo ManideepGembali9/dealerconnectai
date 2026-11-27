@@ -1,27 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import {
-  ShoppingCart,
-  Trash2,
-  Plus,
-  Minus,
-  MapPin,
-  ArrowRight,
-  ShieldCheck,
-  Store,
-  CheckCircle2,
-  MessageSquare,
-  Phone,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useApp } from '@/lib/providers';
 import { formatINR } from '@/lib/format';
+import { useApp } from '@/lib/providers';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Minus,
+  Plus,
+  ShieldCheck,
+  ShoppingCart,
+  Store,
+  Trash2
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function CartClient() {

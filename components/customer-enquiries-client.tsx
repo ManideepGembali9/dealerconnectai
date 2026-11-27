@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { MessageSquare, Phone, Clock, Package, Store } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 import { timeAgo } from '@/lib/format';
+import { supabase } from '@/lib/supabase';
+import { Clock,MessageSquare,Phone } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 
 export function CustomerEnquiriesClient() {
   const router = useRouter();

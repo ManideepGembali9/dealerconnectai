@@ -13,7 +13,7 @@ import { formatINR, getEffectivePrice, getDiscountPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export function CompareClient() {
-  const { compare, toggleCompare, clearCompare, t } = useApp();
+  const { compare, toggleCompare, clearCompare } = useApp();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,27 +1,42 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import {
-  Shield, Menu, X, ChevronRight, Search, Bell, LogOut, Sliders,
-  LayoutDashboard, Store, Users, Package, FolderTree, Building2,
-  Boxes, MessageSquareText, Star, PanelsTopLeft, BarChart3, Palette,
-  Settings, ChevronLeft, ArrowUpRight, HelpCircle
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from '@/components/ui/sheet';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,
+  DropdownMenuSeparator,DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { type AdminMenuItem, getStoredAdminMenu } from './admin-menu-config';
-import { LayoutNavigationManager } from './layout-navigation-manager';
+import {
+  Sheet,SheetContent,SheetHeader,SheetTitle,SheetTrigger,
+} from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth';
+import {
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  Boxes,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  FolderTree,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  MessageSquareText,
+  Package,
+  Palette,
+  PanelsTopLeft,
+  Settings,
+  Shield,
+  Sliders,
+  Star,
+  Store,Users
+} from 'lucide-react';
+import Link from 'next/link';
+import { useMemo,useState } from 'react';
 import { toast } from 'sonner';
+import { getStoredAdminMenu,type AdminMenuItem } from './admin-menu-config';
+import { LayoutNavigationManager } from './layout-navigation-manager';
 
 // Icon mapping helper
 function renderModuleIcon(iconName: string, className = 'h-4 w-4') {
@@ -64,7 +79,6 @@ export function AdminShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [layoutManagerOpen, setLayoutManagerOpen] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState('');
 
   // Visible items filtered and sorted
   const visibleMenuItems = useMemo(() => {
@@ -98,7 +112,7 @@ export function AdminShell({
   };
 
   const handleLogout = async () => {
-    await signOut();
+    await signOut('admin');
     toast.info('Admin logged out successfully.');
   };
 

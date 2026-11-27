@@ -1,3 +1,5 @@
+import { getAppUrl } from '@/lib/utils';
+
 interface JsonLdProps {
   data: Record<string, any>;
 }
@@ -12,7 +14,7 @@ export function JsonLd({ data }: JsonLdProps) {
 }
 
 export function organizationSchema() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dealerconnectai.app';
+  const baseUrl = getAppUrl();
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -25,7 +27,7 @@ export function organizationSchema() {
 }
 
 export function websiteSchema() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dealerconnectai.app';
+  const baseUrl = getAppUrl();
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',

@@ -1,25 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import {
-  PlusCircle, ShieldCheck, Sparkles, Package, Layers, CheckCircle2,
-  Image as ImageIcon, Send, ArrowRight, Tag, DollarSign, Store, Clock
-} from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import { ImagePicker } from '@/components/ui/image-picker';
 import { DealerCatalogClient } from '@/components/dealer-catalog-client';
-import { getDbCategories, getDbBrands, saveDbProduct, broadcastSync } from '@/lib/firebase-db';
-import type { Dealer, Category, Brand, Product } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ImagePicker } from '@/components/ui/image-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,SelectContent,SelectItem,SelectTrigger,SelectValue
+} from '@/components/ui/select';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { broadcastSync,getDbBrands,getDbCategories,saveDbProduct } from '@/lib/firebase-db';
+import type { Brand,Category,Dealer,Product } from '@/lib/types';
+import {
+  Clock,
+  Layers,
+  PlusCircle,
+  Send,
+  ShieldCheck,Sparkles
+} from 'lucide-react';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module04Props = {

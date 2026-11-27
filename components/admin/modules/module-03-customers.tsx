@@ -1,19 +1,26 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import {
-  Users, Search, Shield, MapPin, Mail, Phone, Calendar,
-  UserCheck, UserX, Activity, Eye, CheckCircle2, AlertCircle, Heart
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle,
 } from '@/components/ui/dialog';
-import type { CustomerProfile } from '@/lib/types';
+import { Input } from '@/components/ui/input';
 import { timeAgo } from '@/lib/format';
+import type { CustomerProfile } from '@/lib/types';
+import {
+  Eye,
+  Mail,
+  MapPin,
+  Phone,
+  Search,
+  UserCheck,UserX,
+  Users
+} from 'lucide-react';
+import { useEffect,useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module03Props = {

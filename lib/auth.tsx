@@ -3,7 +3,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import type { Dealer, CustomerProfile } from './types';
 import { getDbDealers, saveDbDealer } from './firebase-db';
-import { toast } from 'sonner';
+
+function safeJsonParse<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
 
 export type UserRole = 'customer' | 'dealer' | 'admin';
 
@@ -13,15 +21,15 @@ type AuthContextType = {
   customer: CustomerProfile | null;
   loading: boolean;
   signIn: (email: string, password: string, role: UserRole) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  signOut: (targetRole?: UserRole) => Promise<void>;
   signUpCustomer: (email: string, password: string, fullName: string, phone: string, pinCode: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
-  sendOtp: (identifier: string) => Promise<{ otp: string; error: string | null }>;
+  sendOtp: (identifier: string, channel?: 'email' | 'sms' | 'whatsapp') => Promise<{ otp: string; error: string | null; masked?: string; testOtp?: string }>;
   resetPasswordWithOtp: (identifier: string, enteredOtp: string, newPassword: string) => Promise<{ error: string | null }>;
   refreshCustomer: () => Promise<void>;
   updateCustomerProfile: (data: Partial<CustomerProfile>) => Promise<{ error: string | null }>;
   updateDealerProfile: (data: Partial<Dealer>) => Promise<{ error: string | null }>;
-  changePassword: (newPassword: string) => Promise<{ error: string | null }>;
+  changePassword: (newPassword: string, targetRole?: UserRole) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,41 +42,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore customer or dealer session
+  // Restore customer, dealer, or admin session without cross-role leakage
   const restoreSession = useCallback(async () => {
     try {
       const savedRole = localStorage.getItem('dc-auth-role') as UserRole | null;
       const savedDealerId = localStorage.getItem('dc-auth-dealer-id');
       const savedCustomerData = localStorage.getItem('dc-auth-customer');
+      const savedAdmin = localStorage.getItem('dc-auth-admin');
 
-      if (savedRole === 'admin') {
+      let parsedCustomer: CustomerProfile | null = null;
+      if (savedCustomerData) {
+        try {
+          parsedCustomer = JSON.parse(savedCustomerData);
+          setCustomer(parsedCustomer);
+        } catch {}
+      }
+
+      let foundDealer: Dealer | null = null;
+      if (savedDealerId && savedDealerId !== 'admin') {
+        const dealers = await getDbDealers();
+        foundDealer = dealers.find((d) => d.id === savedDealerId) || null;
+        if (foundDealer) setDealer(foundDealer);
+      }
+
+      if (savedRole === 'admin' || (!savedRole && savedAdmin === 'true')) {
         setRole('admin');
-        setDealer(null);
-        setCustomer(null);
         setLoading(false);
         return;
       }
 
-      if (savedRole === 'dealer' && savedDealerId) {
-        const dealers = await getDbDealers();
-        const found = dealers.find((d) => d.id === savedDealerId);
-        if (found) {
-          setRole('dealer');
-          setDealer(found);
-          setCustomer(null);
-          setLoading(false);
-          return;
-        }
+      if (savedRole === 'dealer' && foundDealer) {
+        setRole('dealer');
+        setLoading(false);
+        return;
       }
 
-      if (savedRole === 'customer') {
-        if (savedCustomerData) {
-          setCustomer(JSON.parse(savedCustomerData));
-          setRole('customer');
-          setDealer(null);
-          setLoading(false);
-          return;
-        }
+      if (savedRole === 'customer' && parsedCustomer) {
+        setRole('customer');
+        setLoading(false);
+        return;
+      }
+
+      if (parsedCustomer && !savedRole) {
+        setRole('customer');
+      } else if (foundDealer && !savedRole) {
+        setRole('dealer');
       }
 
       setLoading(false);
@@ -95,10 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: 'Invalid admin credentials.' };
         }
         localStorage.setItem('dc-auth-role', 'admin');
-        localStorage.setItem('dc-auth-dealer-id', 'admin');
+        localStorage.setItem('dc-auth-admin', 'true');
         setRole('admin');
-        setDealer(null);
-        setCustomer(null);
         return { error: null };
       }
 
@@ -139,7 +155,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('dc-auth-dealer-id', foundDealer.id);
         setRole('dealer');
         setDealer(foundDealer);
-        setCustomer(null);
         return { error: null };
       }
 
@@ -158,7 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.setItem('dc-auth-customer', JSON.stringify(foundInRegistry));
             setCustomer(foundInRegistry);
             setRole('customer');
-            setDealer(null);
             return { error: null };
           }
         } catch {}
@@ -168,20 +182,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const savedCustomerPw = localStorage.getItem(`dc-customer-pw-${lowerEmail}`) || 'customer123';
 
         if (savedCustomerRaw) {
-          const parsed = JSON.parse(savedCustomerRaw) as CustomerProfile;
-          if (parsed.email.toLowerCase() === lowerEmail) {
+          const parsed = safeJsonParse<CustomerProfile>(savedCustomerRaw);
+          if (parsed && parsed.email?.toLowerCase() === lowerEmail) {
             if (password !== savedCustomerPw && password !== 'customer123') {
               return { error: 'Invalid customer password.' };
             }
             localStorage.setItem('dc-auth-role', 'customer');
             setCustomer(parsed);
             setRole('customer');
-            setDealer(null);
             return { error: null };
           }
         }
 
-        // Allow demo customer sign in
+        // Allow demo customer sign in (verified demo account)
         if (lowerEmail === 'customer@demo.in' || lowerEmail === 'customer@dealerconnect.ai') {
           const demoProfile: CustomerProfile = {
             id: 'demo-customer-1',
@@ -190,9 +203,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phone: '+91 98765 43210',
             pin_code: '532440',
             preferred_city: 'Amalapuram',
-            preferred_location: {},
+            preferred_location: { address: 'Clock Tower Road, Amalapuram' },
             avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-            preferences: {},
+            preferences: {
+              verified: true,
+              notifications: true,
+              in_stock_alerts: true,
+              share_location: true,
+              personalized_ai: true,
+              show_contact: true,
+            },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -200,11 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem('dc-auth-customer', JSON.stringify(demoProfile));
           setCustomer(demoProfile);
           setRole('customer');
-          setDealer(null);
           return { error: null };
         }
 
-        // Seamless login fallback: create customer profile for this email
+        // Seamless login fallback: create customer profile for this email (unverified until OTP/OAuth)
         const autoProfile: CustomerProfile = {
           id: `cust-${Date.now()}`,
           full_name: lowerEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Customer',
@@ -214,7 +233,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           preferred_city: 'Amalapuram',
           preferred_location: {},
           avatar_url: null,
-          preferences: {},
+          preferences: {
+            verified: false,
+            notifications: true,
+            in_stock_alerts: true,
+            share_location: true,
+            personalized_ai: true,
+            show_contact: true,
+          },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -223,7 +249,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('dc-auth-customer', JSON.stringify(autoProfile));
         setCustomer(autoProfile);
         setRole('customer');
-        setDealer(null);
         return { error: null };
       }
 
@@ -254,7 +279,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferred_city: 'Amalapuram',
         preferred_location: {},
         avatar_url: null,
-        preferences: {},
+        preferences: {
+          verified: false,
+          notifications: true,
+          in_stock_alerts: true,
+          share_location: true,
+          personalized_ai: true,
+          show_contact: true,
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -273,7 +305,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setCustomer(newProfile);
       setRole('customer');
-      setDealer(null);
 
       return { error: null };
     } catch (e: any) {
@@ -283,13 +314,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCustomerProfile = useCallback(async (data: Partial<CustomerProfile>): Promise<{ error: string | null }> => {
     if (!customer) return { error: 'No active customer profile' };
+    const previousEmail = customer.email.toLowerCase().trim();
+    const nextEmail = (data.email ?? customer.email).toLowerCase().trim();
+
     const updated: CustomerProfile = {
       ...customer,
       ...data,
+      email: nextEmail,
+      preferred_location: data.preferred_location
+        ? { ...customer.preferred_location, ...data.preferred_location }
+        : customer.preferred_location,
+      preferences: data.preferences
+        ? { ...customer.preferences, ...data.preferences }
+        : customer.preferences,
       updated_at: new Date().toISOString(),
     };
+
     setCustomer(updated);
     localStorage.setItem('dc-auth-customer', JSON.stringify(updated));
+
+    // Migrate password key if email changed
+    if (nextEmail !== previousEmail) {
+      const existingPw = localStorage.getItem(`dc-customer-pw-${previousEmail}`);
+      if (existingPw) {
+        localStorage.setItem(`dc-customer-pw-${nextEmail}`, existingPw);
+      }
+    }
+
+    // Keep persistent customers registry synchronized
+    try {
+      const registry: CustomerProfile[] = JSON.parse(localStorage.getItem('dc-customers-registry') || '[]');
+      const filtered = registry.filter(
+        (u) => u.id !== customer.id && u.email.toLowerCase() !== previousEmail && u.email.toLowerCase() !== nextEmail
+      );
+      filtered.push(updated);
+      localStorage.setItem('dc-customers-registry', JSON.stringify(filtered));
+    } catch {}
+
     return { error: null };
   }, [customer]);
 
@@ -305,17 +366,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }, [dealer]);
 
-  const changePassword = useCallback(async (newPassword: string): Promise<{ error: string | null }> => {
+  const changePassword = useCallback(async (newPassword: string, targetRole?: UserRole): Promise<{ error: string | null }> => {
     try {
-      if (role === 'admin') {
+      const effectiveRole = targetRole ?? role;
+      if (effectiveRole === 'admin') {
         localStorage.setItem('dc-admin-custom-password', newPassword);
         return { error: null };
       }
-      if (role === 'dealer' && dealer) {
+      if (effectiveRole === 'dealer' && dealer) {
         localStorage.setItem(`dc-dealer-pw-${dealer.id}`, newPassword);
         return { error: null };
       }
-      if (role === 'customer' && customer) {
+      if (effectiveRole === 'customer' && customer) {
         localStorage.setItem(`dc-customer-pw-${customer.email.toLowerCase()}`, newPassword);
         return { error: null };
       }
@@ -336,7 +398,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferred_city: 'Amalapuram',
         preferred_location: {},
         avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-        preferences: {},
+        preferences: {
+          verified: true,
+          notifications: true,
+          in_stock_alerts: true,
+          share_location: true,
+          personalized_ai: true,
+          show_contact: true,
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -344,7 +413,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('dc-auth-customer', JSON.stringify(googleProfile));
       setCustomer(googleProfile);
       setRole('customer');
-      setDealer(null);
       return { error: null };
     } catch (err: any) {
       return { error: err.message || 'Google Sign-in failed' };
@@ -437,7 +505,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'No OTP requested for this account or it has expired.' };
       }
       if (stored) {
-        const { otp, expiresAt } = JSON.parse(stored);
+        const parsedOtp = safeJsonParse<{ otp: string; expiresAt: number }>(stored);
+        if (!parsedOtp) {
+          return { error: 'Stored OTP is invalid. Please request a new one.' };
+        }
+        const { otp, expiresAt } = parsedOtp;
         if (Date.now() > expiresAt) {
           return { error: 'OTP has expired. Please request a new one.' };
         }
@@ -457,18 +529,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshCustomer = useCallback(async () => {
-    const raw = localStorage.getItem('dc-auth-customer');
-    if (raw) setCustomer(JSON.parse(raw));
+    const parsed = safeJsonParse<CustomerProfile>(localStorage.getItem('dc-auth-customer'));
+    if (parsed) setCustomer(parsed);
   }, []);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (targetRole?: UserRole) => {
+    const scope = targetRole ?? role;
+
+    if (scope === 'customer') {
+      localStorage.removeItem('dc-auth-customer');
+      setCustomer(null);
+      if (localStorage.getItem('dc-auth-role') === 'customer') {
+        const hasAdmin = localStorage.getItem('dc-auth-admin') === 'true';
+        const dealerId = localStorage.getItem('dc-auth-dealer-id');
+        if (hasAdmin) {
+          localStorage.setItem('dc-auth-role', 'admin');
+          setRole('admin');
+        } else if (dealerId && dealerId !== 'admin') {
+          localStorage.setItem('dc-auth-role', 'dealer');
+          setRole('dealer');
+        } else {
+          localStorage.removeItem('dc-auth-role');
+          setRole(null);
+        }
+      }
+      return;
+    }
+
+    if (scope === 'dealer') {
+      localStorage.removeItem('dc-auth-dealer-id');
+      setDealer(null);
+      if (localStorage.getItem('dc-auth-role') === 'dealer') {
+        const hasAdmin = localStorage.getItem('dc-auth-admin') === 'true';
+        const hasCustomer = !!localStorage.getItem('dc-auth-customer');
+        if (hasAdmin) {
+          localStorage.setItem('dc-auth-role', 'admin');
+          setRole('admin');
+        } else if (hasCustomer) {
+          localStorage.setItem('dc-auth-role', 'customer');
+          setRole('customer');
+        } else {
+          localStorage.removeItem('dc-auth-role');
+          setRole(null);
+        }
+      }
+      return;
+    }
+
+    if (scope === 'admin') {
+      localStorage.removeItem('dc-auth-admin');
+      if (localStorage.getItem('dc-auth-role') === 'admin') {
+        const dealerId = localStorage.getItem('dc-auth-dealer-id');
+        const hasCustomer = !!localStorage.getItem('dc-auth-customer');
+        if (dealerId && dealerId !== 'admin') {
+          localStorage.setItem('dc-auth-role', 'dealer');
+          setRole('dealer');
+        } else if (hasCustomer) {
+          localStorage.setItem('dc-auth-role', 'customer');
+          setRole('customer');
+        } else {
+          localStorage.removeItem('dc-auth-role');
+          setRole(null);
+        }
+      }
+      return;
+    }
+
     localStorage.removeItem('dc-auth-role');
     localStorage.removeItem('dc-auth-dealer-id');
     localStorage.removeItem('dc-auth-customer');
+    localStorage.removeItem('dc-auth-admin');
     setRole(null);
     setDealer(null);
     setCustomer(null);
-  }, []);
+  }, [role]);
 
   return (
     <AuthContext.Provider

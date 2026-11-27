@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Settings, Shield, KeyRound, Lock, CheckCircle2, Phone, Mail,
-  LogOut, Save, RefreshCw, AlertCircle, Database
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth';
+import {
+  KeyRound,
+  LogOut,
+  Phone,
+  Save,
+  Settings,Shield
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function Module14Settings() {

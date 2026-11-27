@@ -63,6 +63,15 @@ type AppContextType = {
 
 const AppContext = createContext<AppContextType | null>(null);
 
+function safeReadLocal<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>('en');
   const [location, setLocationState] = useState<AppLocation>({ pinCode: null, label: null, lat: null, lng: null });
@@ -73,11 +82,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(INITIAL_APP_SETTINGS);
 
-  // Apply theme class to document element
-  const applyThemeClass = useCallback((themePreset: ThemePreset) => {
+  // Apply monochrome theme class to document element
+  const applyThemeClass = useCallback(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    // Remove all previous theme classes
     root.classList.remove(
       'theme-gold-navy',
       'theme-gold-black',
@@ -93,32 +101,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const sLang = localStorage.getItem('dc-lang') as Language | null;
-      const sLoc = localStorage.getItem('dc-location');
-      const sWish = localStorage.getItem('dc-wishlist');
-      const sComp = localStorage.getItem('dc-compare');
-      const sRecent = localStorage.getItem('dc-recent');
-      const sDealers = localStorage.getItem('dc-saved-dealers');
-      const sCart = localStorage.getItem('dc-cart');
+      const sLoc = safeReadLocal<AppLocation>('dc-location');
+      const sWish = safeReadLocal<string[]>('dc-wishlist');
+      const sComp = safeReadLocal<string[]>('dc-compare');
+      const sRecent = safeReadLocal<string[]>('dc-recent');
+      const sDealers = safeReadLocal<string[]>('dc-saved-dealers');
+      const sCart = safeReadLocal<CartItem[]>('dc-cart');
 
       if (sLang && LANGUAGES.some((l) => l.code === sLang)) setLangState(sLang);
-      if (sLoc) setLocationState(JSON.parse(sLoc));
-      if (sWish) setWishlist(JSON.parse(sWish));
-      if (sComp) setCompare(JSON.parse(sComp));
-      if (sRecent) setRecentlyViewed(JSON.parse(sRecent));
-      if (sDealers) setSavedDealers(JSON.parse(sDealers));
-      if (sCart) setCart(JSON.parse(sCart));
+      if (sLoc) setLocationState(sLoc);
+      if (sWish) setWishlist(sWish);
+      if (sComp) setCompare(sComp);
+      if (sRecent) setRecentlyViewed(sRecent);
+      if (sDealers) setSavedDealers(sDealers);
+      if (sCart) setCart(sCart);
 
-      // Load App Settings from DB / local
       getDbAppSettings().then((settings) => {
         setAppSettings(settings);
-        applyThemeClass(settings.theme_preset);
+        applyThemeClass();
       });
     } catch {}
 
     const handleSettingsUpdated = (e: any) => {
       if (e.detail) {
         setAppSettings(e.detail);
-        applyThemeClass(e.detail.theme_preset);
+        applyThemeClass();
       }
     };
     window.addEventListener('dc-settings-updated', handleSettingsUpdated);
@@ -235,12 +242,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const saved = await saveDbAppSettings(newSettings);
     setAppSettings(saved);
     if (newSettings.theme_preset) {
-      applyThemeClass(newSettings.theme_preset);
+      applyThemeClass();
     }
   };
 
   const setThemePreset = async (preset: ThemePreset) => {
-    applyThemeClass(preset);
+    applyThemeClass();
     await updateAppSettings({ theme_preset: preset });
   };
 

@@ -1,4 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+
+export const viewport: Viewport = {
+  themeColor: '#10b981',
+};
 
 export const metadata: Metadata = {
   title: 'DealerConnect AI — Merchant Portal',
@@ -9,7 +13,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Dealer Portal',
   },
-  themeColor: '#10b981',
 };
 
 export default function DealerLayout({ children }: { children: React.ReactNode }) {

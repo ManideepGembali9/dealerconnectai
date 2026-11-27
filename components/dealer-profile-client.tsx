@@ -1,24 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import {
-  Star, MapPin, Phone, MessageCircle, Navigation, Clock, ShoppingBag,
-  Store, Check, Truck, Globe, ChevronLeft, Share2, Heart, Eye
-} from 'lucide-react';
+import { ProductCard } from '@/components/product-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ProductCard } from '@/components/product-card';
-import { useApp } from '@/lib/providers';
-import { fetchDealerById, fetchProducts, fetchReviewsByDealer } from '@/lib/data';
-import { haversineKm, formatDistance } from '@/lib/geo';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import { fetchDealerById,fetchProducts,fetchReviewsByDealer } from '@/lib/data';
 import { timeAgo } from '@/lib/format';
-import type { Dealer, Product, Review } from '@/lib/supabase';
+import { formatDistance,haversineKm } from '@/lib/geo';
+import { useApp } from '@/lib/providers';
+import type { Dealer,Product,Review } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import {
+  Check,
+  ChevronLeft,
+  Clock,
+  Heart,
+  MapPin,
+  MessageCircle,Navigation,
+  Phone,
+  Share2,
+  ShoppingBag,
+  Star,
+  Store,
+  Truck
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];

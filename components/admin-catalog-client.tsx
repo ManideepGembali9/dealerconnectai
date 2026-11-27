@@ -3,9 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import {
-  Package, Plus, Search, Edit, Trash2, Power, Sparkles, X, Check,
-  Tag, Building2, ChevronDown, ChevronRight, Image as ImageIcon,
-  Settings, Save, AlertCircle, Loader2, BarChart3, Eye, Zap, ListPlus,
+  Package, Plus, Search, Trash2, Power, Sparkles, X, Check,
+  Save, AlertCircle, Loader2, BarChart3, Eye, ListPlus,
   RefreshCw, CheckCircle2, Clock, AlertTriangle, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -27,13 +26,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatINR } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase, type Product, type Category, type Brand } from '@/lib/supabase';
 import {
-  fetchMasterCatalogForAdmin, createCatalogProduct, updateCatalogProduct,
-  deleteCatalogProduct, toggleProductActive, analyzeImageForCatalog,
+  fetchMasterCatalogForAdmin, updateCatalogProduct,
+  deleteCatalogProduct, toggleProductActive,
   fetchCategories, fetchBrands, createCategory, createBrand,
   fetchCatalogAnalytics, type CatalogProductInput,
   createProductWithAI, bulkCreateProductsWithAI, regenerateProductAI,
@@ -49,11 +47,9 @@ export function AdminCatalogClient() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [filterBrand, setFilterBrand] = useState('all');
   const [filterAIStatus, setFilterAIStatus] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [reviewingProduct, setReviewingProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [analytics, setAnalytics] = useState<{
@@ -86,11 +82,10 @@ export function AdminCatalogClient() {
     return products.filter((p) => {
       if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterCategory !== 'all' && p.category_id !== filterCategory) return false;
-      if (filterBrand !== 'all' && p.brand_id !== filterBrand) return false;
       if (filterAIStatus !== 'all' && (p as any).ai_status !== filterAIStatus) return false;
       return true;
     });
-  }, [products, search, filterCategory, filterBrand, filterAIStatus]);
+  }, [products, search, filterCategory, filterAIStatus]);
 
   const handleToggle = async (product: Product) => {
     const { error } = await toggleProductActive(product.id, !product.is_active);
@@ -409,7 +404,7 @@ function SimpleCreateDialog({
     if (!name.trim()) { toast.error('Product name is required'); return; }
     setCreating(true);
     try {
-      const { product, generated: gen, error } = await createProductWithAI({ name: name.trim(), imageUrl: imageUrl.trim() || null });
+      const { error } = await createProductWithAI({ name: name.trim(), imageUrl: imageUrl.trim() || null });
       if (error) { toast.error(error); return; }
       toast.success('Product created with AI-generated information. Review and approve it.');
       onSaved();
@@ -425,6 +420,7 @@ function SimpleCreateDialog({
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" /> Create Product with AI
           </DialogTitle>
+          <DialogDescription className="sr-only">Generate and save a new catalog product with AI.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -561,6 +557,7 @@ function BulkCreateDialog({
           <DialogTitle className="flex items-center gap-2">
             <ListPlus className="h-5 w-5 text-primary" /> Bulk Create Products with AI
           </DialogTitle>
+          <DialogDescription className="sr-only">Batch-generate multiple master catalog products from product names.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -637,7 +634,7 @@ function ReviewProductDialog({
   const [categoryId, setCategoryId] = useState(product.category_id ?? '');
   const [subcategoryId, setSubcategoryId] = useState(product.subcategory_id ?? '');
   const [brandId, setBrandId] = useState(product.brand_id ?? '');
-  const [model, setModel] = useState(product.model ?? '');
+  const [model] = useState(product.model ?? '');
   const [description, setDescription] = useState(product.description ?? '');
   const [shortDescription, setShortDescription] = useState((product as any).short_description ?? '');
   const [features, setFeatures] = useState((product.features ?? []).join('\n'));
@@ -673,15 +670,6 @@ function ReviewProductDialog({
     if (!newBrandName.trim()) return;
     const brand = await onCreateBrand(newBrandName.trim());
     if (brand) { setBrandId(brand.id); setNewBrandName(''); setShowNewBrand(false); }
-  };
-
-  const handleAddImage = async () => {
-    if (!imageUrl.trim()) return;
-    const { error } = await updateProductImage(product.id, imageUrl.trim());
-    if (error) { toast.error(error); return; }
-    toast.success('Image added');
-    setImageUrl('');
-    onSaved();
   };
 
   const handleSave = async () => {
@@ -739,6 +727,7 @@ function ReviewProductDialog({
             <FileText className="h-5 w-5 text-primary" /> Review Product: {product.name}
             <AIStatusBadge status={aiStatus} />
           </DialogTitle>
+          <DialogDescription className="sr-only">Review and update product specifications, SEO tags, and images.</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="info">

@@ -1,39 +1,53 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
-export interface Auth {
-  currentUser: any;
-  signOut?: () => Promise<void>;
-  [key: string]: any;
-}
-
-// Default Firebase Configuration (can be overridden via environment variables or Admin Settings)
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDemoDealerConnectKey2026',
+export const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dealerconnectai.firebaseapp.com',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'dealerconnectai',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dealerconnectai.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '1029384756',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:1029384756:web:a1b2c3d4e5f6',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
 };
 
-// Initialize Firebase App safely (singleton)
-let app: FirebaseApp;
-const auth: Auth = { currentUser: null };
-let db: Firestore = null as any;
+export const isDemoFirebase =
+  !firebaseConfig.apiKey ||
+  firebaseConfig.apiKey.startsWith('AIzaSyDemo') ||
+  firebaseConfig.projectId === 'dealerconnectai';
 
-try {
-  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+let cachedApp: FirebaseApp | null = null;
+let cachedDb: Firestore | null = null;
+
+/**
+ * Lazily returns Firebase App only in browser environments with real non-demo config.
+ * Avoids eager client SDK initialization during SSR / React Server Component rendering.
+ */
+export function getFirebaseApp(): FirebaseApp | null {
+  if (typeof window === 'undefined' || isDemoFirebase) return null;
+  if (cachedApp) return cachedApp;
+
   try {
-    db = getFirestore(app);
-  } catch {}
-} catch (error) {
-  try {
-    app = initializeApp(firebaseConfig, 'dealerconnect-fallback');
-    try {
-      db = getFirestore(app);
-    } catch {}
-  } catch {}
+    cachedApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    return cachedApp;
+  } catch {
+    return null;
+  }
 }
 
-export { app, auth, db, firebaseConfig };
+/**
+ * Lazily returns Firestore instance when running in a configured browser environment.
+ */
+export function getFirebaseDb(): Firestore | null {
+  if (typeof window === 'undefined' || isDemoFirebase) return null;
+  if (cachedDb) return cachedDb;
+
+  const app = getFirebaseApp();
+  if (!app) return null;
+
+  try {
+    cachedDb = getFirestore(app);
+    return cachedDb;
+  } catch {
+    return null;
+  }
+}

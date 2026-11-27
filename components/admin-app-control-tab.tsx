@@ -1,30 +1,24 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Palette,
-  Layout,
-  Type,
-  Image as ImageIcon,
-  Sliders,
-  Save,
-  Check,
-  Sparkles,
-  Store,
-  Layers,
-  Eye,
-  RotateCcw,
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/lib/providers';
-import type { ThemePreset, AppSettings } from '@/lib/types';
+import type { AppSettings,ThemePreset } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import {
+  Check,
+  Image as ImageIcon,
+  Layout,
+  Palette,
+  Save,
+  Store
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 const THEMES: { id: ThemePreset; name: string; tag: string; colors: string[]; bgClass: string; borderClass: string }[] = [

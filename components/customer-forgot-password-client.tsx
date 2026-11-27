@@ -1,18 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import {
-  Mail, Phone, Lock, KeyRound, ArrowLeft, Loader2, CheckCircle2,
-  Eye, EyeOff, ShieldCheck, RefreshCw, Sparkles, AlertCircle
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eye,EyeOff,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 type Step = 'send-otp' | 'verify-otp' | 'new-password' | 'success';

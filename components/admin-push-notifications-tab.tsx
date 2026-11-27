@@ -1,22 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Bell, Send, Users, Store, User, CheckCircle2, Clock, ShieldCheck, Loader2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getDbNotifications, sendDbNotification } from '@/lib/firebase-db';
-import type { PushNotification } from '@/lib/supabase';
+import { getDbNotifications,sendDbNotification } from '@/lib/firebase-db';
 import { timeAgo } from '@/lib/format';
+import type { PushNotification } from '@/lib/supabase';
+import { Bell,CheckCircle2,Clock,Loader2,Send,ShieldCheck } from 'lucide-react';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 export function AdminPushNotificationsTab() {
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
   const [form, setForm] = useState({
@@ -31,9 +30,6 @@ export function AdminPushNotificationsTab() {
       const data = await getDbNotifications();
       setNotifications(data);
     } catch {}
-    finally {
-      setLoading(false);
-    }
   };
 
   useEffect(() => {

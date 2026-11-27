@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import Image from 'next/image';
-import { UploadCloud, Link as LinkIcon, Image as ImageIcon, X, Sparkles, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Camera,Link as LinkIcon,X } from 'lucide-react';
+import Image from 'next/image';
+import { useRef,useState } from 'react';
 import { toast } from 'sonner';
 
 type ImagePickerProps = {

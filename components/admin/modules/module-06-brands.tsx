@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  Building2, Plus, Search, Edit, Trash2, CheckCircle2, XCircle,
-  ExternalLink, Sparkles
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,DialogContent,DialogDescription,
+  DialogFooter,
+  DialogHeader,DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import type { Brand,Product } from '@/lib/types';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import type { Brand, Product } from '@/lib/types';
+  Building2,
+  Edit,
+  Plus,Search,
+  Trash2
+} from 'lucide-react';
+import { useMemo,useState } from 'react';
 import { toast } from 'sonner';
 
 type Module06Props = {

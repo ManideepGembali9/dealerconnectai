@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Truck, MapPin, CheckCircle2, Save, Store, ShieldCheck } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import type { Dealer } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
+import type { Dealer } from '@/lib/types';
+import { Save,Truck } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 type Module12Props = {

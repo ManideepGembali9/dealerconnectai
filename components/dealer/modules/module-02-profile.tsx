@@ -1,19 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Store, MapPin, Phone, Mail, Clock, Truck, Save, Loader2,
-  Image as ImageIcon, CheckCircle2, MessageSquare, Globe
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ImagePicker } from '@/components/ui/image-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ImagePicker } from '@/components/ui/image-picker';
-import type { Dealer } from '@/lib/types';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth';
+import type { Dealer } from '@/lib/types';
+import {
+  Clock,
+  MapPin,
+  Save,
+  Store,
+  Truck
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 type Module02Props = {

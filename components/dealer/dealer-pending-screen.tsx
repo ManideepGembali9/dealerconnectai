@@ -1,11 +1,11 @@
 'use client';
 
-import { Store, Clock, RefreshCw, LogOut, Phone, ShieldCheck, Mail } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import type { Dealer } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
+import type { Dealer } from '@/lib/types';
+import { Clock,LogOut,Phone,RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 type PendingProps = {

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Sparkles, MessageCircle, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { aiChatReply,type ChatContext,type ChatMessage } from '@/lib/ai';
 import { useApp } from '@/lib/providers';
-import { aiChatReply, type ChatMessage, type ChatContext } from '@/lib/ai';
-import type { Product, Dealer, Category } from '@/lib/supabase';
+import type { Category,Dealer,Product } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { Bot,MessageCircle,Move,Send,X } from 'lucide-react';
+import { useEffect,useRef,useState } from 'react';
 
 type Props = {
   products?: Product[];
@@ -16,7 +16,7 @@ type Props = {
 };
 
 export function Chatbot({ products = [], dealers = [], categories = [] }: Props) {
-  const { t, location } = useApp();
+  const { location } = useApp();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -35,12 +35,28 @@ export function Chatbot({ products = [], dealers = [], categories = [] }: Props)
   const hasMovedRef = useRef(false);
 
   useEffect(() => {
-    // Initial position bottom-right on client mount
-    if (typeof window !== 'undefined') {
-      const defaultX = Math.max(16, window.innerWidth - 76);
-      const defaultY = Math.max(80, window.innerHeight - 150);
-      setPos({ x: defaultX, y: defaultY });
-    }
+    // Keep floating button inside safe viewport bounds above mobile bottom nav
+    const updateSafePosition = () => {
+      if (typeof window === 'undefined') return;
+      const isMobile = window.innerWidth < 768;
+      const minTop = 76;
+      const maxX = Math.max(12, window.innerWidth - 72);
+      const maxY = Math.max(minTop, window.innerHeight - (isMobile ? 148 : 88));
+
+      setPos((prev) => {
+        if (!prev) {
+          return { x: maxX, y: maxY };
+        }
+        return {
+          x: Math.min(Math.max(12, prev.x), maxX),
+          y: Math.min(Math.max(minTop, prev.y), maxY),
+        };
+      });
+    };
+
+    updateSafePosition();
+    window.addEventListener('resize', updateSafePosition);
+    return () => window.removeEventListener('resize', updateSafePosition);
   }, []);
 
   useEffect(() => {
@@ -81,8 +97,10 @@ export function Chatbot({ products = [], dealers = [], categories = [] }: Props)
       hasMovedRef.current = true;
     }
 
-    const nextX = Math.min(Math.max(10, dragStartRef.current.initX + dx), window.innerWidth - 65);
-    const nextY = Math.min(Math.max(70, dragStartRef.current.initY + dy), window.innerHeight - 80);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const maxY = window.innerHeight - (isMobile ? 148 : 84);
+    const nextX = Math.min(Math.max(12, dragStartRef.current.initX + dx), window.innerWidth - 72);
+    const nextY = Math.min(Math.max(76, dragStartRef.current.initY + dy), maxY);
 
     setPos({ x: nextX, y: nextY });
   };
@@ -166,7 +184,7 @@ export function Chatbot({ products = [], dealers = [], categories = [] }: Props)
 
       {/* CHATBOT DIALOG / DRAWER */}
       {open && (
-        <div className="fixed inset-x-4 bottom-24 sm:inset-x-auto sm:right-6 sm:bottom-24 z-50 flex h-[480px] max-h-[calc(100vh-9rem)] sm:w-[380px] flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl animate-in fade-in zoom-in-95">
+        <div className="fixed inset-x-4 bottom-24 md:inset-x-auto md:right-6 md:bottom-24 z-50 flex h-[460px] max-h-[calc(100vh-10rem)] md:w-[380px] flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl animate-in fade-in zoom-in-95">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border/60 bg-primary p-3.5 text-primary-foreground">
             <div className="flex items-center gap-2.5">
@@ -176,7 +194,7 @@ export function Chatbot({ products = [], dealers = [], categories = [] }: Props)
               <div>
                 <h3 className="text-sm font-bold leading-tight">DealerConnect Assistant</h3>
                 <p className="flex items-center gap-1.5 text-[11px] text-primary-foreground/80">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" /> Live Shopping Helper
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse" /> Live Shopping Helper
                 </p>
               </div>
             </div>

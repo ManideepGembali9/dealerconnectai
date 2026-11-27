@@ -1,27 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import {
-  ArrowLeft, Send, MessageSquare, Store, Phone, Navigation,
-  Star, MapPin, ImageIcon, Paperclip, Loader2, Circle,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useApp } from '@/lib/providers';
-import { fetchApprovedDealers, fetchDealerById } from '@/lib/data';
-import { fetchConversations, fetchMessages, sendMessage, markMessagesRead, getCustomerId } from '@/lib/messaging';
-import { supabase } from '@/lib/supabase';
-import { haversineKm, formatDistance } from '@/lib/geo';
-import { timeAgo } from '@/lib/format';
-import type { Dealer, Message } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/states';
+import { Textarea } from '@/components/ui/textarea';
+import { fetchApprovedDealers,fetchDealerById } from '@/lib/data';
+import { timeAgo } from '@/lib/format';
+import { fetchConversations,fetchMessages,markMessagesRead,sendMessage } from '@/lib/messaging';
+import { useApp } from '@/lib/providers';
+import type { Dealer,Message } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import {
+  ArrowLeft,
+  Circle,
+  ImageIcon,
+  Loader2,
+  MessageSquare,
+  Navigation,
+  Phone,
+  Send,
+  Star,
+  Store
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter,useSearchParams } from 'next/navigation';
+import { useEffect,useRef,useState } from 'react';
 import { toast } from 'sonner';
 
 export function MessagesClient() {

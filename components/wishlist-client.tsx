@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Heart, ShoppingBag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ProductCard } from '@/components/product-card';
-import { useApp } from '@/lib/providers';
+import { Button } from '@/components/ui/button';
 import { fetchProducts } from '@/lib/data';
+import { useApp } from '@/lib/providers';
 import type { Product } from '@/lib/types';
+import { Heart } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect,useState } from 'react';
 
 export function WishlistClient() {
   const { wishlist, t } = useApp();

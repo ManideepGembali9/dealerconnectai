@@ -1,30 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Store,
-  Building,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  Truck,
-  CheckCircle2,
-  AlertCircle,
-  Navigation,
-  FileText,
-  Lock,
-  ChevronRight,
-  ChevronLeft,
-  X,
-  Info,
-  Sparkles,
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -32,8 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getDbCategories, saveDbDealerApplication, broadcastSync } from '@/lib/firebase-db';
-import type { Category, DealerApplication } from '@/lib/types';
+import { broadcastSync,getDbCategories,saveDbDealerApplication } from '@/lib/firebase-db';
+import type { Category,DealerApplication } from '@/lib/types';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Navigation,
+  Store,
+  Truck,
+  X
+} from 'lucide-react';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 const AP_PIN_DIRECTORY: Record<string, { city: string; district: string; state: string }> = {
@@ -111,6 +101,16 @@ export function DealerRegistrationForm({
     delivery_details: 'Free home delivery within local radius',
     gst_number: '',
   });
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      owner_name: prev.owner_name || customerName,
+      phone: prev.phone || customerPhone,
+      email: prev.email || customerEmail,
+      whatsapp: prev.whatsapp || customerPhone,
+    }));
+  }, [customerName, customerEmail, customerPhone]);
 
   useEffect(() => {
     async function loadMeta() {
@@ -271,12 +271,12 @@ export function DealerRegistrationForm({
   if (submittedApp) {
     return (
       <div className="py-6 px-4 max-w-lg mx-auto text-center space-y-4 animate-in fade-in duration-200">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-600 shadow-md">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
           <CheckCircle2 className="h-9 w-9" />
         </div>
 
         <div>
-          <Badge variant="outline" className="text-xs font-bold text-emerald-600 border-emerald-500/40 bg-emerald-500/5 mb-1">
+          <Badge variant="outline" className="text-xs font-bold text-foreground border-border bg-muted mb-1">
             Application Received
           </Badge>
           <h2 className="text-xl font-black text-foreground">Dealership Registration Submitted!</h2>
@@ -285,7 +285,7 @@ export function DealerRegistrationForm({
           </p>
         </div>
 
-        <Card className="p-4 text-left border border-border/80 bg-muted/30 rounded-2xl space-y-2.5 text-xs shadow-sm">
+        <Card className="p-4 text-left border border-border bg-muted/30 rounded-2xl space-y-2.5 text-xs shadow-sm">
           <div className="flex justify-between border-b border-border/50 pb-2">
             <span className="text-muted-foreground">Application ID:</span>
             <span className="font-mono font-black text-foreground">{submittedApp.id}</span>
@@ -300,7 +300,7 @@ export function DealerRegistrationForm({
           </div>
           <div className="flex justify-between border-b border-border/50 pb-2">
             <span className="text-muted-foreground">Status:</span>
-            <span className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide text-[11px]">
+            <span className="font-bold text-foreground uppercase tracking-wide text-[11px]">
               ● Pending Review
             </span>
           </div>
@@ -584,7 +584,7 @@ export function DealerRegistrationForm({
         {/* Auto Detect GPS */}
         <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/40 text-xs">
           <div className="flex items-center gap-2">
-            <Navigation className={`h-4 w-4 ${gpsCaptured ? 'text-emerald-600' : 'text-primary'}`} />
+            <Navigation className="h-4 w-4 text-primary" />
             <div>
               <p className="font-bold text-foreground">
                 {gpsCaptured ? 'Showroom GPS Pinned' : 'Showroom GPS Location'}

@@ -1,9 +1,14 @@
 import { fetchCategories, fetchApprovedDealers, fetchProducts } from '@/lib/data';
+import { getAppUrl } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dealerconnectai.app';
+export async function GET(request: Request) {
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+    (host && !host.includes('localhost') && !host.includes('127.0.0.1') ? `${proto}://${host}` : getAppUrl());
   const now = new Date().toISOString();
 
   interface SitemapEntry {

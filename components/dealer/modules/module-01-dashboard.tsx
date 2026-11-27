@@ -1,17 +1,26 @@
 'use client';
 
-import { useMemo } from 'react';
-import {
-  Store, Package, CheckCircle2, AlertTriangle, MessageSquare, Clock,
-  Eye, TrendingUp, DollarSign, Star, Plus, ShieldCheck, ArrowUpRight,
-  Phone, UserCheck
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import type { Dealer, Product, Enquiry, Review } from '@/lib/types';
-import { formatCompact, formatINR, getEffectivePrice, timeAgo } from '@/lib/format';
+import { formatCompact,formatINR,getEffectivePrice,timeAgo } from '@/lib/format';
+import type { Dealer,Enquiry,Product,Review } from '@/lib/types';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  Eye,
+  MessageSquare,
+  Package,
+  Plus,ShieldCheck,
+  Store,
+  TrendingUp,
+  UserCheck
+} from 'lucide-react';
+import { useMemo } from 'react';
 
 type Module01Props = {
   dealer: Dealer;
