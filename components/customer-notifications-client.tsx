@@ -11,9 +11,9 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/lib/notifications';
-import { Bell,BellOff,Check,Package,Store,TrendingUp } from 'lucide-react';
+import { Bell, BellOff, Check, Package, Store, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback,useEffect,useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function CustomerNotificationsClient() {
   const router = useRouter();
@@ -95,17 +95,19 @@ export function CustomerNotificationsClient() {
       {notifications.length > 0 ? (
         <div className="space-y-2">
           {notifications.map((n) => (
-            <Card key={n.id} className={`flex items-start gap-3 p-4 ${!n.is_read ? 'border-primary/30 bg-primary/5' : ''}`}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">{typeIcon(n.type)}</div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{n.title}</p>
-                <p className="text-sm text-muted-foreground">{n.message}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{timeAgo(n.created_at)}</span>
-                  {!n.is_read && <Badge className="bg-primary/15 text-primary text-[10px]">New</Badge>}
+            <Card key={n.id} className={`flex flex-col sm:flex-row sm:items-start gap-3 p-4 ${!n.is_read ? 'border-primary/30 bg-primary/5' : ''}`}>
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">{typeIcon(n.type)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{n.title}</p>
+                  <p className="text-sm text-muted-foreground break-words">{n.message}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{timeAgo(n.created_at)}</span>
+                    {!n.is_read && <Badge className="bg-primary/15 text-primary text-[10px]">New</Badge>}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center justify-end gap-1 shrink-0">
                 {!n.is_read && <Button size="sm" variant="ghost" onClick={() => markAsRead(n.id)}>Mark read</Button>}
                 <Button size="sm" variant="ghost" onClick={() => handleDismiss(n.id)} className="text-xs text-muted-foreground">Dismiss</Button>
               </div>

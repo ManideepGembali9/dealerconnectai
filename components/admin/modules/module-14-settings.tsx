@@ -207,11 +207,10 @@ export function Module14Settings() {
             )}
             {pwFeedback && (
               <div
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                  pwFeedback.type === 'success'
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                    : 'border-destructive/30 bg-destructive/10 text-destructive'
-                }`}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pwFeedback.type === 'success'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive'
+                  }`}
               >
                 {pwFeedback.text}
               </div>
@@ -287,11 +286,10 @@ export function Module14Settings() {
           )}
           {settingsFeedback && (
             <div
-              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                settingsFeedback.type === 'success'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                  : 'border-destructive/30 bg-destructive/10 text-destructive'
-              }`}
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settingsFeedback.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
+                }`}
             >
               {settingsFeedback.text}
             </div>

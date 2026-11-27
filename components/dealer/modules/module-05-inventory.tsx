@@ -116,19 +116,6 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
           </button>
         </div>
       )}
-      {feedback && (
-        <div
-          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-            : 'border-destructive/30 bg-destructive/10 text-destructive'
-            }`}
-        >
-          <span>{feedback.text}</span>
-          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
-            Dismiss
-          </button>
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="p-4 border-border/80">
           <span className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
