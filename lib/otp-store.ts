@@ -196,3 +196,35 @@ export function clearOtp(identifier: string): void {
   const cleanId = identifier.trim().toLowerCase();
   otpStore.delete(cleanId);
 }
+
+const ADMIN_PW_COOKIE_NAME = 'dc_admin_pw_override';
+
+export { ADMIN_PW_COOKIE_NAME };
+
+export function createAdminPasswordOverrideToken(email: string, newPassword: string): string {
+  const pwHash = crypto
+    .createHmac('sha256', getHmacSecret())
+    .update(newPassword)
+    .digest('hex');
+  return signPayload({
+    email: email.trim().toLowerCase(),
+    pwHash,
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+  });
+}
+
+export function verifyAdminPasswordOverrideToken(
+  email: string,
+  candidatePassword: string,
+  token: string | undefined
+): boolean {
+  const parsed = verifySignedPayload<{ email: string; pwHash: string; exp: number }>(token);
+  if (!parsed || parsed.email !== email.trim().toLowerCase()) return false;
+  const candidateHash = crypto
+    .createHmac('sha256', getHmacSecret())
+    .update(candidatePassword)
+    .digest('hex');
+  const a = Buffer.from(parsed.pwHash, 'utf8');
+  const b = Buffer.from(candidateHash, 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}

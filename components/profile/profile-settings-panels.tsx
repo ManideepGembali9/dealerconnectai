@@ -161,12 +161,13 @@ export function ProfileSettingsPanelContent({
   const [showContact, setShowContact] = useState<boolean>(custPrefs.show_contact ?? true);
 
   // Push notification preferences state
-  const [notifPrefs, setNotifPrefsState] = useState(() => getNotificationPrefs());
+  const [notifPrefs, setNotifPrefsState] = useState({ in_stock: true, price_drop: true, nearby: true });
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    setNotifPrefsState(getNotificationPrefs());
     getPushSubscription()
       .then((sub) => setPushSubscribed(!!sub))
       .catch(() => { });

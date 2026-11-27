@@ -38,6 +38,22 @@ function addRecentSearch(q: string) {
   } catch {}
 }
 
+function isShopOpen(workingHours: Record<string, string>): boolean {
+  const now = new Date();
+  const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const hours = workingHours[day];
+  if (!hours || hours === 'closed') return false;
+  if (hours === '24hours') return true;
+  const m = hours.match(/(\d+):(\d+)-(\d+):(\d+)/);
+  if (!m) return false;
+  const [, sh, sm, eh, em] = m.map(Number);
+  const currentMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if (endMin <= startMin) endMin += 24 * 60;
+  return currentMin >= startMin && currentMin <= endMin;
+}
+
 export function SearchClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -128,6 +144,7 @@ export function SearchClient() {
     if (minRating > 0) results = results.filter((p) => (p.dealer?.rating ?? 0) >= minRating);
 
     // Delivery / pickup / open now / verified
+    if (openNow) results = results.filter((p) => p.dealer && isShopOpen(p.dealer.working_hours || {}));
     if (deliveryOnly) results = results.filter((p) => p.delivery_available || p.dealer?.delivery_available);
     if (pickupOnly) results = results.filter((p) => p.pickup_available || p.dealer?.pickup_available);
     if (verifiedOnly) results = results.filter((p) => p.ai_verified);
@@ -177,7 +194,7 @@ export function SearchClient() {
     }
 
     return withDistance;
-  }, [allProducts, query, selectedCategory, stockOnly, offersOnly, trendingOnly, maxPrice, minRating, deliveryOnly, pickupOnly, verifiedOnly, sort, pin, dealers, categories, location]);
+  }, [allProducts, query, selectedCategory, stockOnly, offersOnly, trendingOnly, openNow, maxPrice, minRating, deliveryOnly, pickupOnly, verifiedOnly, sort, pin, dealers, categories, location]);
 
   const updateUrl = (updates: Record<string, string | undefined>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -202,13 +219,44 @@ export function SearchClient() {
     }
   };
 
-  const handlePin = (value: string) => {
+  const handlePin = async (value: string) => {
     setPin(value);
     if (value.length === 6) {
       const c = getPinCentroid(value);
       setLocation({ pinCode: value, label: c?.label ?? value, lat: c?.lat ?? null, lng: c?.lng ?? null });
       updateUrl({ pin: value });
+      try {
+        const dls = await fetchDealersByPin(value);
+        setDealers(dls);
+      } catch {}
+    } else if (value.length === 0) {
+      setDealers([]);
+      updateUrl({ pin: undefined });
     }
+  };
+
+  const handleVoiceQuickSearch = () => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      try {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        toast.info('Listening... Speak a product name');
+        recognition.onresult = (event: any) => {
+          const spoken = event?.results?.[0]?.[0]?.transcript?.trim();
+          if (spoken) {
+            setQuery(spoken);
+            updateUrl({ q: spoken });
+          }
+        };
+        recognition.onerror = () => toast.error('Could not capture voice input');
+        recognition.start();
+        return;
+      } catch {}
+    }
+    toast.info('Voice search is not supported in this browser');
   };
 
   const clearFilters = () => {
@@ -293,8 +341,8 @@ export function SearchClient() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('searchPlaceholder')} className="h-11 pl-9 pr-20" />
           <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8"><Mic className="h-4 w-4" /></Button>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8"><Camera className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Voice Search" onClick={handleVoiceQuickSearch}><Mic className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Visual Search" onClick={() => router.push('/ai-search')}><Camera className="h-4 w-4" /></Button>
           </div>
         </div>
         <div className="relative sm:w-36">

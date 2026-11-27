@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
-import { verifyResetToken, clearOtp, extractCookieValue } from '@/lib/otp-store';
+import {
+  ADMIN_PW_COOKIE_NAME,
+  verifyResetToken,
+  clearOtp,
+  createAdminPasswordOverrideToken,
+  extractCookieValue,
+} from '@/lib/otp-store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const ADMIN_EMAILS = [
+  'admin@dealerconnect.ai',
+  'admin@demo.in',
+  'admin@dealerconnectai.com',
+];
 
 export async function POST(request: Request) {
   try {
@@ -25,10 +37,10 @@ export async function POST(request: Request) {
 
     const cleanId = identifier.trim().toLowerCase();
 
-    // Verify token validity (supports signed stateless cookie for Vercel + local map)
+    // Strictly verify OTP-issued reset token (via signed stateless cookie or server store)
     const resetCookie = extractCookieValue(request.headers.get('cookie'), 'dc_reset_session');
-    const isValidToken = verifyResetToken(cleanId, resetToken, resetCookie);
-    if (!isValidToken && !resetToken.startsWith('tok-')) {
+    const isValidToken = verifyResetToken(cleanId, String(resetToken), resetCookie);
+    if (!isValidToken) {
       return NextResponse.json(
         { error: 'Invalid or expired password reset session. Please request a new OTP.' },
         { status: 401 }
@@ -42,6 +54,16 @@ export async function POST(request: Request) {
       success: true,
       message: 'Password has been successfully updated! You can now sign in with your new password.',
     });
+    if (ADMIN_EMAILS.includes(cleanId)) {
+      const overrideTok = createAdminPasswordOverrideToken(cleanId, newPassword);
+      response.cookies.set(ADMIN_PW_COOKIE_NAME, overrideTok, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+      });
+    }
     response.cookies.set('dc_otp_session', '', { path: '/', maxAge: 0 });
     response.cookies.set('dc_reset_session', '', { path: '/', maxAge: 0 });
     return response;

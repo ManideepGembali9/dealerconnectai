@@ -6,6 +6,11 @@ import {
   signPortalSession,
   verifyPortalSession,
 } from '@/lib/session-token';
+import {
+  ADMIN_PW_COOKIE_NAME,
+  extractCookieValue,
+  verifyAdminPasswordOverrideToken,
+} from '@/lib/otp-store';
 import { INITIAL_DEALERS } from '@/lib/seed-data';
 
 export const dynamic = 'force-dynamic';
@@ -129,9 +134,11 @@ export async function POST(request: Request) {
           { status: 403, headers: NO_STORE_HEADERS }
         );
       }
-      const envAdminPw = process.env.ADMIN_MASTER_PASSWORD || 'admin123';
-      const customHash = typeof body?.verifiedPasswordMatch === 'boolean' ? body.verifiedPasswordMatch : false;
-      const passwordOk = password === envAdminPw || password === 'admin123' || (customHash && Boolean(password));
+      const configuredAdminPw = process.env.ADMIN_MASTER_PASSWORD;
+      const expectedAdminPw = configuredAdminPw || 'admin123';
+      const overrideCookie = extractCookieValue(request.headers.get('cookie'), ADMIN_PW_COOKIE_NAME);
+      const overrideMatch = verifyAdminPasswordOverrideToken(emailRaw, password, overrideCookie);
+      const passwordOk = password === expectedAdminPw || overrideMatch;
       if (!passwordOk) {
         return NextResponse.json(
           { error: 'Invalid admin credentials.' },
@@ -166,6 +173,12 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: 'Dealer identity missing or unverified.' },
           { status: 403, headers: NO_STORE_HEADERS }
+        );
+      }
+      if (!password) {
+        return NextResponse.json(
+          { error: 'Dealer password is required.' },
+          { status: 401, headers: NO_STORE_HEADERS }
         );
       }
       if (dealerStatus !== 'approved') {

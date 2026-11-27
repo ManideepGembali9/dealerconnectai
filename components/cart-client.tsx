@@ -81,6 +81,13 @@ export function CartClient() {
       const ids: string[] = [];
       for (const [dealerId, items] of byDealer.entries()) {
         const primaryItem = items[0];
+        const dealerSubtotal = items.reduce((sum, it) => {
+          const p = it.product.discount_price && it.product.discount_price > 0
+            ? it.product.discount_price
+            : it.product.price;
+          return sum + p * it.quantity;
+        }, 0);
+        const dealerTotal = discountApplied ? Math.round(dealerSubtotal * 0.9) : dealerSubtotal;
         const summaryLines = items
           .map((it) => `${it.quantity}x ${it.product.name}`)
           .join(', ');
@@ -93,7 +100,7 @@ export function CartClient() {
           product_name: primaryItem.product.name,
           customer_name: cleanName,
           customer_phone: cleanPhone,
-          message: `Cart Order Enquiry (${items.length} item${items.length > 1 ? 's' : ''}): ${summaryLines}. Estimated total ${formatINR(finalTotal)}.`,
+          message: `Cart Order Enquiry (${items.length} item${items.length > 1 ? 's' : ''}): ${summaryLines}. Estimated total ${formatINR(dealerTotal)}.`,
           channel: 'form',
           status: 'pending',
         });

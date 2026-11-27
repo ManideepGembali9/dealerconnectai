@@ -147,7 +147,7 @@ async function clearServerSessionCookie(portal: UserRole): Promise<void> {
     await fetch(`/api/auth/session?portal=${encodeURIComponent(portal)}`, {
       method: 'DELETE',
     });
-  } catch {}
+  } catch { }
 }
 
 function readStoredCustomer(): CustomerProfile | null {
@@ -239,7 +239,7 @@ async function findExistingCustomerByEmail(email: string): Promise<CustomerProfi
     if (data && data.id) {
       return data as CustomerProfile;
     }
-  } catch {}
+  } catch { }
 
   return null;
 }
@@ -260,11 +260,11 @@ async function saveDeduplicatedCustomerRecord(profile: CustomerProfile): Promise
     );
     filtered.push(normalized);
     localStorage.setItem('dc-customers-registry', JSON.stringify(filtered));
-  } catch {}
+  } catch { }
 
   try {
     await supabase.from('customers').upsert(normalized);
-  } catch {}
+  } catch { }
 }
 
 function readStoredDealerId(): string | null {
@@ -424,11 +424,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return { error: 'Invalid admin credentials.' };
           }
 
-          const customMatched = password === savedAdminPw && savedAdminPw !== 'admin123';
           const srv = await syncServerSessionCookie('admin', {
             email: lowerEmail,
             password,
-            verifiedPasswordMatch: customMatched,
           });
           if (!srv.ok) {
             return { error: srv.error || 'Admin verification failed.' };
@@ -705,7 +703,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await saveDeduplicatedCustomerRecord(updated);
       try {
         await supabase.from('customers').upsert(updated);
-      } catch {}
+      } catch { }
 
       return { error: null };
     },
@@ -801,42 +799,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const googleProfile: CustomerProfile = existing
           ? {
-              ...existing,
-              full_name: resolvedName,
-              email: lowerEmail,
-              avatar_url: resolvedAvatar,
-              preferences: {
-                ...existingPrefs,
-                verified: true,
-                email_verified: true,
-                auth_provider: 'google',
-                google_sub: cleanSub,
-              },
-              updated_at: nowIso,
-            }
+            ...existing,
+            full_name: resolvedName,
+            email: lowerEmail,
+            avatar_url: resolvedAvatar,
+            preferences: {
+              ...existingPrefs,
+              verified: true,
+              email_verified: true,
+              auth_provider: 'google',
+              google_sub: cleanSub,
+            },
+            updated_at: nowIso,
+          }
           : {
-              id: `google-cust-${cleanSub.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || Date.now()}`,
-              full_name: resolvedName,
-              email: lowerEmail,
-              phone: '',
-              pin_code: '532440',
-              preferred_city: 'Amalapuram',
-              preferred_location: {},
-              avatar_url: resolvedAvatar,
-              preferences: {
-                verified: true,
-                email_verified: true,
-                auth_provider: 'google',
-                google_sub: cleanSub,
-                notifications: true,
-                in_stock_alerts: true,
-                share_location: true,
-                personalized_ai: true,
-                show_contact: true,
-              },
-              created_at: nowIso,
-              updated_at: nowIso,
-            };
+            id: `google-cust-${cleanSub.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || Date.now()}`,
+            full_name: resolvedName,
+            email: lowerEmail,
+            phone: '',
+            pin_code: '532440',
+            preferred_city: 'Amalapuram',
+            preferred_location: {},
+            avatar_url: resolvedAvatar,
+            preferences: {
+              verified: true,
+              email_verified: true,
+              auth_provider: 'google',
+              google_sub: cleanSub,
+              notifications: true,
+              in_stock_alerts: true,
+              share_location: true,
+              personalized_ai: true,
+              show_contact: true,
+            },
+            created_at: nowIso,
+            updated_at: nowIso,
+          };
 
         await saveDeduplicatedCustomerRecord(googleProfile);
         persistCustomerSession(googleProfile);

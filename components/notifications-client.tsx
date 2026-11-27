@@ -44,8 +44,12 @@ export function NotificationsClient() {
   const [loading, setLoading] = useState(true);
   const [subscribed, setSubscribed] = useState(false);
   const [subLoading, setSubLoading] = useState(true);
-  const [prefs, setPrefs] = useState(getNotificationPrefs());
+  const [prefs, setPrefs] = useState({ in_stock: true, price_drop: true, nearby: true });
   const [updatingPrefs, setUpdatingPrefs] = useState(false);
+
+  useEffect(() => {
+    setPrefs(getNotificationPrefs());
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     try {
