@@ -122,9 +122,9 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
       </Link>
 
       {/* Content Details */}
-      <div className="flex flex-1 flex-col p-4">
-        <div className="mb-1 flex items-center justify-between gap-1 text-[11px]">
-          <span className={cn('flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold', stock.className)}>
+      <div className="flex flex-1 flex-col p-2.5 sm:p-4">
+        <div className="mb-1 flex items-center justify-between gap-1 text-[10px] sm:text-[11px]">
+          <span className={cn('flex items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold shrink-0', stock.className)}>
             <span className={cn('h-1.5 w-1.5 rounded-full', stock.dot)} />
             {stockLabel}
           </span>
@@ -140,17 +140,17 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
         </Link>
 
         {/* Pricing */}
-        <div className="mt-2 flex items-baseline gap-1.5">
-          <span className="text-base sm:text-lg font-black text-foreground">{formatINR(price)}</span>
+        <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-sm sm:text-lg font-black text-foreground">{formatINR(price)}</span>
           {discount > 0 && (
-            <span className="text-xs text-muted-foreground line-through font-semibold">{formatINR(product.price)}</span>
+            <span className="text-[11px] sm:text-xs text-muted-foreground line-through font-semibold">{formatINR(product.price)}</span>
           )}
         </div>
 
         {/* Dealer Shop Name & Distance */}
         {product.dealer && (
-          <div className="mt-2.5 flex items-center gap-1 text-xs text-muted-foreground border-t border-border pt-2 font-medium">
-            <MapPin className="h-3.5 w-3.5 text-foreground shrink-0" />
+          <div className="mt-2 flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground border-t border-border pt-2 font-medium">
+            <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-foreground shrink-0" />
             <span className="truncate">{product.dealer.shop_name}</span>
             {distanceKm !== undefined && (
               <span className="ml-auto shrink-0 font-bold text-foreground">{distanceKm.toFixed(1)} km</span>
@@ -160,19 +160,19 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
 
         <Link
           href={`/product/${product.id}#available-shops`}
-          className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-foreground hover:underline transition-colors"
+          className="mt-1.5 flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground hover:text-foreground hover:underline transition-colors truncate"
         >
-          <Store className="h-3 w-3" />
-          <span>Available in multiple showrooms &rarr;</span>
+          <Store className="h-3 w-3 shrink-0" />
+          <span className="truncate">Available in multiple showrooms</span>
         </Link>
 
         {/* Interactive Action Buttons */}
-        <div className="mt-3.5 flex items-center gap-1.5">
+        <div className="mt-auto pt-3 flex items-center gap-1.5">
           <Button
             size="sm"
             onClick={handleAddToCart}
             className={cn(
-              'h-8 flex-1 text-xs font-bold rounded-xl transition-all',
+              'h-8 flex-1 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-xl transition-all truncate',
               inCart
                 ? 'bg-muted text-foreground border border-border hover:bg-muted/80'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -181,11 +181,11 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
           >
             {inCart ? (
               <>
-                <Check className="mr-1 h-3.5 w-3.5" /> {t('inCart')}
+                <Check className="mr-1 h-3.5 w-3.5 shrink-0" /> <span className="truncate">{t('inCart')}</span>
               </>
             ) : (
               <>
-                <ShoppingCart className="mr-1 h-3.5 w-3.5" /> {t('addToCart')}
+                <ShoppingCart className="mr-1 h-3.5 w-3.5 shrink-0" /> <span className="truncate">{t('addToCart')}</span>
               </>
             )}
           </Button>
@@ -194,7 +194,7 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
             variant="outline"
             size="sm"
             className={cn(
-              'h-8 px-2.5 text-xs rounded-xl border border-border transition-all',
+              'h-8 px-2 sm:px-2.5 text-xs rounded-xl border border-border transition-all shrink-0',
               inCompare
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'text-foreground hover:bg-muted'

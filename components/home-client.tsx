@@ -351,14 +351,14 @@ export function HomeClient() {
          ============================================================ */}
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 w-full overflow-hidden">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-2xl font-black text-[#000000] tracking-tight">
+          <h2 className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
             Popular Categories
           </h2>
           <Link
             href="/categories"
-            className="text-xs sm:text-sm font-bold text-[#000000] hover:underline flex items-center gap-1 transition-colors"
+            className="text-xs sm:text-sm font-bold text-foreground hover:underline flex items-center gap-1 transition-colors"
           >
-            View All &rarr;
+            View All <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
@@ -382,12 +382,12 @@ export function HomeClient() {
                 href={`/categories/${item.slug}`}
                 className="group flex flex-col items-center shrink-0 w-[72px] sm:w-[88px] text-center transition-all duration-200"
               >
-                {/* Black Circular Background with White SVG Icon */}
-                <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#000000] text-[#FFFFFF] shadow-sm transition-transform duration-200 group-hover:scale-105 active:scale-95 group-hover:bg-[#1a1a1a]">
-                  <IconComp className="h-6 w-6 sm:h-7 sm:w-7 text-[#FFFFFF] stroke-[2]" />
+                {/* Theme-aware Circular Background with Lucide SVG Icon */}
+                <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 active:scale-95">
+                  <IconComp className="h-6 w-6 sm:h-7 sm:w-7 stroke-[2]" />
                 </div>
                 {/* Clean Category Name Below */}
-                <span className="mt-2 text-[11px] sm:text-xs font-semibold text-[#000000] leading-tight line-clamp-1 group-hover:underline">
+                <span className="mt-2 text-[11px] sm:text-xs font-semibold text-foreground leading-tight line-clamp-1 group-hover:underline">
                   {item.name}
                 </span>
               </Link>
@@ -397,9 +397,9 @@ export function HomeClient() {
 
         {/* Subtle Scroll Indicator */}
         <div className="flex justify-center mt-3">
-          <div className="w-16 h-1 rounded-full bg-[#E5E5E5] overflow-hidden">
+          <div className="w-16 h-1 rounded-full bg-border overflow-hidden">
             <div
-              className="h-full bg-[#000000] rounded-full transition-all duration-150"
+              className="h-full bg-foreground rounded-full transition-all duration-150"
               style={{
                 width: '35%',
                 transform: `translateX(${categoryScrollProgress * 1.85}%)`,
@@ -462,7 +462,7 @@ export function HomeClient() {
             size="sm"
             className="border-border text-foreground hover:bg-muted font-bold text-xs rounded-xl"
           >
-            <Link href="/nearby">
+            <Link href="/shops">
               {t('viewAll')} <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Link>
           </Button>

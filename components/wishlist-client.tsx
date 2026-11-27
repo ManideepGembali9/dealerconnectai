@@ -60,11 +60,11 @@ export function WishlistClient() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 text-foreground">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-black text-foreground">
-        <Heart className="h-6 w-6 fill-current text-foreground" /> {t('myWishlist')} ({products.length})
+    <div className="mx-auto max-w-7xl px-3.5 py-5 sm:px-6 sm:py-8 text-foreground">
+      <h1 className="mb-4 sm:mb-6 flex items-center gap-2 text-xl sm:text-2xl font-black text-foreground">
+        <Heart className="h-5 w-5 sm:h-6 sm:w-6 fill-current text-foreground" /> {t('myWishlist')} ({products.length})
       </h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}

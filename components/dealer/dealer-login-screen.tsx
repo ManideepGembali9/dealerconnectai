@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { getDbDealerApplications,getDbDealers } from '@/lib/firebase-db';
 import type { Dealer } from '@/lib/types';
-import { PwaInstallButton } from '@/components/pwa-install-button';
 import {
   AlertCircle,
   ArrowRight,
@@ -311,10 +310,6 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
 
   return (
     <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overscroll-none bg-gradient-to-br from-background via-emerald-950/5 to-muted/30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
-      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
-        <PwaInstallButton portalName="Dealer App" compact />
-      </div>
-
       <div className="relative my-auto w-full max-w-md space-y-3 sm:space-y-4 shrink-0">
         {/* Brand header */}
         <div className="text-center space-y-1">
@@ -454,13 +449,16 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
       </div>
 
       {/* ============================================================= */}
-      {/* DEALER REGISTRATION MODAL (SMOOTH DIALOG WITH INTERNAL SCROLL) */}
+      {/* DEALER REGISTRATION MODAL (FULLSCREEN ON MOBILE, SINGLE CLOSE)*/}
       {/* ============================================================= */}
       <Dialog open={regModalOpen} onOpenChange={setRegModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 rounded-3xl border-border shadow-2xl">
+        <DialogContent
+          hideCloseButton
+          className="w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto p-0 rounded-none sm:rounded-3xl border-0 sm:border border-border shadow-2xl"
+        >
           <DialogTitle className="sr-only">New Dealership Application</DialogTitle>
           <DialogDescription className="sr-only">Complete your shop registration form to apply for a verified dealer account.</DialogDescription>
-          <div className="p-4 sm:p-6">
+          <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6">
             <DealerRegistrationForm
               onCancel={() => setRegModalOpen(false)}
               onSuccess={(appId) => {

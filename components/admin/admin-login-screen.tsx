@@ -5,7 +5,6 @@ import {
   Shield, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, CheckCircle2,
   KeyRound, Smartphone, RefreshCw, Sparkles, Check, ShieldCheck
 } from 'lucide-react';
-import { PwaInstallButton } from '@/components/pwa-install-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -221,11 +220,6 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
     >
       {/* Decorative background grid */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(#8b5cf6_1px,transparent_1px)] opacity-15 [background-size:24px_24px]" />
-
-      {/* Standalone PWA Install Shortcut (renders only when install prompt available) */}
-      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
-        <PwaInstallButton portalName="Admin App" compact />
-      </div>
 
       <div className="relative my-auto w-full max-w-md space-y-3 sm:space-y-4 shrink-0">
         {/* Compact Mobile-App Header */}

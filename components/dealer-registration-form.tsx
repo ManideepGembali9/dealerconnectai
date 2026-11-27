@@ -332,13 +332,13 @@ export function DealerRegistrationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-xl mx-auto pb-10">
-      {/* Top Header & Cancel Button */}
-      <div className="flex items-center justify-between pb-3 border-b border-border">
-        <div>
-          <h2 className="text-lg font-black text-foreground flex items-center gap-2">
-            <Store className="h-5 w-5 text-primary" /> Register Your Shop
+      {/* Top Header & Single Close Button */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:pb-3 flex items-center justify-between gap-3 bg-background/95 backdrop-blur border-b border-border">
+        <div className="min-w-0">
+          <h2 className="text-lg font-black text-foreground flex items-center gap-2 truncate">
+            <Store className="h-5 w-5 text-primary shrink-0" /> Register Your Shop
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
             Connect with nearby buyers on Local Shop Product Finder
           </p>
         </div>
@@ -346,7 +346,7 @@ export function DealerRegistrationForm({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
