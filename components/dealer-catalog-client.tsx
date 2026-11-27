@@ -137,6 +137,7 @@ export function DealerCatalogClient({
           dealer_id: dealer.id,
           product_id: product.id,
           product,
+          images: product.images ?? [],
           price: product.price,
           stock_qty: 10,
           stock_status: 'in_stock',
@@ -301,7 +302,7 @@ export function DealerCatalogClient({
                           )}
                         >
                           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-muted">
-                            {product.images[0] ? (
+                            {product.images?.[0] ? (
                               <Image src={product.images[0]} alt={product.name} fill sizes="48px" className="object-cover" />
                             ) : (
                               <div className="flex h-full items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>
@@ -380,7 +381,15 @@ export function DealerCatalogClient({
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                            {(inv.images[0] || inv.product?.images[0]) && <Image src={inv.images[0] || inv.product!.images[0]} alt={inv.product?.name ?? ''} fill sizes="40px" className="object-cover" />}
+                            {(inv.images?.[0] || inv.product?.images?.[0]) && (
+                              <Image
+                                src={inv.images?.[0] || inv.product?.images?.[0] || ''}
+                                alt={inv.product?.name ?? ''}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="line-clamp-1 font-medium">{inv.product?.name}</p>
@@ -546,7 +555,7 @@ function InventoryEditDialog({
         {/* Product summary — read only */}
         <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
           <div className="relative h-16 w-16 overflow-hidden rounded bg-muted">
-            {product.images[0] && <Image src={product.images[0]} alt={product.name} fill sizes="64px" className="object-cover" />}
+            {product.images?.[0] && <Image src={product.images[0]} alt={product.name} fill sizes="64px" className="object-cover" />}
           </div>
           <div>
             <p className="font-semibold">{product.name}</p>

@@ -40,7 +40,7 @@
     "autoprefixer": "10.4.15",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "eslint": "8.49.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "15.5.29",
     "firebase": "^10.14.0",
     "lucide-react": "^0.446.0",

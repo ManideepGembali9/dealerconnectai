@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { formatINR, getEffectivePrice } from '@/lib/format';
 import { broadcastSync } from '@/lib/firebase-db';
-import { broadcastSync } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
 import type { Dealer, Product } from '@/lib/types';
 import {
@@ -119,11 +118,10 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
       )}
       {feedback && (
         <div
-          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${
-            feedback.type === 'success'
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : 'border-destructive/30 bg-destructive/10 text-destructive'
-          }`}
+          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}
         >
           <span>{feedback.text}</span>
           <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">

@@ -10,13 +10,11 @@ const nextConfig = {
   },
   serverExternalPackages: ['nodemailer'],
   images: { unoptimized: true },
-  webpack: (config, { dev }) => {
+  webpack: (config) => {
     config.module = config.module || {};
     config.module.exprContextCritical = false;
-    // Disable persistent/memory webpack cache in dev on Windows/OneDrive to prevent stale module factory crashes
-    if (dev) {
-      config.cache = false;
-    }
+    // Disable persistent/memory webpack cache on Windows/OneDrive to prevent stale module factory crashes
+    config.cache = false;
     return config;
   },
 };
