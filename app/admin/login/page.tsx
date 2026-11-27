@@ -7,13 +7,13 @@ import { AdminLoginScreen } from '@/components/admin/admin-login-screen';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { role, loading } = useAuth();
+  const { adminAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading && role === 'admin') {
+    if (!loading && adminAuthenticated) {
       router.push('/admin');
     }
-  }, [role, loading, router]);
+  }, [adminAuthenticated, loading, router]);
 
   return <AdminLoginScreen onLoginSuccess={() => router.push('/admin')} />;
 }

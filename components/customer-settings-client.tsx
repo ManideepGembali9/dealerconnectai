@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 export function CustomerSettingsClient() {
   const router = useRouter();
-  const { role, customer, updateCustomerProfile, changePassword, loading: authLoading } = useAuth();
+  const { customerAuthenticated, customer, updateCustomerProfile, changePassword, loading: authLoading } = useAuth();
   const [form, setForm] = useState({ full_name: '', email: '', phone: '', pin_code: '', preferred_city: '' });
   const [prefs, setPrefs] = useState({ notifications: true, in_stock_alerts: true });
   const [saving, setSaving] = useState(false);
@@ -23,7 +23,7 @@ export function CustomerSettingsClient() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && role !== 'customer') {
+    if (!authLoading && !customerAuthenticated) {
       router.push('/customer/login');
       return;
     }
@@ -40,7 +40,7 @@ export function CustomerSettingsClient() {
         in_stock_alerts: Boolean((customer.preferences as any)?.in_stock_alerts ?? true),
       });
     }
-  }, [authLoading, role, customer, router]);
+  }, [authLoading, customerAuthenticated, customer, router]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +81,7 @@ export function CustomerSettingsClient() {
 
     setChangingPassword(true);
     try {
-      const { error } = await changePassword(passwordForm.newPassword);
+      const { error } = await changePassword(passwordForm.newPassword, 'customer');
       if (error) throw new Error(error);
       toast.success('Password changed successfully');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });

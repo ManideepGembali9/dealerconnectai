@@ -1,8 +1,8 @@
 {
   "id": "com.dealerconnectai.admin",
-  "name": "DealerConnect AI — Admin Control Center",
-  "short_name": "Admin Portal",
-  "description": "Marketplace supervision, dealer verification approvals, catalog administration, and platform settings.",
+  "name": "DealerConnect AI — Admin Control App",
+  "short_name": "Admin App",
+  "description": "Independent Administrator App for dealer approvals, catalog moderation, analytics, and platform supervision.",
   "start_url": "/admin",
   "scope": "/admin",
   "display": "standalone",
@@ -13,16 +13,34 @@
   "categories": ["business", "management"],
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/admin-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icons/admin-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/admin-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Admin Control Center",
+      "url": "/admin",
+      "description": "Open Admin Control Dashboard"
+    },
+    {
+      "name": "Admin Sign In",
+      "url": "/admin/login",
+      "description": "Sign in as Platform Administrator"
     }
   ],
   "prefer_related_applications": false

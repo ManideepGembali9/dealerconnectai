@@ -285,8 +285,48 @@ export function AdminDealerProductsReview() {
         </div>
       </div>
 
-      {/* Submissions Table Card */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Submissions Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filtered.length === 0 ? (
+          <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+            <Package className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+            No dealer product submissions found matching your filters.
+          </Card>
+        ) : (
+          filtered.map((p) => {
+            const effective = getEffectivePrice(p.price, p.discount_price);
+            const mod = p.moderation_status || 'pending';
+            return (
+              <Card key={p.id} className="p-3.5 border-border/80 rounded-2xl space-y-2 shadow-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {p.submittingDealer?.shop_name || 'Dealer'} • {formatINR(effective)}
+                    </p>
+                  </div>
+                  <Badge variant={mod === 'approved' ? 'default' : mod === 'rejected' ? 'destructive' : 'secondary'} className="text-[10px] capitalize shrink-0">
+                    {mod}
+                  </Badge>
+                </div>
+                {mod === 'pending' && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                    <Button size="sm" onClick={() => handleApprove(p)} className="flex-1 h-8 text-xs font-bold bg-emerald-600 text-white rounded-lg">
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => setRejectingProduct(p)} className="flex-1 h-8 text-xs font-bold rounded-lg">
+                      Reject
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Submissions Table Card (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

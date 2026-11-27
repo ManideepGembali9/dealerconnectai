@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo,useState } from 'react';
-import { toast } from 'sonner';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 import { getStoredAdminMenu,type AdminMenuItem } from './admin-menu-config';
 import { LayoutNavigationManager } from './layout-navigation-manager';
 
@@ -113,7 +113,6 @@ export function AdminShell({
 
   const handleLogout = async () => {
     await signOut('admin');
-    toast.info('Admin logged out successfully.');
   };
 
   return (
@@ -387,6 +386,7 @@ export function AdminShell({
 
           {/* Right Topbar Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <PwaInstallButton portalName="Admin App" compact className="hidden sm:inline-flex" />
             <Button
               variant="outline"
               size="sm"
@@ -452,11 +452,66 @@ export function AdminShell({
 
         {/* Scrollable Module Content Area */}
         <main
-          className="flex-1 min-h-0 overflow-y-auto scroll-smooth scrollbar-hide p-4 sm:p-6 lg:p-8 overscroll-contain touch-pan-y"
+          className="flex-1 min-h-0 overflow-y-auto scroll-smooth scrollbar-hide p-4 pb-24 sm:p-6 md:pb-8 lg:p-8 overscroll-contain touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>
+
+        {/* Mobile App Bottom Quick Navigation Bar (< 768px) */}
+        <nav
+          aria-label="Admin Mobile Navigation"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <div className="flex items-center justify-around px-1 py-1.5">
+            {[
+              { id: '01-dashboard', label: 'Overview', icon: LayoutDashboard },
+              { id: '02-dealers', label: 'Dealers', icon: Store, badge: pendingDealersCount },
+              { id: '04-products', label: 'Products', icon: Package },
+              { id: '08-enquiries', label: 'Enquiries', icon: MessageSquareText, badge: openEnquiriesCount },
+            ].map((item) => {
+              const IconComp = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectTab(item.id)}
+                  className={`relative flex flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+                    isActive ? 'text-primary font-black' : 'text-muted-foreground'
+                  }`}
+                >
+                  <div className="relative">
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                        isActive ? 'bg-primary text-primary-foreground shadow-xs' : ''
+                      }`}
+                    >
+                      <IconComp className="h-4 w-4" />
+                    </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-black text-destructive-foreground">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-0.5 text-[10px] leading-none truncate">{item.label}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex flex-1 flex-col items-center justify-center py-1 text-muted-foreground active:scale-95"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl">
+                <Menu className="h-4 w-4" />
+              </div>
+              <span className="mt-0.5 text-[10px] leading-none">Modules</span>
+            </button>
+          </div>
+        </nav>
       </div>
 
       {/* Global Layout & Navigation Manager Modal */}

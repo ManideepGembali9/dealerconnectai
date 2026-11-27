@@ -15,16 +15,16 @@ import { toast } from 'sonner';
 
 export function CustomerFavoritesClient() {
   const router = useRouter();
-  const { role, customer, loading: authLoading } = useAuth();
+  const { customerAuthenticated, customer, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && role !== 'customer') { router.push('/customer/login'); return; }
+    if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
     if (customer) loadFavorites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, role, customer]);
+  }, [authLoading, customerAuthenticated, customer]);
 
   const loadFavorites = async () => {
     if (!customer) return;

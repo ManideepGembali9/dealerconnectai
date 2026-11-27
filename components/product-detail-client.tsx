@@ -53,7 +53,7 @@ const stockConfig = {
 
 export function ProductDetailClient({ id }: { id: string }) {
   const router = useRouter();
-  const { customer, role } = useAuth();
+  const { customer } = useAuth();
   const { location, wishlist, toggleWishlist, compare, toggleCompare, addRecentlyViewed, addToCart, t } = useApp();
   const [product, setProduct] = useState<Product | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
@@ -371,8 +371,7 @@ export function ProductDetailClient({ id }: { id: string }) {
             <Button
               size="lg"
               onClick={() => {
-                if (!customer && role !== 'customer') {
-                  toast.error('Please login to add items to your cart');
+                if (!customer) {
                   router.push(`/customer/login?redirect=/product/${product.id}`);
                   return;
                 }

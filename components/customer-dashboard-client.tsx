@@ -13,7 +13,7 @@ import { useEffect,useState } from 'react';
 
 export function CustomerDashboardClient() {
   const router = useRouter();
-  const { role, customer, loading: authLoading } = useAuth();
+  const { customerAuthenticated, customer, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({ favorites: 0, searches: 0, enquiries: 0, dealers: 0 });
   const [recentSearches, setRecentSearches] = useState<any[]>([]);
   const [savedProducts, setSavedProducts] = useState<Product[]>([]);
@@ -22,13 +22,13 @@ export function CustomerDashboardClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && role !== 'customer') {
+    if (!authLoading && !customerAuthenticated) {
       router.push('/customer/login');
       return;
     }
     if (customer) loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, role, customer]);
+  }, [authLoading, customerAuthenticated, customer]);
 
   const loadDashboard = async () => {
     if (!customer) return;

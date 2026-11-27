@@ -109,8 +109,39 @@ export function Module07DealerStock({ dealer, products, onRefreshProducts }: Mod
         </div>
       </div>
 
-      {/* Stock Table Card */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Stock Switcher Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filtered.map((p) => (
+          <Card key={p.id} className="p-3.5 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                <p className="text-[11px] text-muted-foreground">{p.category?.name || 'General'}</p>
+              </div>
+              <Badge variant={p.stock_status === 'in_stock' ? 'default' : p.stock_status === 'limited' ? 'secondary' : 'destructive'} className="text-[10px] capitalize shrink-0">
+                {p.stock_status.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button size="sm" variant={p.stock_status === 'in_stock' ? 'default' : 'outline'} disabled={updatingId === p.id} onClick={() => handleStatusChange(p, 'in_stock')} className="h-8 text-[11px] font-semibold">
+                In Stock
+              </Button>
+              <Button size="sm" variant={p.stock_status === 'limited' ? 'default' : 'outline'} disabled={updatingId === p.id} onClick={() => handleStatusChange(p, 'limited')} className="h-8 text-[11px] font-semibold">
+                Limited
+              </Button>
+              <Button size="sm" variant={p.stock_status === 'out_of_stock' ? 'destructive' : 'outline'} disabled={updatingId === p.id} onClick={() => handleStatusChange(p, 'out_of_stock')} className="h-8 text-[11px] font-semibold">
+                Out of Stock
+              </Button>
+              <Button size="sm" variant={p.stock_status === 'restocking' ? 'secondary' : 'outline'} disabled={updatingId === p.id} onClick={() => handleStatusChange(p, 'restocking')} className="h-8 text-[11px] font-semibold">
+                Unavailable
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Stock Table Card (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

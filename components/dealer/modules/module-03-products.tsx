@@ -242,8 +242,46 @@ export function Module03DealerProducts({
         </div>
       </div>
 
-      {/* Products Table Card */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Products Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filtered.length === 0 ? (
+          <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+            <Package className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+            No products found. Tap &quot;Add or Create Products&quot; to begin.
+          </Card>
+        ) : (
+          filtered.map((p) => {
+            const effective = getEffectivePrice(p.price, p.discount_price);
+            return (
+              <Card key={p.id} className="p-3.5 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{p.brand?.name || 'Brand'} • {p.category?.name || 'Category'}</p>
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                      {formatINR(effective)} • <span className="font-mono text-foreground">{p.stock_qty ?? 0} units</span>
+                    </p>
+                  </div>
+                  <Badge variant={p.stock_status === 'in_stock' ? 'default' : p.stock_status === 'limited' ? 'secondary' : 'destructive'} className="text-[10px] capitalize shrink-0">
+                    {p.stock_status.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <Button size="sm" variant="outline" onClick={() => openEditModal(p)} className="h-8 px-3 text-xs font-semibold rounded-xl">
+                    <Edit className="h-3.5 w-3.5 mr-1" /> Edit Price & Stock
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleRemoveFromShop(p.id, p.name)} className="h-8 px-2.5 text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Products Table Card (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

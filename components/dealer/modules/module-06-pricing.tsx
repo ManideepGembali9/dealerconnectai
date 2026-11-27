@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatINR,getDiscountPercent,getEffectivePrice } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Dealer,Product } from '@/lib/types';
@@ -85,8 +86,57 @@ export function Module06DealerPricing({ dealer, products, onRefreshProducts }: M
         />
       </div>
 
-      {/* Pricing Table Card */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Pricing Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filteredProducts.map((p) => {
+          const currentPrice = priceEdits[p.id]?.price !== undefined ? priceEdits[p.id].price : p.price;
+          const currentDiscount = priceEdits[p.id] !== undefined ? priceEdits[p.id].discount : p.discount_price;
+          const effective = getEffectivePrice(currentPrice, currentDiscount);
+          const hasChanged = priceEdits[p.id] !== undefined;
+          return (
+            <Card key={p.id} className="p-3.5 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+              <div>
+                <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                <p className="text-[11px] text-muted-foreground">Effective: <strong className="text-emerald-600">{formatINR(effective)}</strong></p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] font-bold">MRP (₹)</Label>
+                  <Input
+                    type="number"
+                    value={currentPrice}
+                    onChange={(e) => setPriceEdits((prev) => ({ ...prev, [p.id]: { price: parseFloat(e.target.value) || 0, discount: currentDiscount } }))}
+                    className="h-9 text-xs font-bold mt-0.5"
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-bold">Offer (₹)</Label>
+                  <Input
+                    type="number"
+                    value={currentDiscount || ''}
+                    placeholder="None"
+                    onChange={(e) => setPriceEdits((prev) => ({ ...prev, [p.id]: { price: currentPrice, discount: e.target.value ? parseFloat(e.target.value) : null } }))}
+                    className="h-9 text-xs font-bold mt-0.5"
+                    min={0}
+                  />
+                </div>
+              </div>
+              <Button
+                size="sm"
+                disabled={!hasChanged || savingId === p.id}
+                onClick={() => handlePriceUpdate(p)}
+                className="w-full h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {savingId === p.id ? 'Saving...' : 'Update Price'}
+              </Button>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Pricing Table Card (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

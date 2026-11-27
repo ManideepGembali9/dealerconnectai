@@ -150,8 +150,46 @@ export function Module05DealerInventory({ dealer, products, onRefreshProducts }:
         />
       </div>
 
-      {/* Inventory Table */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Inventory Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filteredProducts.map((p) => {
+          const currentQty = stockEdits[p.id] !== undefined ? stockEdits[p.id] : p.stock_qty || 0;
+          const hasChanged = stockEdits[p.id] !== undefined && stockEdits[p.id] !== p.stock_qty;
+          return (
+            <Card key={p.id} className="p-3.5 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{p.category?.name || 'General'} • {formatINR(getEffectivePrice(p.price, p.discount_price))}</p>
+                </div>
+                <Badge variant={currentQty > 5 ? 'default' : currentQty > 0 ? 'secondary' : 'destructive'} className="text-[10px] shrink-0">
+                  {currentQty > 5 ? 'In Stock' : currentQty > 0 ? 'Limited' : 'Out of Stock'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                <Input
+                  type="number"
+                  value={currentQty}
+                  onChange={(e) => setStockEdits((prev) => ({ ...prev, [p.id]: parseInt(e.target.value, 10) || 0 }))}
+                  className="h-9 w-24 text-xs font-bold"
+                  min={0}
+                />
+                <Button
+                  size="sm"
+                  disabled={!hasChanged || savingId === p.id}
+                  onClick={() => handleInlineStockSave(p)}
+                  className="h-9 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {savingId === p.id ? 'Saving...' : 'Save Stock'}
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Inventory Table (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

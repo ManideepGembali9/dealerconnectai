@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { getDbDealerApplications,getDbDealers } from '@/lib/firebase-db';
 import type { Dealer } from '@/lib/types';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 import {
   AlertCircle,
   ArrowRight,
@@ -31,8 +32,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Store,
-  UserX
+  Store
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect,useState } from 'react';
@@ -44,7 +44,7 @@ type DealerLoginProps = {
 };
 
 export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: DealerLoginProps) {
-  const { signIn, role, signOut } = useAuth();
+  const { signIn } = useAuth();
 
   // Sign In state
   const [email, setEmail] = useState('');
@@ -97,7 +97,7 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
     return () => clearTimeout(timer);
   }, [resendCountdown, forgotStep, forgotOpen]);
 
-  const isNonDealer = role === 'customer' || role === 'admin';
+  // Dealer portal login operates independently from Customer and Admin sessions.
 
   // Handle Dealer Sign In with approval status checks
   const handleSignIn = async (e: React.FormEvent) => {
@@ -312,48 +312,30 @@ export function DealerLoginScreen({ onLoginSuccess, initialTab = 'signin' }: Dea
   };
 
   return (
-    <div className="relative min-h-[92vh] flex flex-col items-center justify-center px-4 py-8 bg-background">
-      <div className="relative w-full max-w-md my-auto space-y-4">
-        {/* Brand header */}
-        <div className="text-center space-y-1.5">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
-            <Store className="h-7 w-7" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">
-            Dealer Merchant Portal
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Manage your showroom catalog, stock availability & incoming customer orders
-          </p>
+    <div className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 py-5 bg-background">
+      <div className="relative w-full max-w-md space-y-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 rounded-xl border border-border bg-card/80 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Storefront
+          </Link>
+          <PwaInstallButton portalName="Dealer App" compact />
         </div>
 
-        {/* Non-dealer role alert if logged in as customer or admin */}
-        {isNonDealer && (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive">
-            <div className="flex items-start gap-2.5">
-              <UserX className="mt-0.5 h-4 w-4 shrink-0" />
-              <div>
-                <p className="font-semibold">Role Switch Required</p>
-                <p className="mt-0.5 text-muted-foreground">
-                  You are currently signed in as <span className="font-bold uppercase text-foreground">{role}</span>.
-                  Switch to an approved dealer account to access the Merchant Console.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  className="mt-2 h-7 text-xs font-semibold rounded-lg"
-                  onClick={async () => {
-                    await signOut();
-                    toast.info('Signed out. Please sign in with your dealer credentials.');
-                  }}
-                >
-                  Switch Account
-                </Button>
-              </div>
-            </div>
+        {/* Brand header */}
+        <div className="text-center space-y-1">
+          <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
+            <Store className="h-6 w-6 sm:h-7 sm:w-7" />
           </div>
-        )}
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+            Dealer Merchant Portal
+          </h1>
+          <p className="text-[11px] sm:text-xs text-muted-foreground">
+            Manage showroom catalog, stock availability & incoming leads
+          </p>
+        </div>
 
         {/* ============================================================= */}
         {/* ONLY CONTINUE WITH CLEAN LOGIN PAGE                          */}

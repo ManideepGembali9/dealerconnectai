@@ -204,8 +204,34 @@ export function Module05Categories({ categories, products, onRefreshCategories }
         />
       </div>
 
-      {/* Categories Table */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Categories Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filteredCategories.map((c, index) => (
+          <Card key={c.id} className="p-3.5 border-border/80 rounded-2xl space-y-2 shadow-xs">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-foreground truncate">{c.name}</p>
+                <p className="text-[11px] font-mono text-muted-foreground">/{c.slug} • Order #{c.sort_order}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button size="icon" variant="outline" disabled={index === 0} onClick={() => moveOrder(index, 'up')} className="h-7 w-7" title="Move Up">
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="outline" disabled={index === filteredCategories.length - 1} onClick={() => moveOrder(index, 'down')} className="h-7 w-7" title="Move Down">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-1.5 border-t border-border/50 text-[11px] text-muted-foreground">
+              <span>{c.group_name}</span>
+              <span>{(c.subcategories || []).length} sub • {products.filter((p) => p.category_id === c.id).length} items</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Categories Table (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

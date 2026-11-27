@@ -141,8 +141,50 @@ export function Module08Enquiries({ enquiries: initialEnquiries, dealers, produc
         </div>
       </div>
 
-      {/* Enquiries Table */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Enquiries Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filteredEnquiries.length === 0 ? (
+          <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+            <MessageSquareText className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+            No enquiries found.
+          </Card>
+        ) : (
+          filteredEnquiries.map((e) => {
+            const targetDealer = e.dealer_id ? dealerMap.get(e.dealer_id) : null;
+            return (
+              <Card key={e.id} className="p-4 border-border/80 rounded-2xl space-y-2 shadow-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-foreground truncate">{e.customer_name || 'Anonymous User'}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{targetDealer?.shop_name || 'Central Helpdesk'} • {e.customer_phone || 'No phone'}</p>
+                  </div>
+                  <Badge variant={e.status === 'completed' ? 'default' : 'secondary'} className="text-[10px] capitalize shrink-0">
+                    {e.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2">{e.message || 'Customer requested live availability and quote.'}</p>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <Button size="sm" variant="outline" onClick={() => setSelectedEnquiry(e)} className="h-8 px-2.5 text-[11px] font-semibold">
+                    <Eye className="h-3.5 w-3.5 mr-1" /> View
+                  </Button>
+                  {e.status !== 'completed' ? (
+                    <Button size="sm" onClick={() => handleUpdateStatus(e.id, 'completed')} className="h-8 px-2.5 text-[11px] font-bold bg-emerald-600 text-white">
+                      <Check className="h-3.5 w-3.5 mr-1" /> Complete
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(e.id, 'pending')} className="h-8 px-2.5 text-[11px] text-muted-foreground">
+                      Reopen
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Enquiries Table (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

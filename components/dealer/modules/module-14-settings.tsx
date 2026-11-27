@@ -39,7 +39,7 @@ export function Module14DealerSettings({ dealer }: Module14Props) {
 
     setSaving(true);
     try {
-      const { error } = await changePassword(newPw);
+      const { error } = await changePassword(newPw, 'dealer');
       if (error) throw new Error(error);
       toast.success('Dealer password updated successfully!');
       setCurrentPw('');
@@ -68,8 +68,7 @@ export function Module14DealerSettings({ dealer }: Module14Props) {
         <Button
           variant="destructive"
           onClick={async () => {
-            await signOut();
-            toast.info('Logged out from Dealer Console.');
+            await signOut('dealer');
           }}
           className="font-bold gap-1.5 self-start sm:self-auto"
         >

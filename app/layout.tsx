@@ -5,7 +5,6 @@ import { AuthProvider } from '@/lib/auth';
 import { ClientShell } from '@/components/client-shell';
 import { PermissionPrompt } from '@/components/permission-prompt';
 import { ServiceWorkerRegister } from '@/components/sw-register';
-import { Toaster } from '@/components/ui/sonner';
 import { getAppUrl } from '@/lib/utils';
 
 export const viewport: Viewport = {
@@ -55,7 +54,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AuthProvider>
               <ClientShell>{children}</ClientShell>
               <PermissionPrompt />
-              <Toaster />
               <ServiceWorkerRegister />
             </AuthProvider>
           </AppProvider>

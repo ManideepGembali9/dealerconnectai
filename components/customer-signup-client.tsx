@@ -6,11 +6,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
-import { Loader2,Lock,Mail,MapPin,Phone,User as UserIcon,UserPlus } from 'lucide-react';
+import { AlertCircle, Loader2,Lock,Mail,MapPin,Phone,User as UserIcon,UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 export function CustomerSignupClient() {
   const router = useRouter();
@@ -24,21 +23,22 @@ export function CustomerSignupClient() {
     pinCode: '',
   });
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleSignUp = async () => {
+    setError(null);
     setGoogleLoading(true);
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        toast.error(error);
+      const { error: gErr } = await signInWithGoogle();
+      if (gErr) {
+        setError(gErr);
       } else {
-        toast.success('Signed in with Google!');
         router.push('/customer/dashboard');
       }
     } catch {
-      toast.error('Google sign-up failed. Please try again.');
+      setError('Google sign-up failed. Please try again.');
     } finally {
       setGoogleLoading(false);
     }
@@ -48,31 +48,31 @@ export function CustomerSignupClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    if (!form.fullName.trim()) { toast.error('Please enter your full name'); return; }
-    if (!form.email.trim()) { toast.error('Please enter your email'); return; }
-    if (!form.phone.trim()) { toast.error('Please enter your mobile number'); return; }
-    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
-    if (form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return; }
-    if (!agreed) { toast.error('Please accept the Terms of Service and Privacy Policy'); return; }
+    if (!form.fullName.trim()) { setError('Please enter your full name'); return; }
+    if (!form.email.trim()) { setError('Please enter your email'); return; }
+    if (!form.phone.trim()) { setError('Please enter your mobile number'); return; }
+    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return; }
+    if (!agreed) { setError('Please accept the Terms of Service and Privacy Policy'); return; }
 
     setLoading(true);
     try {
-      const { error } = await signUpCustomer(
+      const { error: sErr } = await signUpCustomer(
         form.email,
         form.password,
         form.fullName,
         form.phone,
         form.pinCode
       );
-      if (error) {
-        toast.error(error);
+      if (sErr) {
+        setError(sErr);
       } else {
-        toast.success('Account created successfully!');
         router.push('/customer/dashboard');
       }
     } catch {
-      toast.error('Sign up failed. Please try again.');
+      setError('Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -89,6 +89,12 @@ export function CustomerSignupClient() {
       </div>
 
       <Card className="w-full p-5 sm:p-7 rounded-3xl border border-border/80 shadow-2xl backdrop-blur touch-pan-y">
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="fullName" className="mb-1.5 block text-xs font-bold text-foreground">Full Name *</Label>

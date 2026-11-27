@@ -29,7 +29,13 @@ import {
   Upload,
   Loader2,
   Sparkles,
+  Bot,
+  MessageCircle,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,8 +50,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DealerRegistrationForm } from '@/components/dealer-registration-form';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { ProfileShoppingChat } from '@/components/chatbot';
 import {
   ProfileSettingsPanelContent,
   isCustomerAccountVerified,
@@ -151,11 +157,15 @@ export function ProfileClient() {
   const [emailVerifiedNew, setEmailVerifiedNew] = useState(false);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
 
-  // Security Quick Modal & Sign Out Confirmation Modal
+  const { theme, setTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+
+  // Security Quick Modal, Sign Out Confirmation & Authenticated Chat Modal
   const [securityModalOpen, setSecurityModalOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
 
-  // In-App Dealer Registration Modal
+  // In-App Dealer Registration Modal (Authenticated profile only)
   const [dealerRegOpen, setDealerRegOpen] = useState(false);
 
   // Guest Auth State
@@ -166,8 +176,13 @@ export function ProfileClient() {
   const [guestPhone, setGuestPhone] = useState('');
   const [guestPin, setGuestPin] = useState('');
   const [guestShowPassword, setGuestShowPassword] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
 
   // Sync edit modal fields when customer updates
   const resetEditFormFromCustomer = useCallback(() => {
@@ -413,54 +428,52 @@ export function ProfileClient() {
     }
   };
 
-  // Sign out cleanly without affecting dealer/admin sessions
+  // Sign out cleanly without affecting dealer/admin sessions (no bottom toast popup)
   const handleConfirmSignOut = async () => {
     setSignOutDialogOpen(false);
     await signOut('customer');
-    toast.success('Signed out of your customer account');
     router.push('/customer/login');
   };
 
   // Guest Login & Signup Handlers
   const handleGuestLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGuestError(null);
     if (!guestEmail.trim() || !guestPassword) {
-      toast.error('Please enter your email and password');
+      setGuestError('Please enter your email and password.');
       return;
     }
     setAuthSubmitting(true);
     const res = await signIn(guestEmail.trim(), guestPassword, 'customer');
     setAuthSubmitting(false);
     if (res.error) {
-      toast.error(res.error || 'Login failed. Check your credentials.');
-    } else {
-      toast.success('Welcome back! You are now signed in.');
+      setGuestError(res.error || 'Login failed. Check your credentials.');
     }
   };
 
   const handleGuestGoogleLogin = async () => {
+    setGuestError(null);
     setGoogleSubmitting(true);
     const res = await signInWithGoogle();
     setGoogleSubmitting(false);
     if (res.error) {
-      toast.error(res.error || 'Google Sign-In failed');
-    } else {
-      toast.success('Signed in with Google!');
+      setGuestError(res.error || 'Google Sign-In failed');
     }
   };
 
   const handleGuestSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGuestError(null);
     if (!guestName.trim()) {
-      toast.error('Please enter your full name');
+      setGuestError('Please enter your full name.');
       return;
     }
     if (!guestEmail.trim()) {
-      toast.error('Please enter your email address');
+      setGuestError('Please enter your email address.');
       return;
     }
     if (guestPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      setGuestError('Password must be at least 6 characters.');
       return;
     }
     setAuthSubmitting(true);
@@ -473,9 +486,7 @@ export function ProfileClient() {
     );
     setAuthSubmitting(false);
     if (res.error) {
-      toast.error(res.error || 'Sign up failed. Please try again.');
-    } else {
-      toast.success('Account created! Welcome to DealerConnect AI.');
+      setGuestError(res.error || 'Sign up failed. Please try again.');
     }
   };
 
@@ -489,312 +500,277 @@ export function ProfileClient() {
   }
 
   // ============================================================
-  // GUEST VIEW (NOT SIGNED IN AS CUSTOMER)
-  // Responsive: Stacked on mobile, 2-column grid on tablet/desktop
+  // GUEST VIEW (NO-SCROLL NATIVE MOBILE-APP SCREEN BEFORE LOGIN)
   // ============================================================
   if (!customer) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10 bg-background text-foreground">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column (Desktop/Tablet Hero + Become a Dealer + App Preferences) */}
-          <div className="lg:col-span-6 space-y-5 order-2 lg:order-1">
-            <Card className="hidden md:block rounded-3xl border border-border bg-card p-6 lg:p-8 shadow-sm space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-foreground">
-                <Sparkles className="h-3.5 w-3.5" /> Local Shop Product Finder
-              </div>
-              <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-foreground">
-                Your Personal Local Shopping Hub
+      <div className="mx-auto -mb-20 md:-mb-10 flex min-h-[calc(100dvh-4.1rem)] max-w-md flex-col justify-center px-3.5 pt-1.5 pb-[4.5rem] md:pb-4 bg-background text-foreground">
+        <div className="w-full space-y-2">
+          {/* Compact App Header */}
+          <div className="flex items-center gap-2.5 px-0.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <User className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-foreground leading-tight">
+                My Profile
               </h1>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Sign in or create a free customer account to sync your wishlist across devices, save local PIN addresses, get stock drop alerts, and connect with verified dealers near you.
-              </p>
-              <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border">
-                  <Heart className="h-4 w-4 mb-1.5 text-foreground" />
-                  <p className="font-bold text-foreground">Sync Wishlist</p>
-                  <p className="text-muted-foreground mt-0.5">Track saved items & favourite stores</p>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border">
-                  <MapPin className="h-4 w-4 mb-1.5 text-foreground" />
-                  <p className="font-bold text-foreground">Saved Location</p>
-                  <p className="text-muted-foreground mt-0.5">Instant local stock by PIN code</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Own a Shop? Become a Dealer Card */}
-            <Card className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4 hover:border-foreground/40 transition-all">
-              <div className="flex items-start gap-3.5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-black shadow-sm">
-                  <Store className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-foreground">Own a Shop?</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                    Register your shop and connect with nearby customers through Local Shop Product Finder.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setDealerRegOpen(true)}
-                className="w-full h-11 font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-xs sm:text-sm gap-2 transition-transform active:scale-95"
-              >
-                Become a Dealer <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Card>
-
-            {/* App Preferences Card (Guest) */}
-            <Card className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-3">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <Settings className="h-4 w-4 text-foreground" /> App Preferences
-              </h3>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-2xl bg-muted/40 border border-border flex flex-col justify-between gap-2">
-                  <span className="font-bold text-foreground">Regional Language</span>
-                  <LanguageSwitcher />
-                </div>
-                <div className="p-3 rounded-2xl bg-muted/40 border border-border flex flex-col justify-between gap-2">
-                  <span className="font-bold text-foreground">Theme Mode</span>
-                  <ThemeToggle />
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Column: Customer Sign In / Create Account Card */}
-          <div className="lg:col-span-6 order-1 lg:order-2 max-w-md mx-auto w-full lg:max-w-none space-y-4">
-            <div className="text-center md:hidden space-y-1.5">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-black shadow-sm">
-                <User className="h-7 w-7" />
-              </div>
-              <h1 className="text-2xl font-black tracking-tight text-foreground">My Profile</h1>
-              <p className="text-xs text-muted-foreground">
-                Sign in to manage personal details, saved location & alerts
+              <p className="text-[11px] text-muted-foreground truncate">
+                Sign in to access saved items, location & chat assistant
               </p>
             </div>
+          </div>
 
-            <Card className="rounded-3xl border border-border bg-card p-5 sm:p-7 shadow-sm space-y-5">
-              <div className="hidden md:block">
-                <h2 className="text-xl font-black text-foreground">Customer Account</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Sign in or register to unlock your complete shopping profile
-                </p>
+          {/* Compact Login / Register Card */}
+          <Card className="rounded-2xl border border-border bg-card p-3.5 sm:p-5 shadow-sm space-y-2.5">
+            <div className="grid grid-cols-2 p-1 bg-muted rounded-xl border border-border/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setGuestError(null);
+                }}
+                className={cn(
+                  'py-1.5 text-xs font-bold rounded-lg transition-all',
+                  authMode === 'login'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setGuestError(null);
+                }}
+                className={cn(
+                  'py-1.5 text-xs font-bold rounded-lg transition-all',
+                  authMode === 'signup'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {guestError && (
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{guestError}</span>
               </div>
+            )}
 
-              <div className="grid grid-cols-2 p-1 bg-muted rounded-2xl border border-border/50">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('login')}
-                  className={cn(
-                    'py-2 text-xs font-bold rounded-xl transition-all',
-                    authMode === 'login'
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('signup')}
-                  className={cn(
-                    'py-2 text-xs font-bold rounded-xl transition-all',
-                    authMode === 'signup'
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Create Account
-                </button>
-              </div>
+            {authMode === 'login' ? (
+              <form onSubmit={handleGuestLogin} className="space-y-2.5">
+                <div>
+                  <Label htmlFor="guest-login-email" className="text-[11px] font-bold text-foreground">
+                    Email Address
+                  </Label>
+                  <div className="relative mt-1">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="guest-login-email"
+                      type="email"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      placeholder="you@email.com"
+                      className="h-10 pl-9 text-sm rounded-xl"
+                      required
+                    />
+                  </div>
+                </div>
 
-              {authMode === 'login' ? (
-                <form onSubmit={handleGuestLogin} className="space-y-3.5">
-                  <div>
-                    <Label htmlFor="guest-login-email" className="text-xs font-bold text-foreground">
-                      Email Address
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="guest-login-pw" className="text-[11px] font-bold text-foreground">
+                      Password
                     </Label>
-                    <div className="relative mt-1">
-                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="guest-login-email"
-                        type="email"
-                        value={guestEmail}
-                        onChange={(e) => setGuestEmail(e.target.value)}
-                        placeholder="you@email.com"
-                        className="h-11 pl-10 text-sm rounded-xl"
-                        required
-                      />
-                    </div>
+                    <Link
+                      href="/customer/forgot-password"
+                      className="text-[11px] font-semibold text-foreground hover:underline"
+                    >
+                      Forgot Password?
+                    </Link>
                   </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="guest-login-pw" className="text-xs font-bold text-foreground">
-                        Password
-                      </Label>
-                      <Link
-                        href="/customer/forgot-password"
-                        className="text-xs font-semibold text-foreground hover:underline"
-                      >
-                        Forgot Password?
-                      </Link>
-                    </div>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="guest-login-pw"
-                        type={guestShowPassword ? 'text' : 'password'}
-                        value={guestPassword}
-                        onChange={(e) => setGuestPassword(e.target.value)}
-                        placeholder="Enter password"
-                        className="h-11 pl-10 pr-10 text-sm rounded-xl"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setGuestShowPassword(!guestShowPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        aria-label="Toggle password visibility"
-                      >
-                        {guestShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="guest-login-pw"
+                      type={guestShowPassword ? 'text' : 'password'}
+                      value={guestPassword}
+                      onChange={(e) => setGuestPassword(e.target.value)}
+                      placeholder="Enter password"
+                      className="h-10 pl-9 pr-9 text-sm rounded-xl"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setGuestShowPassword(!guestShowPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label="Toggle password visibility"
+                    >
+                      {guestShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
+                </div>
 
-                  <Button
-                    type="submit"
-                    disabled={authSubmitting || googleSubmitting}
-                    className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-sm"
-                  >
-                    {authSubmitting ? 'Signing In...' : 'Sign In to My Account'}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleGuestSignup} className="space-y-3">
+                <Button
+                  type="submit"
+                  disabled={authSubmitting || googleSubmitting}
+                  className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-xs sm:text-sm"
+                >
+                  {authSubmitting ? 'Signing In...' : 'Sign In'}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleGuestSignup} className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label htmlFor="guest-signup-name" className="text-xs font-bold text-foreground">
+                    <Label htmlFor="guest-signup-name" className="text-[11px] font-bold text-foreground">
                       Full Name *
                     </Label>
                     <Input
                       id="guest-signup-name"
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
-                      placeholder="e.g. Ramesh Varma"
-                      className="h-10 text-sm rounded-xl mt-1"
+                      placeholder="Ramesh Varma"
+                      className="h-9 text-xs rounded-xl mt-0.5"
                       required
                     />
                   </div>
-
                   <div>
-                    <Label htmlFor="guest-signup-email" className="text-xs font-bold text-foreground">
-                      Email Address *
+                    <Label htmlFor="guest-signup-phone" className="text-[11px] font-bold text-foreground">
+                      Mobile
+                    </Label>
+                    <Input
+                      id="guest-signup-phone"
+                      type="tel"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9848012345"
+                      inputMode="numeric"
+                      className="h-9 text-xs rounded-xl mt-0.5"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Label htmlFor="guest-signup-email" className="text-[11px] font-bold text-foreground">
+                      Email *
                     </Label>
                     <Input
                       id="guest-signup-email"
                       type="email"
                       value={guestEmail}
                       onChange={(e) => setGuestEmail(e.target.value)}
-                      placeholder="ramesh@email.com"
-                      className="h-10 text-sm rounded-xl mt-1"
+                      placeholder="you@email.com"
+                      className="h-9 text-xs rounded-xl mt-0.5"
                       required
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div>
-                      <Label htmlFor="guest-signup-phone" className="text-xs font-bold text-foreground">
-                        Mobile Number
-                      </Label>
-                      <Input
-                        id="guest-signup-phone"
-                        type="tel"
-                        value={guestPhone}
-                        onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        placeholder="9848012345"
-                        inputMode="numeric"
-                        className="h-10 text-sm rounded-xl mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="guest-signup-pin" className="text-xs font-bold text-foreground">
-                        PIN Code
-                      </Label>
-                      <Input
-                        id="guest-signup-pin"
-                        value={guestPin}
-                        onChange={(e) => setGuestPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="532440"
-                        inputMode="numeric"
-                        className="h-10 text-sm rounded-xl mt-1"
-                      />
-                    </div>
-                  </div>
-
                   <div>
-                    <Label htmlFor="guest-signup-pw" className="text-xs font-bold text-foreground">
-                      Password *
+                    <Label htmlFor="guest-signup-pin" className="text-[11px] font-bold text-foreground">
+                      PIN Code
                     </Label>
                     <Input
-                      id="guest-signup-pw"
-                      type="password"
-                      value={guestPassword}
-                      onChange={(e) => setGuestPassword(e.target.value)}
-                      placeholder="Min 6 characters"
-                      className="h-10 text-sm rounded-xl mt-1"
-                      required
+                      id="guest-signup-pin"
+                      value={guestPin}
+                      onChange={(e) => setGuestPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="532440"
+                      inputMode="numeric"
+                      className="h-9 text-xs rounded-xl mt-0.5"
                     />
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={authSubmitting || googleSubmitting}
-                    className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-sm"
-                  >
-                    {authSubmitting ? 'Creating Account...' : 'Create Free Account'}
-                  </Button>
-                </form>
-              )}
-
-              <div className="relative py-1">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
                 </div>
-                <div className="relative flex justify-center text-[11px] uppercase">
-                  <span className="bg-card px-2.5 text-muted-foreground font-semibold">Or</span>
+
+                <div>
+                  <Label htmlFor="guest-signup-pw" className="text-[11px] font-bold text-foreground">
+                    Password *
+                  </Label>
+                  <Input
+                    id="guest-signup-pw"
+                    type="password"
+                    value={guestPassword}
+                    onChange={(e) => setGuestPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="h-9 text-xs rounded-xl mt-0.5"
+                    required
+                  />
                 </div>
+
+                <Button
+                  type="submit"
+                  disabled={authSubmitting || googleSubmitting}
+                  className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-xs sm:text-sm"
+                >
+                  {authSubmitting ? 'Creating...' : 'Create Free Account'}
+                </Button>
+              </form>
+            )}
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
               </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-card px-2 text-muted-foreground font-semibold">Or</span>
+              </div>
+            </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGuestGoogleLogin}
-                disabled={authSubmitting || googleSubmitting}
-                className="w-full h-11 rounded-xl border-border font-bold text-xs sm:text-sm gap-2 hover:bg-muted"
-              >
-                {googleSubmitting ? 'Connecting Google...' : 'Continue with Google'}
-              </Button>
-            </Card>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGuestGoogleLogin}
+              disabled={authSubmitting || googleSubmitting}
+              className="w-full h-9 rounded-xl border-border font-bold text-xs gap-2 hover:bg-muted"
+            >
+              {googleSubmitting ? 'Connecting...' : 'Continue with Google'}
+            </Button>
+          </Card>
+
+          {/* Compact Single-Row App Preferences Strip */}
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-xs">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Settings className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-[11px] font-bold text-foreground truncate">Preferences</span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="inline-flex items-center rounded-lg border border-border bg-muted/50 p-0.5 gap-0.5">
+                {[
+                  { id: 'light', label: 'Light mode', icon: Sun },
+                  { id: 'dark', label: 'Dark mode', icon: Moon },
+                  { id: 'system', label: 'System theme', icon: Monitor },
+                ].map((opt) => {
+                  const IconComp = opt.icon;
+                  const active = themeMounted && theme === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTheme(opt.id)}
+                      aria-label={opt.label}
+                      title={opt.label}
+                      className={cn(
+                        'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+                        active
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <IconComp className="h-3.5 w-3.5" />
+                    </button>
+                  );
+                })}
+              </div>
+              <LanguageSwitcher className="h-7 px-2 text-[11px] rounded-lg" />
+            </div>
           </div>
         </div>
-
-        {/* Shared Dealer Registration Modal */}
-        <Dialog open={dealerRegOpen} onOpenChange={setDealerRegOpen}>
-          <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 rounded-3xl border-border shadow-2xl">
-            <DialogTitle className="sr-only">Register Your Shop</DialogTitle>
-            <DialogDescription className="sr-only">Submit your dealership application to become a verified DealerConnect AI seller.</DialogDescription>
-            <div className="p-4 sm:p-6">
-              <DealerRegistrationForm
-                onCancel={() => setDealerRegOpen(false)}
-                onSuccess={() => {
-                  setDealerRegOpen(false);
-                  loadProfileData();
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
@@ -931,8 +907,8 @@ export function ProfileClient() {
             </div>
           </div>
 
-          {/* Right: Quick Action Buttons (Edit Profile, Security, Sign Out) */}
-          <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/60 shrink-0">
+          {/* Right: Quick Action Buttons (Edit Profile, Shopping Chat, Security, Sign Out) */}
+          <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/60 shrink-0">
             <Button
               type="button"
               onClick={() => {
@@ -946,12 +922,20 @@ export function ProfileClient() {
             <Button
               type="button"
               variant="outline"
+              onClick={() => setChatModalOpen(true)}
+              className="h-10 px-4 font-bold text-xs sm:text-sm rounded-xl border-border text-foreground hover:bg-muted gap-2 transition-transform active:scale-95"
+            >
+              <Bot className="h-4 w-4" /> Shopping Chat
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => {
                 setActiveDesktopSection('security');
                 setMobileExpandedSection('security');
                 setSecurityModalOpen(true);
               }}
-              className="h-10 px-4 font-bold text-xs sm:text-sm rounded-xl border-border text-foreground hover:bg-muted gap-2 transition-transform active:scale-95"
+              className="h-10 px-3.5 font-bold text-xs sm:text-sm rounded-xl border-border text-foreground hover:bg-muted gap-2 transition-transform active:scale-95"
             >
               <ShieldCheck className="h-4 w-4" /> Security
             </Button>
@@ -965,6 +949,44 @@ export function ProfileClient() {
               aria-label="Sign Out"
             >
               <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* ============================================================
+          AI SHOPPING CHAT LAUNCHER CARD (AFTER LOGIN ONLY)
+         ============================================================ */}
+      <Card className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-foreground flex items-center gap-1.5">
+                AI Shopping Assistant <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Ask for nearby shop stock, price comparisons, or store recommendations
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              onClick={() => setChatModalOpen(true)}
+              className="h-9 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-xs gap-1.5"
+            >
+              <MessageCircle className="h-3.5 w-3.5" /> Open Shopping Chat
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              asChild
+              className="h-9 px-3 rounded-xl border-border text-xs font-bold gap-1.5"
+            >
+              <Link href="/messages">Dealer Chats</Link>
             </Button>
           </div>
         </div>
@@ -1478,23 +1500,30 @@ export function ProfileClient() {
                   </div>
 
                   {emailOtpSent && !emailVerifiedNew && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={emailOtpInput}
-                        onChange={(e) => setEmailOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="6-digit OTP"
-                        maxLength={6}
-                        inputMode="numeric"
-                        className="h-8 text-xs font-mono tracking-widest rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleConfirmEmailOtp}
-                        className="h-8 text-xs font-bold rounded-lg shrink-0"
-                      >
-                        Verify OTP
-                      </Button>
+                    <div className="space-y-2">
+                      {emailOtpExpected && (
+                        <p className="text-[11px] font-mono text-muted-foreground">
+                          Verification code: <strong className="text-foreground">{emailOtpExpected}</strong>
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={emailOtpInput}
+                          onChange={(e) => setEmailOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="6-digit OTP"
+                          maxLength={6}
+                          inputMode="numeric"
+                          className="h-8 text-xs font-mono tracking-widest rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleConfirmEmailOtp}
+                          className="h-8 text-xs font-bold rounded-lg shrink-0"
+                        >
+                          Verify OTP
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1636,6 +1665,19 @@ export function ProfileClient() {
               Confirm Sign Out
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================
+          MODAL 5: AI SHOPPING CHAT ASSISTANT (AUTHENTICATED ONLY)
+         ============================================================ */}
+      <Dialog open={chatModalOpen} onOpenChange={setChatModalOpen}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border-border shadow-2xl">
+          <DialogTitle className="sr-only">AI Shopping Assistant</DialogTitle>
+          <DialogDescription className="sr-only">
+            Chat with DealerConnect AI Assistant for nearby stores and live prices.
+          </DialogDescription>
+          <ProfileShoppingChat open={chatModalOpen} onClose={() => setChatModalOpen(false)} />
         </DialogContent>
       </Dialog>
 

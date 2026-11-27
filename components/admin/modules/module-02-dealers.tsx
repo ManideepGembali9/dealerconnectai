@@ -344,8 +344,48 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
             </div>
           </div>
 
-          {/* Applications Table Card */}
-          <Card className="border-border/80 overflow-hidden shadow-sm rounded-2xl">
+          {/* Mobile Cards View (< 768px) */}
+          <div className="md:hidden space-y-2.5">
+            {filteredApps.length === 0 ? (
+              <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+                <FileText className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+                No dealership applications match your search criteria.
+              </Card>
+            ) : (
+              filteredApps.map((app) => (
+                <Card key={app.id} className="p-4 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono font-bold text-primary block">{app.id}</span>
+                      <h3 className="text-sm font-black text-foreground truncate">{app.shop_name}</h3>
+                      <p className="text-[11px] text-muted-foreground">{app.owner_name} • {app.city}, {app.pin_code}</p>
+                    </div>
+                    <Badge className="text-[10px] font-bold shrink-0 capitalize">
+                      {app.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
+                    <span className="text-muted-foreground font-mono truncate">{app.phone}</span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedApp(app);
+                        setAdminRemarks(app.admin_remarks || '');
+                        setRejectionReason(app.rejection_reason || '');
+                        setShowRejectInput(false);
+                      }}
+                      className="h-8 px-3 text-xs font-bold bg-primary text-primary-foreground rounded-xl shrink-0"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Review
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Applications Table Card (>= 768px) */}
+          <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm rounded-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">
@@ -500,8 +540,61 @@ export function Module02Dealers({ dealers, onUpdateDealerStatus, onDeleteDealer 
             </div>
           </div>
 
-          {/* Dealers Table Card */}
-          <Card className="border-border/80 overflow-hidden shadow-sm rounded-2xl">
+          {/* Mobile Showrooms Cards (< 768px) */}
+          <div className="md:hidden space-y-2.5">
+            {filteredDealers.length === 0 ? (
+              <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+                <Store className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+                No dealerships match your filter criteria.
+              </Card>
+            ) : (
+              filteredDealers.map((d) => (
+                <Card key={d.id} className="p-4 border-border/80 rounded-2xl space-y-2.5 shadow-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-black text-foreground truncate">{d.shop_name}</h3>
+                      <p className="text-[11px] text-muted-foreground">Owner: {d.owner_name}</p>
+                      <p className="text-[11px] text-muted-foreground">{d.city}, PIN {d.pin_code}</p>
+                    </div>
+                    <Badge
+                      variant={d.status === 'approved' ? 'default' : d.status === 'pending' ? 'secondary' : 'destructive'}
+                      className="text-[10px] capitalize font-bold shrink-0"
+                    >
+                      {d.status}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50">
+                    <Button size="sm" variant="outline" onClick={() => setSelectedDealer(d)} className="h-8 px-2.5 text-[11px] font-semibold rounded-lg">
+                      <Eye className="h-3.5 w-3.5 mr-1" /> View
+                    </Button>
+                    {d.status === 'pending' && (
+                      <>
+                        <Button size="sm" disabled={actionLoading} onClick={() => handleStatusChange(d.id, 'approved')} className="h-8 px-2.5 text-[11px] font-bold bg-emerald-600 text-white rounded-lg">
+                          <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                        </Button>
+                        <Button size="sm" variant="destructive" disabled={actionLoading} onClick={() => handleStatusChange(d.id, 'blocked')} className="h-8 px-2.5 text-[11px] font-semibold rounded-lg">
+                          <X className="h-3.5 w-3.5 mr-1" /> Reject
+                        </Button>
+                      </>
+                    )}
+                    {d.status === 'approved' && (
+                      <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => handleStatusChange(d.id, 'suspended')} className="h-8 px-2.5 text-[11px] text-amber-600 rounded-lg">
+                        Suspend
+                      </Button>
+                    )}
+                    {(d.status === 'suspended' || d.status === 'blocked') && (
+                      <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => handleStatusChange(d.id, 'approved')} className="h-8 px-2.5 text-[11px] text-emerald-600 rounded-lg">
+                        Reinstate
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Dealers Table Card (>= 768px) */}
+          <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm rounded-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

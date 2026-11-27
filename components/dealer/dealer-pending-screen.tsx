@@ -84,8 +84,7 @@ export function DealerPendingScreen({ dealer, onRefresh }: PendingProps) {
           </Button>
           <Button
             onClick={async () => {
-              await signOut();
-              toast.info('Signed out');
+              await signOut('dealer');
             }}
             variant="ghost"
             className="flex-1 font-semibold text-xs gap-1.5 h-9 text-muted-foreground hover:text-destructive"

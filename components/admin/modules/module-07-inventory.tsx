@@ -163,8 +163,44 @@ export function Module07Inventory({ products, dealers, onNavigateTab }: Module07
         </div>
       </div>
 
-      {/* Cross-Dealer Inventory Table */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Inventory Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filteredItems.length === 0 ? (
+          <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+            <Boxes className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+            No products matching your inventory criteria.
+          </Card>
+        ) : (
+          filteredItems.map((p) => {
+            const effective = getEffectivePrice(p.price, p.discount_price);
+            return (
+              <Card key={p.id} className="p-4 border-border/80 rounded-2xl space-y-2 shadow-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-foreground truncate">{p.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{p.dealer?.shop_name || 'Central Master'} • {p.category?.name || 'General'}</p>
+                  </div>
+                  <Badge variant={p.stock_status === 'in_stock' ? 'default' : p.stock_status === 'limited' ? 'secondary' : 'destructive'} className="text-[10px] capitalize shrink-0">
+                    {p.stock_status.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
+                  <div>
+                    <span className="font-bold">{formatINR(effective)}</span>
+                    <span className="ml-2 font-mono text-[11px] text-muted-foreground">{p.stock_qty ?? 0} units</span>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => onNavigateTab('04-products')} className="h-8 text-[11px] font-semibold text-primary">
+                    View <ArrowUpRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Cross-Dealer Inventory Table (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

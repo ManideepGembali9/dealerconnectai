@@ -43,7 +43,7 @@ const stockStyles: Record<string, { labelKey: string; defaultLabel: string; clas
 
 export function ProductCard({ product, distanceKm }: { product: Product; distanceKm?: number }) {
   const router = useRouter();
-  const { customer, role } = useAuth();
+  const { customerAuthenticated } = useAuth();
   const { wishlist, toggleWishlist, compare, toggleCompare, addToCart, cart, t } = useApp();
   const price = getEffectivePrice(product.price, product.discount_price);
   const discount = getDiscountPercent(product.price, product.discount_price);
@@ -58,7 +58,7 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!customer && role !== 'customer') {
+    if (!customerAuthenticated) {
       toast.error('Please login to add items to your cart');
       router.push(`/customer/login?redirect=/product/${product.id}`);
       return;

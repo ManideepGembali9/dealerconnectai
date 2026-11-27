@@ -5,17 +5,17 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
-import { Loader2,Lock,LogIn,Mail,Store as StoreIcon,User } from 'lucide-react';
+import { AlertCircle, Loader2,Lock,LogIn,Mail,Store as StoreIcon,User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 export function CustomerLoginClient() {
   const router = useRouter();
   const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -27,17 +27,17 @@ export function CustomerLoginClient() {
   };
 
   const handleGoogleSignIn = async () => {
+    setError(null);
     setGoogleLoading(true);
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        toast.error(error);
+      const { error: gErr } = await signInWithGoogle();
+      if (gErr) {
+        setError(gErr);
       } else {
-        toast.success('Signed in with Google!');
         router.push(getRedirectPath());
       }
     } catch {
-      toast.error('Google sign in failed. Please try again.');
+      setError('Google sign in failed. Please try again.');
     } finally {
       setGoogleLoading(false);
     }
@@ -45,18 +45,18 @@ export function CustomerLoginClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     if (!email.trim() || !password) return;
     setLoading(true);
     try {
-      const { error } = await signIn(email, password, 'customer');
-      if (error) {
-        toast.error(error);
+      const { error: sErr } = await signIn(email, password, 'customer');
+      if (sErr) {
+        setError(sErr);
       } else {
-        toast.success('Welcome back!');
         router.push(getRedirectPath());
       }
     } catch {
-      toast.error('Login failed. Please try again.');
+      setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -73,6 +73,12 @@ export function CustomerLoginClient() {
       </div>
 
       <Card className="w-full p-5 sm:p-7 rounded-3xl border border-border/80 shadow-2xl backdrop-blur touch-pan-y">
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="email" className="mb-1.5 block text-xs font-bold text-foreground">Email or Mobile Number</Label>

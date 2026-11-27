@@ -14,15 +14,15 @@ import { toast } from 'sonner';
 
 export function CustomerSearchHistoryClient() {
   const router = useRouter();
-  const { role, customer, loading: authLoading } = useAuth();
+  const { customerAuthenticated, customer, loading: authLoading } = useAuth();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && role !== 'customer') { router.push('/customer/login'); return; }
+    if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
     if (customer) loadHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, role, customer]);
+  }, [authLoading, customerAuthenticated, customer]);
 
   const loadHistory = async () => {
     if (!customer) return;

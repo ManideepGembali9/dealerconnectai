@@ -35,7 +35,7 @@ import { supabase } from '@/lib/supabase';
 import type { Brand,Category,Dealer,Enquiry,Product,Review } from '@/lib/types';
 
 export function AdminDashboardClient() {
-  const { role, loading: authLoading } = useAuth();
+  const { adminAuthenticated, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('01-dashboard');
 
   // Platform Data
@@ -71,7 +71,10 @@ export function AdminDashboardClient() {
       setSearchLogs(logs?.data || []);
 
       // Build realistic customer count and enquiry items from messages
-      const storedCustCount = 128 + (typeof window !== 'undefined' && localStorage.getItem('dc-auth-customer') ? 1 : 0);
+      const hasCust =
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('dc_session_customer') || localStorage.getItem('dc-auth-customer'));
+      const storedCustCount = 128 + (hasCust ? 1 : 0);
       setCustomerCount(storedCustCount);
 
       const transformedEnquiries: Enquiry[] = msgs.map((m: any, idx: number) => ({
@@ -93,7 +96,7 @@ export function AdminDashboardClient() {
   }, []);
 
   useEffect(() => {
-    if (role === 'admin') {
+    if (adminAuthenticated) {
       loadPlatformData();
 
       const handleSync = () => {
@@ -107,7 +110,7 @@ export function AdminDashboardClient() {
         window.removeEventListener('dc-sync-event', handleSync);
       };
     }
-  }, [role, loadPlatformData]);
+  }, [adminAuthenticated, loadPlatformData]);
 
   // Dealer Management Handlers
   const handleUpdateDealerStatus = async (id: string, status: Dealer['status']) => {
@@ -150,8 +153,8 @@ export function AdminDashboardClient() {
     );
   }
 
-  // 2. ADMIN LOGIN FIRST: If unauthenticated or non-admin, always render Admin Login screen
-  if (!role || role !== 'admin') {
+  // 2. ADMIN LOGIN FIRST: If admin portal is not signed in, render Admin Login screen
+  if (!adminAuthenticated) {
     return <AdminLoginScreen onLoginSuccess={loadPlatformData} />;
   }
 

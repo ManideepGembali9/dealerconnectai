@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth';
 import { formatINR,getEffectivePrice } from '@/lib/format';
@@ -743,23 +744,30 @@ export function ProfileSettingsPanelContent({
           </div>
 
           {!isVerified && verifyOtpSent && (
-            <form onSubmit={handleConfirmAccountOtp} className="pt-2 border-t border-border/60 flex flex-col sm:flex-row gap-2">
-              <Input
-                value={verifyOtpCode}
-                onChange={(e) => setVerifyOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit OTP"
-                maxLength={6}
-                inputMode="numeric"
-                className="h-9 text-xs font-mono tracking-widest rounded-xl"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={verifyingAccount}
-                className="h-9 px-4 text-xs font-bold rounded-xl shrink-0"
-              >
-                Confirm OTP
-              </Button>
+            <form onSubmit={handleConfirmAccountOtp} className="pt-2 border-t border-border/60 space-y-2">
+              {expectedOtp && (
+                <p className="text-[11px] font-mono text-muted-foreground">
+                  Verification code: <strong className="text-foreground">{expectedOtp}</strong>
+                </p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  value={verifyOtpCode}
+                  onChange={(e) => setVerifyOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
+                  inputMode="numeric"
+                  className="h-9 text-xs font-mono tracking-widest rounded-xl"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={verifyingAccount}
+                  className="h-9 px-4 text-xs font-bold rounded-xl shrink-0"
+                >
+                  Confirm OTP
+                </Button>
+              </div>
             </form>
           )}
         </div>
@@ -901,133 +909,106 @@ export function ProfileSettingsPanelContent({
     );
   }
 
-  // ---------- 5. APP PREFERENCES ----------
+  // ---------- 5. APP PREFERENCES (COMPACT & APP-STYLE) ----------
   return (
-    <div className="space-y-5">
-      {/* Light / Dark Theme Selection */}
-      <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-3">
-        <div>
-          <h5 className="text-xs font-bold text-foreground">Appearance (Dark / Light Mode)</h5>
-          <p className="text-[11px] text-muted-foreground">
-            Choose how DealerConnect AI looks on this device
-          </p>
+    <div className="space-y-3">
+      {/* Compact Appearance + Language Card */}
+      <div className="rounded-2xl bg-muted/40 border border-border divide-y divide-border/60">
+        {/* Theme Row */}
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+          <span className="text-xs font-bold text-foreground">Appearance</span>
+          <div className="inline-flex items-center rounded-xl border border-border bg-card p-0.5 gap-0.5">
+            {[
+              { id: 'light', label: 'Light', icon: Sun },
+              { id: 'dark', label: 'Dark', icon: Moon },
+              { id: 'system', label: 'Auto', icon: Monitor },
+            ].map((opt) => {
+              const IconComp = opt.icon;
+              const active = mounted && theme === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTheme(opt.id)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <IconComp className="h-3.5 w-3.5 shrink-0" />
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2.5">
-          {[
-            { id: 'light', label: 'Light Mode', icon: Sun },
-            { id: 'dark', label: 'Dark Mode', icon: Moon },
-            { id: 'system', label: 'System', icon: Monitor },
-          ].map((opt) => {
-            const IconComp = opt.icon;
-            const active = mounted && theme === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  setTheme(opt.id);
-                  toast.success(`Theme switched to ${opt.label}`);
-                }}
-                className={cn(
-                  'flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition-all active:scale-95',
-                  active
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                    : 'bg-card text-foreground border-border hover:bg-muted'
-                )}
-              >
-                <IconComp className="h-4 w-4 shrink-0" />
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
+
+        {/* Regional Language Row */}
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-xs font-bold text-foreground truncate">Language</span>
+          </div>
+          <select
+            aria-label="Select Regional Language"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Language)}
+            className="h-8 max-w-[165px] rounded-lg border border-border bg-card px-2.5 text-[11px] font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {LANGUAGES.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.flag ? `${item.flag} ` : ''}
+                {item.nativeLabel} ({item.label})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* App Installation Row */}
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+          <span className="text-xs font-bold text-foreground">Customer Mobile App</span>
+          <PwaInstallButton portalName="Customer App" compact />
         </div>
       </div>
 
-      {/* Regional Language Selection */}
-      <div className="p-4 rounded-2xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background border border-border text-foreground">
-            <Globe className="h-4 w-4" />
-          </div>
-          <div>
-            <h5 className="text-xs font-bold text-foreground">Regional Language</h5>
-            <p className="text-[11px] text-muted-foreground">
-              Display interface labels in your preferred Indian or international language
-            </p>
-          </div>
-        </div>
-
-        <select
-          aria-label="Select Regional Language"
-          value={lang}
-          onChange={(e) => {
-            const nextLang = e.target.value as Language;
-            setLang(nextLang);
-            const found = LANGUAGES.find((l) => l.code === nextLang);
-            toast.success(`Language changed to ${found?.label || nextLang}`);
-          }}
-          className="h-9 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {LANGUAGES.map((item) => (
-            <option key={item.code} value={item.code}>
-              {item.flag ? `${item.flag} ` : ''}
-              {item.nativeLabel} ({item.label})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Push Notification Preferences */}
-      <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/50">
+      {/* Compact Alerts & Push Controls */}
+      <div className="rounded-2xl bg-muted/40 border border-border divide-y divide-border/60">
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
           <div className="flex items-center gap-2">
-            <BellRing className="h-4 w-4 text-foreground" />
-            <div>
-              <h5 className="text-xs font-bold text-foreground">Notification Preferences</h5>
-              <p className="text-[11px] text-muted-foreground">
-                Control showroom alerts, stock notifications, and price-drop updates
-              </p>
-            </div>
+            <BellRing className="h-4 w-4 text-foreground shrink-0" />
+            <span className="text-xs font-bold text-foreground">Push Alerts</span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-muted-foreground">
-              {pushSubscribed ? 'Active' : 'Off'}
-            </span>
-            <Switch
-              checked={pushSubscribed}
-              disabled={pushBusy}
-              onCheckedChange={handleTogglePushSubscription}
-            />
-          </div>
+          <Switch
+            checked={pushSubscribed}
+            disabled={pushBusy}
+            onCheckedChange={handleTogglePushSubscription}
+          />
         </div>
-
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-foreground">Back-in-Stock Alerts</span>
-            <Switch
-              checked={notifPrefs.in_stock}
-              onCheckedChange={(v) => handleToggleNotifType('in_stock', v)}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-foreground">Price Drop Notifications</span>
-            <Switch
-              checked={notifPrefs.price_drop}
-              onCheckedChange={(v) => handleToggleNotifType('price_drop', v)}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-foreground">Nearby Store New Arrivals & Offers</span>
-            <Switch
-              checked={notifPrefs.nearby}
-              onCheckedChange={(v) => handleToggleNotifType('nearby', v)}
-            />
-          </div>
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2">
+          <span className="text-xs text-foreground">Back-in-Stock Alerts</span>
+          <Switch
+            checked={notifPrefs.in_stock}
+            onCheckedChange={(v) => handleToggleNotifType('in_stock', v)}
+          />
         </div>
-
-        <div className="pt-1">
-          <Link href="/notifications" className="text-xs font-bold text-foreground hover:underline inline-flex items-center gap-1">
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2">
+          <span className="text-xs text-foreground">Price Drop Updates</span>
+          <Switch
+            checked={notifPrefs.price_drop}
+            onCheckedChange={(v) => handleToggleNotifType('price_drop', v)}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2">
+          <span className="text-xs text-foreground">Nearby Store Arrivals</span>
+          <Switch
+            checked={notifPrefs.nearby}
+            onCheckedChange={(v) => handleToggleNotifType('nearby', v)}
+          />
+        </div>
+        <div className="px-3.5 py-2">
+          <Link href="/notifications" className="text-xs font-bold text-foreground hover:underline inline-flex items-center gap-1.5">
             <Bell className="h-3.5 w-3.5" /> Open Notifications Inbox &rarr;
           </Link>
         </div>

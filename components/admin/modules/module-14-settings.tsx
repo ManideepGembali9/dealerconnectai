@@ -48,7 +48,7 @@ export function Module14Settings() {
 
     setSavingPw(true);
     try {
-      const { error } = await changePassword(newPw);
+      const { error } = await changePassword(newPw, 'admin');
       if (error) throw new Error(error);
       toast.success('Admin master password updated successfully!');
       setCurrentPw('');
@@ -82,8 +82,7 @@ export function Module14Settings() {
         <Button
           variant="destructive"
           onClick={async () => {
-            await signOut();
-            toast.info('Administrator session terminated.');
+            await signOut('admin');
           }}
           className="font-bold gap-1.5 self-start sm:self-auto"
         >

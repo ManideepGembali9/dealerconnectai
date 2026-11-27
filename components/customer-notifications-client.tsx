@@ -12,15 +12,15 @@ import { useEffect,useState } from 'react';
 
 export function CustomerNotificationsClient() {
   const router = useRouter();
-  const { role, customer, loading: authLoading } = useAuth();
+  const { customerAuthenticated, customer, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && role !== 'customer') { router.push('/customer/login'); return; }
+    if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
     if (customer) loadNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, role, customer]);
+  }, [authLoading, customerAuthenticated, customer]);
 
   const loadNotifications = async () => {
     if (!customer) return;

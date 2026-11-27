@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Shield, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, CheckCircle2,
-  UserX, KeyRound, Smartphone, RefreshCw, Sparkles, Check, ShieldCheck
+  KeyRound, Smartphone, RefreshCw, Sparkles, Check, ShieldCheck
 } from 'lucide-react';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 
 export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
-  const { signIn, role, signOut } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,8 +58,7 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
     return () => clearTimeout(timer);
   }, [resendCountdown, forgotStep, forgotOpen]);
 
-  // If currently authenticated as customer or dealer, inform them that only ADMIN accounts can enter
-  const isNonAdminUser = role === 'customer' || role === 'dealer';
+  // Admin login operates independently from Customer and Dealer sessions.
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,63 +218,47 @@ export function AdminLoginScreen({ onLoginSuccess }: { onLoginSuccess?: () => vo
 
   return (
     <div
-      className="relative flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-background via-purple-950/5 to-muted/40 px-3 py-6 sm:px-6 sm:py-10 pb-36 sm:pb-20 touch-pan-y scrollbar-hide selection:bg-purple-500/20"
+      className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-gradient-to-br from-background via-purple-950/5 to-muted/40 px-4 py-4 sm:px-6 sm:py-8 touch-pan-y scrollbar-hide selection:bg-purple-500/20"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Decorative background grid */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(#8b5cf6_1px,transparent_1px)] opacity-15 [background-size:24px_24px]" />
 
-      <div className="relative w-full max-w-md my-2 sm:my-auto shrink-0 transition-all touch-pan-y">
-        {/* Top brand header */}
-        <div className="mb-5 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-600/25">
-            <Shield className="h-7 w-7" />
+      <div className="relative w-full max-w-md space-y-3 sm:space-y-4 shrink-0 transition-all touch-pan-y">
+        {/* Mobile-App Top Strip */}
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 rounded-xl border border-border bg-card/80 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Storefront
+          </Link>
+          <PwaInstallButton portalName="Admin App" compact />
+        </div>
+
+        {/* Compact Mobile-App Header */}
+        <div className="text-center space-y-1.5">
+          <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-600/25">
+            <Shield className="h-6 w-6 sm:h-7 sm:w-7" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-xl font-black tracking-tight text-foreground sm:text-2xl">
             Admin Control Center
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            DealerConnect AI Platform Supervision & Master Control
+          <p className="text-[11px] sm:text-xs text-muted-foreground">
+            Independent Master Administration Portal
           </p>
         </div>
 
-        {/* Non-admin role warning banner if already logged into customer/dealer */}
-        {isNonAdminUser && (
-          <div className="mb-4 rounded-2xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive">
-            <div className="flex items-start gap-2.5">
-              <UserX className="mt-0.5 h-4 w-4 shrink-0" />
-              <div>
-                <p className="font-semibold">Access Restricted</p>
-                <p className="mt-0.5 text-muted-foreground">
-                  You are currently logged in as <span className="font-bold uppercase text-foreground">{role}</span>. Customer and Dealer accounts cannot access the Admin Control Center.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  className="mt-2.5 h-7 text-xs font-semibold rounded-lg"
-                  onClick={async () => {
-                    await signOut();
-                    toast.info('Signed out. Please log in with an Administrator account.');
-                  }}
-                >
-                  Switch to Admin Account
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <Card className="border border-border/80 shadow-2xl backdrop-blur rounded-3xl p-5 sm:p-7 space-y-5 touch-pan-y">
-          <div className="flex items-center justify-between pb-3 border-b border-border/60">
+        <Card className="border border-border/80 shadow-xl backdrop-blur rounded-3xl p-4 sm:p-6 space-y-4 touch-pan-y">
+          <div className="flex items-center justify-between pb-2.5 border-b border-border/60">
             <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Master Admin Portal
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                Admin Sign In
               </span>
             </div>
-            <Badge variant="outline" className="text-[11px] font-semibold text-purple-600 border-purple-500/30">
-              Control Gateway
+            <Badge variant="outline" className="text-[10px] font-semibold text-purple-600 border-purple-500/30">
+              Isolated Session
             </Badge>
           </div>
 

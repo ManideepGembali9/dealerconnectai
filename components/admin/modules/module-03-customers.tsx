@@ -120,9 +120,11 @@ export function Module03Customers({ customerCount }: Module03Props) {
   useEffect(() => {
     // If local customer profile is saved, merge it into the admin list
     try {
-      const raw = localStorage.getItem('dc-auth-customer');
-      if (raw) {
-        const currentProfile = JSON.parse(raw);
+      const wrapped = localStorage.getItem('dc_session_customer');
+      const legacy = localStorage.getItem('dc-auth-customer');
+      const rawProfile = wrapped ? JSON.parse(wrapped)?.profile : legacy ? JSON.parse(legacy) : null;
+      if (rawProfile && rawProfile.email) {
+        const currentProfile = rawProfile;
         setCustomers((prev) => {
           if (prev.some((c) => c.email.toLowerCase() === currentProfile.email.toLowerCase())) {
             return prev;
@@ -223,8 +225,50 @@ export function Module03Customers({ customerCount }: Module03Props) {
         </div>
       </div>
 
-      {/* Customers Table Card */}
-      <Card className="border-border/80 overflow-hidden shadow-sm">
+      {/* Mobile Customer Cards (< 768px) */}
+      <div className="md:hidden space-y-2.5">
+        {filtered.length === 0 ? (
+          <Card className="p-8 text-center text-xs text-muted-foreground rounded-2xl">
+            <Users className="mx-auto h-7 w-7 opacity-40 mb-1.5" />
+            No customer accounts found.
+          </Card>
+        ) : (
+          filtered.map((c) => (
+            <Card key={c.id} className="p-4 border-border/80 rounded-2xl space-y-2 shadow-xs">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-foreground truncate">{c.full_name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{c.email}</p>
+                  <p className="text-[11px] text-muted-foreground">{c.preferred_city || 'Amalapuram'} • PIN {c.pin_code || '533201'}</p>
+                </div>
+                <Badge
+                  variant={c.status === 'active' ? 'default' : c.status === 'inactive' ? 'secondary' : 'destructive'}
+                  className="text-[10px] capitalize font-semibold shrink-0"
+                >
+                  {c.status}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                <Button size="sm" variant="outline" onClick={() => setSelectedCustomer(c)} className="h-8 px-2.5 text-[11px] font-semibold">
+                  <Eye className="h-3.5 w-3.5 mr-1" /> Details
+                </Button>
+                {c.status === 'active' ? (
+                  <Button size="sm" variant="ghost" onClick={() => toggleCustomerStatus(c.id, 'suspended')} className="h-8 px-2.5 text-[11px] text-destructive">
+                    <UserX className="h-3.5 w-3.5 mr-1" /> Suspend
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => toggleCustomerStatus(c.id, 'active')} className="h-8 px-2.5 text-[11px] text-emerald-600 font-semibold">
+                    <UserCheck className="h-3.5 w-3.5 mr-1" /> Activate
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Customers Table Card (>= 768px) */}
+      <Card className="hidden md:block border-border/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 border-b border-border/80 font-bold text-muted-foreground uppercase text-[11px]">

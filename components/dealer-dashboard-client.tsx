@@ -29,7 +29,7 @@ import { Module13DealerSupport } from './dealer/modules/module-13-support';
 import { Module14DealerSettings } from './dealer/modules/module-14-settings';
 
 export function DealerDashboardClient() {
-  const { role, dealer: authDealer, loading: authLoading } = useAuth();
+  const { dealerAuthenticated, dealer: authDealer, loading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState('01-dashboard');
   const [dealer, setDealer] = useState<Dealer | null>(null);
@@ -169,9 +169,9 @@ export function DealerDashboardClient() {
   }
 
   // =========================================================================
-  // 2. UNAUTHENTICATED OR NON-DEALER ROLE -> SHOW DEALER LOGIN FIRST
+  // 2. UNAUTHENTICATED DEALER -> SHOW INDEPENDENT DEALER LOGIN
   // =========================================================================
-  if (!authDealer || role !== 'dealer') {
+  if (!authDealer || !dealerAuthenticated) {
     return <DealerLoginScreen onLoginSuccess={loadAllData} />;
   }
 
