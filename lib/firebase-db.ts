@@ -1096,12 +1096,36 @@ export function createFirebaseQueryBuilder(tableName: string) {
         for (const item of items) {
           if (!item.id) item.id = item.customer_id || `id-${Date.now()}`;
           const list = getLocal<any[]>(key, []);
+          const normalizedEmail =
+            tableName === 'customers' && typeof item.email === 'string'
+              ? item.email.trim().toLowerCase()
+              : '';
           const idx = list.findIndex(
-            (x) => x.id === item.id || (item.customer_id && x.customer_id === item.customer_id)
+            (x) =>
+              x.id === item.id ||
+              (item.customer_id && x.customer_id === item.customer_id) ||
+              (normalizedEmail &&
+                typeof x.email === 'string' &&
+                x.email.trim().toLowerCase() === normalizedEmail)
           );
-          if (idx >= 0) list[idx] = { ...list[idx], ...item };
-          else list.push(item);
-          setLocal(key, list);
+          const mergedItem =
+            idx >= 0 ? { ...list[idx], ...item, id: list[idx].id || item.id } : item;
+          if (idx >= 0) {
+            list[idx] = mergedItem;
+          } else {
+            list.push(mergedItem);
+          }
+
+          const dedupedList = normalizedEmail
+            ? list.filter((x, pos) => {
+                const email = typeof x.email === 'string' ? x.email.trim().toLowerCase() : '';
+                if (email !== normalizedEmail) return true;
+                return pos === (idx >= 0 ? idx : list.length - 1);
+              })
+            : list;
+
+          setLocal(key, dedupedList);
+          await writeFirestoreDoc(tableName, mergedItem.id, mergedItem);
         }
         return { data: items[0], error: null };
       })();

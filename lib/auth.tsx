@@ -10,6 +10,14 @@ import {
 } from 'react';
 import type { Dealer, CustomerProfile } from './types';
 import { getDbDealers, saveDbDealer } from './firebase-db';
+import { supabase } from './supabase';
+
+export type GoogleAccountInput = {
+  email: string;
+  full_name?: string;
+  avatar_url?: string | null;
+  google_sub?: string;
+};
 
 export type UserRole = 'customer' | 'dealer' | 'admin';
 
@@ -85,7 +93,13 @@ type AuthContextType = {
     phone: string,
     pinCode: string
   ) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithGoogle: (
+    account?: GoogleAccountInput
+  ) => Promise<{
+    error: string | null;
+    isNewCustomer?: boolean;
+    profile?: CustomerProfile;
+  }>;
   sendOtp: (
     identifier: string,
     channel?: 'email' | 'sms' | 'whatsapp'
@@ -164,6 +178,93 @@ function persistCustomerSession(profile: CustomerProfile): void {
   };
   localStorage.setItem(STORAGE_KEYS.customerSession, JSON.stringify(wrapper));
   localStorage.setItem(STORAGE_KEYS.legacyCustomer, JSON.stringify(profile));
+}
+
+function deriveCustomerNameFromEmail(email: string): string {
+  return (
+    email
+      .split('@')[0]
+      .replace(/[._-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Customer'
+  );
+}
+
+export function buildGoogleAvatarDataUri(displayName: string, email: string): string {
+  const words = (displayName || deriveCustomerNameFromEmail(email))
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials =
+    words.length >= 2
+      ? `${words[0][0]}${words[1][0]}`.toUpperCase()
+      : (words[0]?.slice(0, 2) || 'G').toUpperCase();
+  const palette = ['#1a73e8', '#0f9d58', '#d93025', '#f29900', '#7b1fa2', '#111827'];
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = (hash * 31 + email.charCodeAt(i)) >>> 0;
+  }
+  const bg = palette[hash % palette.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="64" fill="${bg}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="system-ui,-apple-system,sans-serif" font-size="48" font-weight="700">${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function loadCustomerRegistry(): CustomerProfile[] {
+  const parsed = safeJsonParse<CustomerProfile[]>(
+    localStorage.getItem('dc-customers-registry')
+  );
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+async function findExistingCustomerByEmail(email: string): Promise<CustomerProfile | null> {
+  const lowerEmail = email.toLowerCase().trim();
+  const registry = loadCustomerRegistry();
+  const inRegistry = registry.find(
+    (u) => typeof u?.email === 'string' && u.email.toLowerCase().trim() === lowerEmail
+  );
+  if (inRegistry) return inRegistry;
+
+  const active = readStoredCustomer();
+  if (active && active.email?.toLowerCase().trim() === lowerEmail) {
+    return active;
+  }
+
+  try {
+    const { data } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('email', lowerEmail)
+      .maybeSingle();
+    if (data && data.id) {
+      return data as CustomerProfile;
+    }
+  } catch {}
+
+  return null;
+}
+
+async function saveDeduplicatedCustomerRecord(profile: CustomerProfile): Promise<void> {
+  const lowerEmail = profile.email.toLowerCase().trim();
+  const normalized: CustomerProfile = {
+    ...profile,
+    email: lowerEmail,
+  };
+
+  try {
+    const registry = loadCustomerRegistry();
+    const filtered = registry.filter(
+      (u) =>
+        u.id !== normalized.id &&
+        (typeof u.email !== 'string' || u.email.toLowerCase().trim() !== lowerEmail)
+    );
+    filtered.push(normalized);
+    localStorage.setItem('dc-customers-registry', JSON.stringify(filtered));
+  } catch {}
+
+  try {
+    await supabase.from('customers').upsert(normalized);
+  } catch {}
 }
 
 function readStoredDealerId(): string | null {
@@ -400,53 +501,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 3. CUSTOMER PORTAL LOGIN (isolated to customer state + dc_customer_session)
         if (requestedRole === 'customer') {
-          // Check registered customers registry first
-          try {
-            const registry: CustomerProfile[] = JSON.parse(
-              localStorage.getItem('dc-customers-registry') || '[]'
-            );
-            const foundInRegistry = registry.find(
-              (u) => u.email.toLowerCase() === lowerEmail
-            );
-            if (foundInRegistry) {
-              const savedPw = localStorage.getItem(`dc-customer-pw-${lowerEmail}`);
-              if (
-                savedPw &&
-                password !== savedPw &&
-                password !== 'customer123'
-              ) {
-                return { error: 'Invalid customer password.' };
-              }
-              persistCustomerSession(foundInRegistry);
-              setCustomer(foundInRegistry);
-              await syncServerSessionCookie('customer', {
-                email: lowerEmail,
-                sub: foundInRegistry.id,
-              });
-              return { error: null };
-            }
-          } catch {}
-
-          // Check current stored customer profile
-          const savedCustomer = readStoredCustomer();
-          const savedCustomerPw =
-            localStorage.getItem(`dc-customer-pw-${lowerEmail}`) || 'customer123';
-
-          if (
-            savedCustomer &&
-            savedCustomer.email?.toLowerCase() === lowerEmail
-          ) {
+          const matchedExisting = await findExistingCustomerByEmail(lowerEmail);
+          if (matchedExisting) {
+            const savedPw = localStorage.getItem(`dc-customer-pw-${lowerEmail}`);
             if (
-              password !== savedCustomerPw &&
+              savedPw &&
+              password !== savedPw &&
               password !== 'customer123'
             ) {
               return { error: 'Invalid customer password.' };
             }
-            persistCustomerSession(savedCustomer);
-            setCustomer(savedCustomer);
+            await saveDeduplicatedCustomerRecord(matchedExisting);
+            persistCustomerSession(matchedExisting);
+            setCustomer(matchedExisting);
             await syncServerSessionCookie('customer', {
               email: lowerEmail,
-              sub: savedCustomer.id,
+              sub: matchedExisting.id,
             });
             return { error: null };
           }
@@ -477,6 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
+            await saveDeduplicatedCustomerRecord(demoProfile);
             persistCustomerSession(demoProfile);
             setCustomer(demoProfile);
             await syncServerSessionCookie('customer', {
@@ -489,11 +560,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Standard customer profile creation fallback
           const autoProfile: CustomerProfile = {
             id: `cust-${Date.now()}`,
-            full_name:
-              lowerEmail
-                .split('@')[0]
-                .replace(/[^a-zA-Z0-9]/g, ' ')
-                .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Customer',
+            full_name: deriveCustomerNameFromEmail(lowerEmail),
             email: lowerEmail,
             phone: '',
             pin_code: '532440',
@@ -512,6 +579,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             updated_at: new Date().toISOString(),
           };
           localStorage.setItem(`dc-customer-pw-${lowerEmail}`, password);
+          await saveDeduplicatedCustomerRecord(autoProfile);
           persistCustomerSession(autoProfile);
           setCustomer(autoProfile);
           await syncServerSessionCookie('customer', {
@@ -539,17 +607,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ): Promise<{ error: string | null }> => {
       try {
         const lowerEmail = email.toLowerCase().trim();
-        const uid = `cust-${Date.now()}`;
+        const existing = await findExistingCustomerByEmail(lowerEmail);
+        const uid = existing?.id || `cust-${Date.now()}`;
+        const nowIso = new Date().toISOString();
 
         const newProfile: CustomerProfile = {
           id: uid,
-          full_name: fullName,
+          full_name: fullName || existing?.full_name || deriveCustomerNameFromEmail(lowerEmail),
           email: lowerEmail,
-          phone,
-          pin_code: pinCode,
-          preferred_city: 'Amalapuram',
-          preferred_location: {},
-          avatar_url: null,
+          phone: phone || existing?.phone || '',
+          pin_code: pinCode || existing?.pin_code || '532440',
+          preferred_city: existing?.preferred_city || 'Amalapuram',
+          preferred_location: existing?.preferred_location || {},
+          avatar_url: existing?.avatar_url || null,
           preferences: {
             verified: false,
             notifications: true,
@@ -557,24 +627,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             share_location: true,
             personalized_ai: true,
             show_contact: true,
+            ...(existing?.preferences || {}),
           },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: existing?.created_at || nowIso,
+          updated_at: nowIso,
         };
 
         localStorage.setItem(`dc-customer-pw-${lowerEmail}`, password);
+        await saveDeduplicatedCustomerRecord(newProfile);
         persistCustomerSession(newProfile);
-
-        try {
-          const existingUsers: CustomerProfile[] = JSON.parse(
-            localStorage.getItem('dc-customers-registry') || '[]'
-          );
-          const filtered = existingUsers.filter(
-            (u) => u.email.toLowerCase() !== lowerEmail
-          );
-          filtered.push(newProfile);
-          localStorage.setItem('dc-customers-registry', JSON.stringify(filtered));
-        } catch {}
 
         setCustomer(newProfile);
         await syncServerSessionCookie('customer', { email: lowerEmail, sub: uid });
@@ -615,18 +676,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      await saveDeduplicatedCustomerRecord(updated);
       try {
-        const registry: CustomerProfile[] = JSON.parse(
-          localStorage.getItem('dc-customers-registry') || '[]'
-        );
-        const filtered = registry.filter(
-          (u) =>
-            u.id !== customer.id &&
-            u.email.toLowerCase() !== previousEmail &&
-            u.email.toLowerCase() !== nextEmail
-        );
-        filtered.push(updated);
-        localStorage.setItem('dc-customers-registry', JSON.stringify(filtered));
+        await supabase.from('customers').upsert(updated);
       } catch {}
 
       return { error: null };
@@ -678,40 +730,124 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [admin, dealer, customer]
   );
 
-  const signInWithGoogle = useCallback(async (): Promise<{ error: string | null }> => {
-    try {
-      const googleProfile: CustomerProfile = {
-        id: 'google-cust-' + Date.now(),
-        full_name: 'Google Customer',
-        email: 'google.customer@gmail.com',
-        phone: '+91 98765 43210',
-        pin_code: '532440',
-        preferred_city: 'Amalapuram',
-        preferred_location: {},
-        avatar_url:
-          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-        preferences: {
-          verified: true,
-          notifications: true,
-          in_stock_alerts: true,
-          share_location: true,
-          personalized_ai: true,
-          show_contact: true,
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      persistCustomerSession(googleProfile);
-      setCustomer(googleProfile);
-      await syncServerSessionCookie('customer', {
-        email: googleProfile.email,
-        sub: googleProfile.id,
-      });
-      return { error: null };
-    } catch (err: any) {
-      return { error: err?.message || 'Google Sign-in failed' };
-    }
-  }, []);
+  const signInWithGoogle = useCallback(
+    async (
+      account?: GoogleAccountInput
+    ): Promise<{
+      error: string | null;
+      isNewCustomer?: boolean;
+      profile?: CustomerProfile;
+    }> => {
+      try {
+        const lowerEmail =
+          typeof account?.email === 'string' && account.email.trim()
+            ? account.email.trim().toLowerCase()
+            : 'google.customer@gmail.com';
+        if (!lowerEmail.includes('@')) {
+          return { error: 'Please provide a valid Google email address.' };
+        }
+
+        const existing = await findExistingCustomerByEmail(lowerEmail);
+        const nowIso = new Date().toISOString();
+        const existingPrefs = (existing?.preferences || {}) as Record<string, unknown>;
+
+        const resolvedName =
+          typeof account?.full_name === 'string' && account.full_name.trim()
+            ? account.full_name.trim()
+            : existing?.full_name || deriveCustomerNameFromEmail(lowerEmail);
+
+        const resolvedAvatar =
+          (typeof account?.avatar_url === 'string' && account.avatar_url.trim()
+            ? account.avatar_url.trim()
+            : null) ||
+          existing?.avatar_url ||
+          buildGoogleAvatarDataUri(resolvedName, lowerEmail);
+
+        const cleanSub =
+          typeof account?.google_sub === 'string' && account.google_sub.trim()
+            ? account.google_sub.trim()
+            : typeof existingPrefs.google_sub === 'string'
+              ? existingPrefs.google_sub
+              : `google-${lowerEmail}`;
+
+        const googleProfile: CustomerProfile = existing
+          ? {
+              ...existing,
+              full_name: resolvedName,
+              email: lowerEmail,
+              avatar_url: resolvedAvatar,
+              preferences: {
+                ...existingPrefs,
+                verified: true,
+                email_verified: true,
+                auth_provider: 'google',
+                google_sub: cleanSub,
+              },
+              updated_at: nowIso,
+            }
+          : {
+              id: `google-cust-${cleanSub.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || Date.now()}`,
+              full_name: resolvedName,
+              email: lowerEmail,
+              phone: '',
+              pin_code: '532440',
+              preferred_city: 'Amalapuram',
+              preferred_location: {},
+              avatar_url: resolvedAvatar,
+              preferences: {
+                verified: true,
+                email_verified: true,
+                auth_provider: 'google',
+                google_sub: cleanSub,
+                notifications: true,
+                in_stock_alerts: true,
+                share_location: true,
+                personalized_ai: true,
+                show_contact: true,
+              },
+              created_at: nowIso,
+              updated_at: nowIso,
+            };
+
+        await saveDeduplicatedCustomerRecord(googleProfile);
+        persistCustomerSession(googleProfile);
+        setCustomer(googleProfile);
+
+        try {
+          const res = await fetch('/api/auth/google/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: googleProfile.email,
+              customerId: googleProfile.id,
+              full_name: googleProfile.full_name,
+              avatar_url: googleProfile.avatar_url,
+            }),
+          });
+          if (!res.ok) {
+            await syncServerSessionCookie('customer', {
+              email: googleProfile.email,
+              sub: googleProfile.id,
+            });
+          }
+        } catch {
+          await syncServerSessionCookie('customer', {
+            email: googleProfile.email,
+            sub: googleProfile.id,
+          });
+        }
+
+        return {
+          error: null,
+          isNewCustomer: !existing,
+          profile: googleProfile,
+        };
+      } catch (err: any) {
+        return { error: err?.message || 'Google Sign-in failed' };
+      }
+    },
+    []
+  );
 
   const sendOtp = useCallback(
     async (

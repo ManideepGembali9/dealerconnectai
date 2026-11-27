@@ -52,6 +52,7 @@ import {
 import { DealerRegistrationForm } from '@/components/dealer-registration-form';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ProfileShoppingChat } from '@/components/chatbot';
+import { CustomerGoogleAuthButton } from '@/components/customer-google-auth';
 import {
   ProfileSettingsPanelContent,
   isCustomerAccountVerified,
@@ -114,7 +115,6 @@ export function ProfileClient() {
     updateCustomerProfile,
     signIn,
     signUpCustomer,
-    signInWithGoogle,
     sendOtp,
   } = useAuth();
   const {
@@ -178,7 +178,6 @@ export function ProfileClient() {
   const [guestShowPassword, setGuestShowPassword] = useState(false);
   const [guestError, setGuestError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   useEffect(() => {
     setThemeMounted(true);
@@ -451,16 +450,6 @@ export function ProfileClient() {
     }
   };
 
-  const handleGuestGoogleLogin = async () => {
-    setGuestError(null);
-    setGoogleSubmitting(true);
-    const res = await signInWithGoogle();
-    setGoogleSubmitting(false);
-    if (res.error) {
-      setGuestError(res.error || 'Google Sign-In failed');
-    }
-  };
-
   const handleGuestSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuestError(null);
@@ -619,7 +608,7 @@ export function ProfileClient() {
 
                 <Button
                   type="submit"
-                  disabled={authSubmitting || googleSubmitting}
+                  disabled={authSubmitting}
                   className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-xs sm:text-sm"
                 >
                   {authSubmitting ? 'Signing In...' : 'Sign In'}
@@ -704,7 +693,7 @@ export function ProfileClient() {
 
                 <Button
                   type="submit"
-                  disabled={authSubmitting || googleSubmitting}
+                  disabled={authSubmitting}
                   className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl text-xs sm:text-sm"
                 >
                   {authSubmitting ? 'Creating...' : 'Create Free Account'}
@@ -721,15 +710,13 @@ export function ProfileClient() {
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleGuestGoogleLogin}
-              disabled={authSubmitting || googleSubmitting}
-              className="w-full h-9 rounded-xl border-border font-bold text-xs gap-2 hover:bg-muted"
-            >
-              {googleSubmitting ? 'Connecting...' : 'Continue with Google'}
-            </Button>
+            <CustomerGoogleAuthButton
+              compact
+              redirectOnSuccess={false}
+              redirectTo="/"
+              disabled={authSubmitting}
+              onError={setGuestError}
+            />
           </Card>
 
           {/* Compact Single-Row App Preferences Strip */}

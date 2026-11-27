@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import type { Dealer } from '@/lib/types';
-import { Clock,LogOut,Phone,RefreshCw } from 'lucide-react';
+import { Clock, LogOut, Phone, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 type PendingProps = {

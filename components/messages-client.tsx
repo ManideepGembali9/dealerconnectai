@@ -8,8 +8,7 @@ import { fetchApprovedDealers,fetchDealerById } from '@/lib/data';
 import { timeAgo } from '@/lib/format';
 import { fetchConversations,fetchMessages,markMessagesRead,sendMessage } from '@/lib/messaging';
 import { useApp } from '@/lib/providers';
-import type { Dealer,Message } from '@/lib/supabase';
-import { supabase } from '@/lib/supabase';
+import { supabase, type Dealer, type Message } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
