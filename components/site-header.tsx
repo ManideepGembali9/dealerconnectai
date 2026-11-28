@@ -113,6 +113,7 @@ export function SiteHeader() {
 
   return (
     <header
+      data-site-header="global"
       className="sticky top-0 z-40 w-full border-b border-border backdrop-blur text-foreground shadow-sm transition-colors"
       style={{ backgroundColor: 'var(--dc-header-bg)' }}
     >
