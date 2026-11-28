@@ -63,8 +63,14 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
       router.push(`/customer/login?redirect=/product/${product.id}`);
       return;
     }
-    addToCart(product, 1);
-    toast.success(`${product.name.slice(0, 24)}... added to Cart!`);
+    if (product.stock_status === 'out_of_stock' || (typeof product.stock_qty === 'number' && product.stock_qty <= 0)) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
+    const added = addToCart(product, 1);
+    if (added) {
+      toast.success(`${product.name.slice(0, 24)}... added to Cart!`);
+    }
   };
 
   const stockLabel = t(stock.labelKey) || stock.defaultLabel;

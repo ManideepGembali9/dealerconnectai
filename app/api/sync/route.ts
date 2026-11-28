@@ -69,6 +69,14 @@ export async function GET(request: Request) {
     return false;
   });
 
+  const visibleDealerEnquiries = isAdmin
+    ? db.dealerEnquiries
+    : dealerId
+      ? db.dealerEnquiries
+          .filter((e) => e.dealer_id === dealerId)
+          .map(({ internal_notes: _hidden, ...safe }) => ({ ...safe, internal_notes: null }))
+      : [];
+
   return NextResponse.json({
     categories: db.categories,
     brands: db.brands,
@@ -76,6 +84,7 @@ export async function GET(request: Request) {
     dealerApplications: visibleApplications,
     products: db.products,
     enquiries: visibleEnquiries,
+    dealerEnquiries: visibleDealerEnquiries,
     reviews: visibleReviews,
     reviewReports: isAdmin ? db.reviewReports : [],
     moderationLogs: isAdmin ? db.moderationLogs : [],

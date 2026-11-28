@@ -36,6 +36,8 @@
     --success-foreground: 0 0% 98%;
     --warning: 0 0% 30%;
     --warning-foreground: 0 0% 98%;
+    --dc-header-bg: hsl(0 0% 100% / 0.95);
+    --dc-nav-bg: hsl(0 0% 100% / 0.95);
     --radius: 0.75rem;
   }
 
@@ -63,6 +65,8 @@
     --success-foreground: 0 0% 9%;
     --warning: 0 0% 75%;
     --warning-foreground: 0 0% 9%;
+    --dc-header-bg: hsl(0 0% 4% / 0.95);
+    --dc-nav-bg: hsl(0 0% 4% / 0.95);
   }
 
   /* Universal monochrome preset support */

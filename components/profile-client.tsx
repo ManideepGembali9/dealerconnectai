@@ -17,6 +17,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  MessageSquare,
   Monitor,
   Moon,
   Settings,
@@ -30,6 +31,7 @@ import { CustomerGoogleAuthButton } from '@/components/customer-google-auth';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { isVerifiedCustomer } from '@/components/profile/customer-subpage-shell';
 import { ProfileShoppingChat } from '@/components/chatbot';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -47,49 +49,62 @@ import { supabase } from '@/lib/supabase';
 import type { DealerApplication } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-type AccountSettingLink = {
+type AccountOptionItem = {
+  id: string;
   title: string;
-  subtitle: string;
-  href: string;
+  href?: string;
+  action?: 'chatbot';
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const ACCOUNT_SETTINGS_ITEMS: AccountSettingLink[] = [
+const PROFILE_OPTIONS_ITEMS: AccountOptionItem[] = [
   {
+    id: 'personal-info',
     title: 'Personal Information',
-    subtitle: 'Profile photo, full name, email & phone',
     href: '/customer/personal-info',
     icon: User,
   },
   {
-    title: 'Saved Location',
-    subtitle: 'GPS coordinates & 6-digit PIN delivery area',
+    id: 'saved-locations',
+    title: 'Saved Locations',
     href: '/customer/saved-location',
     icon: MapPin,
   },
   {
+    id: 'saved-stores',
     title: 'Saved Stores',
-    subtitle: 'Favorite local shops you bookmarked',
     href: '/customer/saved-stores',
     icon: Store,
   },
   {
+    id: 'compare',
     title: 'Compare Products',
-    subtitle: 'Side-by-side price & specification table',
     href: '/compare',
     icon: GitCompare,
   },
   {
-    title: 'Security & Privacy',
-    subtitle: 'Password update, verification & privacy',
+    id: 'my-enquiries',
+    title: 'My Enquiries',
+    href: '/customer/enquiries',
+    icon: MessageSquare,
+  },
+  {
+    id: 'security',
+    title: 'Security',
     href: '/customer/settings',
     icon: Lock,
   },
   {
+    id: 'preferences',
     title: 'App Preferences',
-    subtitle: 'Theme, language & alert notifications',
     href: '/customer/preferences',
     icon: SlidersHorizontal,
+  },
+  {
+    id: 'ai-chatbot',
+    title: 'AI Chatbot',
+    action: 'chatbot',
+    icon: Bot,
   },
 ];
 
@@ -477,10 +492,10 @@ export function ProfileClient() {
   }
 
   // ============================================================
-  // AUTHENTICATED CUSTOMER PROFILE (PREMIUM DARK UI)
+  // AUTHENTICATED CUSTOMER PROFILE (MOBILE-APP MY ACCOUNT UI)
   // ============================================================
   const isVerified = isVerifiedCustomer(customer);
-  const customerInitials = (customer.full_name || 'C')
+  const customerInitials = (customer.full_name || customer.email || 'C')
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -488,158 +503,165 @@ export function ProfileClient() {
     .join('');
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-[#0A0A0A] text-[#FFFFFF] pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
-      <div className="mx-auto max-w-2xl px-4 pt-6 pb-4 space-y-5">
-        {/* Profile Header: Avatar, Full Name, and Verified Badge ONLY */}
+    <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-muted/30 dark:bg-background text-foreground pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+      {/* Attractive Profile Backdrop Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/85 text-primary-foreground">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-2xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-black/10 blur-xl"
+        />
+
+        <div className="relative mx-auto max-w-2xl px-4 pt-5 pb-14">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-extrabold tracking-tight">My Account</h1>
+            <Link
+              href="/"
+              className="hidden md:inline-flex items-center rounded-lg bg-white/15 px-3 py-1 text-xs font-semibold hover:bg-white/25 transition-colors"
+            >
+              Home
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mx-auto max-w-2xl px-4 -mt-10 space-y-4">
+        {/* Centered Profile Identity Card */}
         <section
           aria-label="Customer Profile Summary"
-          className="rounded-2xl border border-[#292929] bg-[#151515] p-5"
+          className="rounded-3xl border border-border bg-card px-5 pt-4 pb-5 shadow-sm text-center"
         >
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#292929] bg-[#202020] text-lg font-bold text-[#FFFFFF]">
-              {customer.avatar_url ? (
-                <Image
-                  src={customer.avatar_url}
-                  alt={customer.full_name || 'Customer Avatar'}
-                  fill
-                  unoptimized
-                  className="object-cover"
-                />
-              ) : (
-                <span>{customerInitials || 'C'}</span>
-              )}
-            </div>
+          <div className="-mt-12 mx-auto relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-card bg-muted text-xl font-black text-foreground shadow-md">
+            {customer.avatar_url ? (
+              <Image
+                src={customer.avatar_url}
+                alt={customer.full_name || 'Customer Avatar'}
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            ) : (
+              <span>{customerInitials || 'C'}</span>
+            )}
+          </div>
 
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#FFFFFF] truncate">
-                {customer.full_name || 'Customer'}
-              </h1>
-              <div className="flex flex-wrap items-center gap-2">
-                {isVerified && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF]">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                    <span>Verified Customer</span>
-                  </span>
-                )}
-                <Link
-                  href="/customer/enquiries"
-                  className="inline-flex items-center rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF] hover:bg-[#2a2a2a] transition-colors"
-                >
-                  My Enquiries
-                </Link>
-                <Link
-                  href="/customer/reviews"
-                  className="inline-flex items-center rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF] hover:bg-[#2a2a2a] transition-colors"
-                >
-                  My Reviews
-                </Link>
+          <div className="mt-3 space-y-1">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
+              {customer.full_name || 'Customer'}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              {customer.email}
+            </p>
+            {isVerified && (
+              <div className="pt-1 flex justify-center">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                  <span>Verified Customer</span>
+                </span>
               </div>
-            </div>
+            )}
           </div>
         </section>
 
-        {/* Account Settings (Strict Order, 6 Items Only) */}
-        <section aria-labelledby="account-settings-heading" className="space-y-2.5">
-          <h2
-            id="account-settings-heading"
-            className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#A0A0A0]"
-          >
-            Account Settings
-          </h2>
-
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] divide-y divide-[#292929] overflow-hidden">
-            {ACCOUNT_SETTINGS_ITEMS.map((item) => {
+        {/* Exact Ordered Options 1..8 */}
+        <section aria-label="Account Options">
+          <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden shadow-sm">
+            {PROFILE_OPTIONS_ITEMS.map((item) => {
               const IconComp = item.icon;
+              if (item.action === 'chatbot') {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setChatOpen(true)}
+                    className="w-full flex items-center justify-between gap-3.5 px-4 py-3.5 hover:bg-muted/60 active:bg-muted transition-colors group text-left"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/70 text-foreground">
+                        <IconComp className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">{item.title}</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </button>
+                );
+              }
+
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center justify-between gap-3.5 px-4 py-3.5 hover:bg-[#202020] active:bg-[#202020] transition-colors group"
+                  key={item.id}
+                  href={item.href || '/profile'}
+                  className="flex items-center justify-between gap-3.5 px-4 py-3.5 hover:bg-muted/60 active:bg-muted transition-colors group"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#292929] bg-[#202020] text-[#FFFFFF]">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/70 text-foreground">
                       <IconComp className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[#FFFFFF] leading-tight">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-[#A0A0A0] truncate mt-0.5">{item.subtitle}</p>
-                    </div>
+                    <span className="text-sm font-semibold text-foreground">{item.title}</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[#A0A0A0] group-hover:text-[#FFFFFF] transition-colors" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </Link>
               );
             })}
           </div>
         </section>
 
-        {/* AI Shopping Assistant Button */}
-        <section>
-          <button
-            type="button"
-            onClick={() => setChatOpen(true)}
-            className="w-full flex items-center justify-between gap-3.5 px-4 py-3.5 rounded-2xl border border-[#292929] bg-[#151515] hover:bg-[#202020] active:bg-[#202020] transition-colors group"
-          >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#292929] bg-[#202020] text-[#FFFFFF]">
-                <Bot className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 text-left">
-                <p className="text-sm font-semibold text-[#FFFFFF] leading-tight">AI Shopping Assistant</p>
-                <p className="text-xs text-[#A0A0A0] truncate mt-0.5">Ask about prices, stock &amp; nearby shops</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[#A0A0A0] group-hover:text-[#FFFFFF] transition-colors" />
-          </button>
-        </section>
-
-        {/* Compact Secondary Section: Own a Shop? */}
-        <section className="rounded-2xl border border-[#292929] bg-[#151515] p-4 flex items-center justify-between gap-3">
+        {/* Option 9: Own a Shop? / Become a Dealer */}
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#292929] bg-[#202020]">
-              <Store className="h-4 w-4 text-[#FFFFFF]" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Store className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-semibold text-[#FFFFFF]">Own a Shop?</p>
-              <p className="text-[11px] text-[#A0A0A0] truncate">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-foreground">Own a Shop?</p>
+                {dealerApp && (
+                  <Badge variant="outline" className="text-[10px] capitalize">
+                    {dealerApp.status.replace('_', ' ')}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground truncate">
                 {dealerApp
-                  ? `Dealer application status: ${dealerApp.status.replace('_', ' ')}`
-                  : 'List your store inventory for local shoppers'}
+                  ? `Dealer application: ${dealerApp.shop_name}`
+                  : 'List your shop & inventory for local buyers'}
               </p>
             </div>
           </div>
           <Link
             href="/dealer/register"
-            className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[#292929] bg-[#202020] px-3 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#292929] transition-colors whitespace-nowrap"
+            className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap"
           >
             <span>Become a Dealer</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </section>
 
-        {/* Sign Out Action */}
-        <div className="pt-1">
+        {/* Option 10: Prominent Red Logout Action */}
+        <div>
           <button
             type="button"
             onClick={() => setSignOutDialogOpen(true)}
-            className="w-full h-12 rounded-2xl border border-[#292929] bg-[#151515] hover:bg-[#202020] text-sm font-semibold text-[#FFFFFF] flex items-center justify-center gap-2 transition-colors"
+            className="w-full h-12 rounded-2xl border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 text-sm font-bold text-rose-600 dark:text-rose-400 flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
-            <LogOut className="h-4 w-4 text-[#A0A0A0]" />
-            <span>Sign Out of Customer Account</span>
+            <LogOut className="h-4 w-4" />
+            <span>Logout</span>
           </button>
         </div>
       </div>
 
       {/* Sign Out Confirmation Dialog */}
       <Dialog open={signOutDialogOpen} onOpenChange={setSignOutDialogOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl border border-[#292929] bg-[#151515] text-[#FFFFFF]">
+        <DialogContent className="sm:max-w-sm rounded-2xl border border-border bg-card text-foreground">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-[#FFFFFF]">
-              Sign out of your account?
+            <DialogTitle className="text-base font-bold text-foreground">
+              Logout from Customer App?
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#A0A0A0]">
-              You will be signed out of your Customer session on this device. Any active Dealer or Admin sessions stay signed in separately.
+            <DialogDescription className="text-xs text-muted-foreground">
+              You will be signed out of the Customer App on this device. Any active Dealer or Admin sessions stay signed in separately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
@@ -647,22 +669,23 @@ export function ProfileClient() {
               type="button"
               variant="outline"
               onClick={() => setSignOutDialogOpen(false)}
-              className="rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929]"
+              className="rounded-xl"
             >
               Cancel
             </Button>
             <Button
               type="button"
+              variant="destructive"
               onClick={handleConfirmSignOut}
-              className="rounded-xl bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] font-bold"
+              className="rounded-xl font-bold"
             >
-              Confirm Sign Out
+              Confirm Logout
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* AI Shopping Chat — opened from profile */}
+      {/* AI Chatbot — opened from profile */}
       <ProfileShoppingChat open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );

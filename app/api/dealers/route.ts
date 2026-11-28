@@ -177,6 +177,7 @@ export async function PATCH(request: Request) {
             delivery_available: typeof body?.delivery_available === 'boolean' ? body.delivery_available : existing.delivery_available,
             pickup_available: typeof body?.pickup_available === 'boolean' ? body.pickup_available : existing.pickup_available,
             home_delivery_radius_km: typeof body?.home_delivery_radius_km === 'number' ? body.home_delivery_radius_km : existing.home_delivery_radius_km,
+            low_stock_threshold: typeof body?.low_stock_threshold === 'number' ? Math.max(1, Math.floor(body.low_stock_threshold)) : existing.low_stock_threshold,
             logo_url: body?.logo_url !== undefined ? body.logo_url : existing.logo_url,
             banner_url: body?.banner_url !== undefined ? body.banner_url : existing.banner_url,
             updated_at: nowIso,

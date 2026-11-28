@@ -400,9 +400,9 @@ export function DealerShell({
           <div className="flex items-center justify-around px-1 py-1.5">
             {[
               { id: '01-dashboard', label: 'Home', icon: LayoutDashboard },
-              { id: '03-products', label: 'Products', icon: Package },
-              { id: '05-inventory', label: 'Inventory', icon: Boxes, badge: outOfStockCount },
+              { id: '03-products', label: 'Products', icon: Package, badge: outOfStockCount },
               { id: '08-enquiries', label: 'Leads', icon: MessageSquareText, badge: pendingEnquiriesCount },
+              { id: '13-support', label: 'Support', icon: HelpCircle },
             ].map((item) => {
               const IconComp = item.icon;
               const isActive = activeTab === item.id;

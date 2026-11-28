@@ -77,7 +77,7 @@ export function broadcastSync(
       'dc_sync_signal',
       JSON.stringify({ type, timestamp: Date.now() })
     );
-  } catch {}
+  } catch { }
 }
 
 function getLocal<T>(key: string, fallback: T): T {
@@ -94,7 +94,7 @@ function setLocal<T>(key: string, data: T): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(key, JSON.stringify(data));
-  } catch {}
+  } catch { }
 }
 
 let firestoreBackoffUntil = 0;
@@ -113,7 +113,7 @@ function noteFirestoreUnavailable(err: any): void {
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 1000): Promise<T> {
   // Catch any background failure to avoid unhandled rejection crashes
-  promise.catch(() => {});
+  promise.catch(() => { });
   let timer: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timer = setTimeout(() => reject(new Error('Firestore timeout')), timeoutMs);
@@ -175,7 +175,7 @@ export async function getDbAppSettings(): Promise<AppSettings> {
         setLocal(KEY_SETTINGS, meta.appSettings);
         return meta.appSettings;
       }
-    } catch {}
+    } catch { }
   }
   const local = getLocal<AppSettings>(KEY_SETTINGS, INITIAL_APP_SETTINGS);
   const db = getFirebaseDb();
@@ -188,7 +188,7 @@ export async function getDbAppSettings(): Promise<AppSettings> {
       setLocal(KEY_SETTINGS, data);
       return data;
     }
-  } catch {}
+  } catch { }
   return local;
 }
 
@@ -222,7 +222,7 @@ export async function getDbCategories(): Promise<Category[]> {
         setLocal(KEY_CATEGORIES, meta.categories);
         return meta.categories;
       }
-    } catch {}
+    } catch { }
   }
   const local = getLocal<Category[]>(KEY_CATEGORIES, INITIAL_CATEGORIES);
   const list = await readFirestoreCollection<Category>('categories');
@@ -270,7 +270,7 @@ export async function getDbBrands(): Promise<Brand[]> {
         setLocal(KEY_BRANDS, meta.brands);
         return meta.brands;
       }
-    } catch {}
+    } catch { }
   }
   let local = getLocal<Brand[]>(KEY_BRANDS, INITIAL_BRANDS);
   if (local.length === 0) {
@@ -354,7 +354,7 @@ export async function getDbDealers(): Promise<Dealer[]> {
       const list = await apiSync.fetchDealers();
       setLocal(KEY_DEALERS, list);
       return list;
-    } catch {}
+    } catch { }
   }
   const local = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
   const remote = await readFirestoreCollection<Dealer>('dealers');
@@ -411,9 +411,15 @@ export async function getDbProducts(opts?: {
   let list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
   if (typeof window !== 'undefined') {
     try {
-      const serverProducts = await apiSync.fetchProducts();
+      const serverProducts = await apiSync.fetchProducts({
+        dealerId: opts?.dealerId,
+        includeUnapproved: opts?.includeUnapproved,
+        scope: !opts?.includeUnapproved && !opts?.dealerId ? 'public' : undefined,
+      });
       list = serverProducts;
-      setLocal(KEY_PRODUCTS, list);
+      if (!opts?.dealerId && !opts?.includeUnapproved) {
+        setLocal(KEY_PRODUCTS, list);
+      }
     } catch {
       if (list.length < INITIAL_PRODUCTS.length) {
         const existingIds = new Set(list.map((p) => p.id));
@@ -430,20 +436,30 @@ export async function getDbProducts(opts?: {
     }
   }
 
+  const [dealers, categories, brands] = await Promise.all([
+    getDbDealers(),
+    getDbCategories(),
+    getDbBrands(),
+  ]);
+  const approvedDealerIds = new Set(dealers.filter((d) => d.status === 'approved').map((d) => d.id));
+
   let filtered = [...list];
 
   if (opts?.categorySlug) {
-    const categories = await getDbCategories();
     const cat = categories.find((c) => c.slug === opts.categorySlug);
     if (cat) filtered = filtered.filter((p) => p.category_id === cat.id);
   }
 
   if (opts?.dealerId) {
     filtered = filtered.filter((p) => p.dealer_id === opts.dealerId);
-  } else if (!opts?.includeUnapproved) {
+  }
+
+  if (!opts?.includeUnapproved) {
     filtered = filtered.filter((p) => {
-      if (p.moderation_status === 'pending' || p.moderation_status === 'rejected') return false;
+      if (!p.dealer_id) return false;
+      if (p.moderation_status !== 'approved') return false;
       if (p.is_active === false) return false;
+      if (dealers.length > 0 && !approvedDealerIds.has(p.dealer_id)) return false;
       return true;
     });
   }
@@ -467,12 +483,6 @@ export async function getDbProducts(opts?: {
     );
   }
 
-  const [dealers, categories, brands] = await Promise.all([
-    getDbDealers(),
-    getDbCategories(),
-    getDbBrands(),
-  ]);
-
   filtered = filtered.map((p) => ({
     ...p,
     dealer: dealers.find((d) => d.id === p.dealer_id) ?? p.dealer ?? null,
@@ -492,10 +502,23 @@ export async function getDbProductById(id: string): Promise<Product | null> {
   return products.find((p) => p.id === id) ?? null;
 }
 
-export async function saveDbProduct(product: Product): Promise<void> {
-  let savedProduct = product;
+export async function saveDbProduct(
+  product: Partial<Product> & {
+    from_catalogue?: boolean;
+    resubmit?: boolean;
+    action?: 'approve' | 'reject' | 'request_info' | 'link_master';
+    reason?: string;
+    syncMasterDetails?: boolean;
+  },
+  opts?: { isUpdate?: boolean }
+): Promise<Product> {
+  const existingList = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
+  const existsLocally = Boolean(product.id && existingList.some((p) => p.id === product.id));
+  const shouldPatch = opts?.isUpdate ?? (Boolean(product.resubmit || product.action || existsLocally) && !product.from_catalogue);
+
+  let savedProduct = product as Product;
   if (typeof window !== 'undefined') {
-    savedProduct = await apiSync.saveProduct(product, false);
+    savedProduct = await apiSync.saveProduct(product, shouldPatch);
   }
   const list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
   const index = list.findIndex((p) => p.id === savedProduct.id);
@@ -503,6 +526,7 @@ export async function saveDbProduct(product: Product): Promise<void> {
   setLocal(KEY_PRODUCTS, updated);
   await writeFirestoreDoc('products', savedProduct.id, savedProduct);
   broadcastSync('products', savedProduct);
+  return savedProduct;
 }
 
 export async function deleteDbProduct(id: string): Promise<void> {
@@ -581,7 +605,7 @@ export async function getDbNotifications(): Promise<PushNotification[]> {
       const serverList = await apiSync.fetchPushNotifications();
       setLocal(KEY_NOTIFICATIONS, serverList);
       return serverList;
-    } catch {}
+    } catch { }
   }
   const local = getLocal<PushNotification[]>(KEY_NOTIFICATIONS, [
     {
@@ -644,7 +668,7 @@ export async function sendDbNotification(
         body: newNotif.body,
         icon: '/icons/icon-192x192.png',
       });
-    } catch {}
+    } catch { }
   }
 
   if (typeof window !== 'undefined') {
@@ -748,7 +772,7 @@ export async function getDbReviews(opts?: {
         setLocal(KEY_REVIEWS, list);
       }
       return list;
-    } catch {}
+    } catch { }
   }
   const local = getLocal<Review[]>(KEY_REVIEWS, [
     {
@@ -1061,7 +1085,7 @@ export async function getDbDealerApplications(): Promise<DealerApplication[]> {
       const serverList = await apiSync.fetchDealerApplications();
       setLocal(KEY_DEALER_APPLICATIONS, serverList);
       return serverList;
-    } catch {}
+    } catch { }
   }
   let list = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
   const remote = await readFirestoreCollection<DealerApplication>('dealer_applications', 3000);
@@ -1080,10 +1104,7 @@ export async function getDbDealerApplicationByCustomerId(customerId: string): Pr
 export async function saveDbDealerApplication(application: DealerApplication): Promise<DealerApplication> {
   let saved: DealerApplication | null = null;
   if (typeof window !== 'undefined') {
-    saved = await apiSync.submitDealerApplication({
-      ...application,
-      dealer_password: application.dealer_password ?? undefined,
-    });
+    saved = await apiSync.submitDealerApplication(application);
   }
   if (!saved) {
     saved = {
@@ -1232,7 +1253,12 @@ export function createFirebaseQueryBuilder(tableName: string) {
     },
     execute: async (): Promise<any[]> => {
       let items: any[] = [];
-      if (tableName === 'products') items = await getDbProducts();
+      if (tableName === 'products') {
+        const wantsAdminOrMaster = filterList.some(
+          (f) => f.col === 'is_master' || f.col === 'moderation_status'
+        );
+        items = await getDbProducts({ includeUnapproved: wantsAdminOrMaster });
+      }
       else if (tableName === 'dealers') items = await getDbDealers();
       else if (tableName === 'categories') items = await getDbCategories();
       else if (tableName === 'brands') items = await getDbBrands();
@@ -1398,10 +1424,10 @@ export function createFirebaseQueryBuilder(tableName: string) {
 
           const dedupedList = normalizedEmail
             ? list.filter((x, pos) => {
-                const email = typeof x.email === 'string' ? x.email.trim().toLowerCase() : '';
-                if (email !== normalizedEmail) return true;
-                return pos === (idx >= 0 ? idx : list.length - 1);
-              })
+              const email = typeof x.email === 'string' ? x.email.trim().toLowerCase() : '';
+              if (email !== normalizedEmail) return true;
+              return pos === (idx >= 0 ? idx : list.length - 1);
+            })
             : list;
 
           setLocal(key, dedupedList);

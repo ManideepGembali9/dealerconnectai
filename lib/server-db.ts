@@ -6,6 +6,7 @@ import type {
   Category,
   Dealer,
   DealerApplication,
+  DealerSupportEnquiry,
   Enquiry,
   ModerationLog,
   Notification,
@@ -41,6 +42,7 @@ export type DealerCredentialRecord = {
 
 export type RealtimeTopic =
   | 'enquiries'
+  | 'dealer_enquiries'
   | 'reviews'
   | 'products'
   | 'dealers'
@@ -72,6 +74,7 @@ export type ServerDbState = {
   dealerApplications: DealerApplication[];
   products: Product[];
   enquiries: Enquiry[];
+  dealerEnquiries: DealerSupportEnquiry[];
   reviews: Review[];
   reviewReports: ReviewReport[];
   moderationLogs: ModerationLog[];
@@ -289,6 +292,40 @@ function buildInitialDealerApplications(): DealerApplication[] {
   ];
 }
 
+function buildInitialDealerEnquiries(): DealerSupportEnquiry[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'DENQ-2026-1001',
+      dealer_id: 'dealer-1',
+      dealer_name: 'Ramesh Babu',
+      shop_name: 'Sri Krishna Electronics & Gadgets',
+      dealer_email: 'srikrishna@dealerconnect.ai',
+      subject: 'Request to add custom LG OLED 65" SKU to Showroom Catalog',
+      category: 'catalog_request',
+      priority: 'medium',
+      description: 'We have stocked the 2026 LG C4 OLED 65-inch TV in our Amalapuram showroom and would like it approved for public listing.',
+      attachment_url: null,
+      status: 'open',
+      assigned_to: 'Platform Catalog Team',
+      internal_notes: 'Verified GST invoice match with Sri Krishna Electronics.',
+      conversation: [
+        {
+          id: 'dmsg-seed-1',
+          sender_role: 'dealer',
+          sender_name: 'Sri Krishna Electronics & Gadgets',
+          message: 'We have stocked the 2026 LG C4 OLED 65-inch TV in our Amalapuram showroom and would like it approved for public listing.',
+          created_at: new Date(now - 3600000 * 6).toISOString(),
+        },
+      ],
+      first_responded_at: null,
+      resolved_at: null,
+      created_at: new Date(now - 3600000 * 6).toISOString(),
+      updated_at: new Date(now - 3600000 * 6).toISOString(),
+    },
+  ];
+}
+
 function createSeedState(): ServerDbState {
   const dealers = INITIAL_DEALERS.map((d) => ({ ...d }));
   const dealerCredentials: Record<string, DealerCredentialRecord> = {};
@@ -309,6 +346,7 @@ function createSeedState(): ServerDbState {
     dealerApplications: buildInitialDealerApplications(),
     products: INITIAL_PRODUCTS.map((p) => ({ ...p })),
     enquiries: buildInitialEnquiries(),
+    dealerEnquiries: buildInitialDealerEnquiries(),
     reviews: buildInitialReviews(),
     reviewReports: [],
     moderationLogs: [],
@@ -411,6 +449,7 @@ function loadStateFromDiskIfNewer(): void {
         ...parsed,
         dealerCredentials: { ...seed.dealerCredentials, ...(parsed.dealerCredentials || {}) },
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
+        dealerEnquiries: Array.isArray(parsed.dealerEnquiries) ? parsed.dealerEnquiries : seed.dealerEnquiries,
         reviewReports: Array.isArray(parsed.reviewReports) ? parsed.reviewReports : [],
         moderationLogs: Array.isArray(parsed.moderationLogs) ? parsed.moderationLogs : [],
         pushNotifications: Array.isArray(parsed.pushNotifications) ? parsed.pushNotifications : [],

@@ -180,6 +180,17 @@ function persistCustomerSession(profile: CustomerProfile): void {
   localStorage.setItem(STORAGE_KEYS.legacyCustomer, JSON.stringify(profile));
 }
 
+function notifyCustomerAuthChanged(profile: CustomerProfile | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent('dc-customer-session-changed', {
+        detail: { customer: profile },
+      })
+    );
+  } catch { }
+}
+
 function deriveCustomerNameFromEmail(email: string): string {
   return (
     email
@@ -474,6 +485,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await saveDeduplicatedCustomerRecord(matchedExisting);
             persistCustomerSession(matchedExisting);
             setCustomer(matchedExisting);
+            notifyCustomerAuthChanged(matchedExisting);
             await syncServerSessionCookie('customer', {
               email: lowerEmail,
               sub: matchedExisting.id,
@@ -510,6 +522,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await saveDeduplicatedCustomerRecord(demoProfile);
             persistCustomerSession(demoProfile);
             setCustomer(demoProfile);
+            notifyCustomerAuthChanged(demoProfile);
             await syncServerSessionCookie('customer', {
               email: lowerEmail,
               sub: demoProfile.id,
@@ -542,6 +555,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await saveDeduplicatedCustomerRecord(autoProfile);
           persistCustomerSession(autoProfile);
           setCustomer(autoProfile);
+          notifyCustomerAuthChanged(autoProfile);
           await syncServerSessionCookie('customer', {
             email: lowerEmail,
             sub: autoProfile.id,
@@ -598,6 +612,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persistCustomerSession(newProfile);
 
         setCustomer(newProfile);
+        notifyCustomerAuthChanged(newProfile);
         await syncServerSessionCookie('customer', { email: lowerEmail, sub: uid });
         return { error: null };
       } catch (e: any) {
@@ -628,6 +643,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setCustomer(updated);
       persistCustomerSession(updated);
+      notifyCustomerAuthChanged(updated);
 
       if (nextEmail !== previousEmail) {
         const existingPw = localStorage.getItem(`dc-customer-pw-${previousEmail}`);
@@ -775,6 +791,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await saveDeduplicatedCustomerRecord(googleProfile);
         persistCustomerSession(googleProfile);
         setCustomer(googleProfile);
+        notifyCustomerAuthChanged(googleProfile);
 
         try {
           const res = await fetch('/api/auth/google/complete', {
@@ -934,7 +951,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshCustomer = useCallback(async () => {
-    setCustomer(readStoredCustomer());
+    const next = readStoredCustomer();
+    setCustomer(next);
+    notifyCustomerAuthChanged(next);
   }, []);
 
   /**
@@ -946,6 +965,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.customerSession);
       localStorage.removeItem(STORAGE_KEYS.legacyCustomer);
       setCustomer(null);
+      notifyCustomerAuthChanged(null);
       await clearServerSessionCookie('customer');
       return;
     }

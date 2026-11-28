@@ -24,6 +24,7 @@ import { useRealtimeSync } from '@/lib/realtime-client';
 import { type Notification } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
+  ArrowLeft,
   Bell,BellRing,Check,CheckCheck,
   MapPin,
   PackageCheck,
@@ -166,11 +167,20 @@ export function NotificationsClient() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold"><Bell className="h-6 w-6 text-primary" /> Notifications</h1>
-          <p className="text-sm text-muted-foreground">Get alerts for stock changes, price drops, and nearby availability</p>
+    <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            aria-label="Back to Home"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="flex items-center gap-2 text-xl sm:text-2xl font-bold"><Bell className="h-5 w-5 text-primary" /> Notifications</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Get alerts for stock changes, price drops, and nearby availability</p>
+          </div>
         </div>
         {unreadCount > 0 && (
           <Button variant="outline" size="sm" onClick={handleMarkAllRead}>

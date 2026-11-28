@@ -7,6 +7,7 @@ import type {
   Dealer,
   DealerApplication,
   DealerApplicationStatus,
+  DealerSupportEnquiry,
   Enquiry,
   ModerationLog,
   Notification,
@@ -24,6 +25,7 @@ export type SyncSnapshot = {
   dealerApplications: DealerApplication[];
   products: Product[];
   enquiries: Enquiry[];
+  dealerEnquiries: DealerSupportEnquiry[];
   reviews: Review[];
   reviewReports: ReviewReport[];
   moderationLogs: ModerationLog[];
@@ -71,16 +73,32 @@ export const apiSync = {
   deleteDealer: (id: string) =>
     apiJson<{ deleted: boolean }>(`/api/dealers?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  fetchProducts: async (opts?: { dealerId?: string; masterOnly?: boolean }): Promise<Product[]> => {
+  fetchProducts: async (opts?: {
+    dealerId?: string;
+    masterOnly?: boolean;
+    includeUnapproved?: boolean;
+    scope?: 'public' | 'admin' | 'dealer';
+  }): Promise<Product[]> => {
     const params = new URLSearchParams();
     if (opts?.dealerId) params.set('dealerId', opts.dealerId);
     if (opts?.masterOnly) params.set('masterOnly', 'true');
+    if (opts?.includeUnapproved) params.set('includeUnapproved', 'true');
+    if (opts?.scope) params.set('scope', opts.scope);
     const q = params.toString() ? `?${params.toString()}` : '';
     const data = await apiJson<{ products: Product[] }>(`/api/products${q}`);
     return data.products || [];
   },
 
-  saveProduct: async (product: Partial<Product>, isUpdate = false): Promise<Product> => {
+  saveProduct: async (
+    product: Partial<Product> & {
+      from_catalogue?: boolean;
+      resubmit?: boolean;
+      action?: 'approve' | 'reject' | 'request_info' | 'link_master';
+      reason?: string;
+      syncMasterDetails?: boolean;
+    },
+    isUpdate = false
+  ): Promise<Product> => {
     const data = await apiJson<{ product: Product }>('/api/products', {
       method: isUpdate ? 'PATCH' : 'POST',
       body: JSON.stringify(product),
@@ -88,8 +106,62 @@ export const apiSync = {
     return data.product;
   },
 
+  bulkUpdateProducts: async (
+    bulkUpdates: Array<{
+      id: string;
+      stock_qty?: number;
+      stock_status?: Product['stock_status'];
+      low_stock_threshold?: number;
+    }>
+  ): Promise<Product[]> => {
+    const data = await apiJson<{ products: Product[] }>('/api/products', {
+      method: 'PATCH',
+      body: JSON.stringify({ bulkUpdates }),
+    });
+    return data.products || [];
+  },
+
   deleteProduct: (id: string) =>
     apiJson<{ deleted: boolean }>(`/api/products?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  fetchDealerEnquiries: async (opts?: { scope?: 'dealer' | 'admin'; dealerId?: string }): Promise<DealerSupportEnquiry[]> => {
+    const params = new URLSearchParams();
+    if (opts?.scope) params.set('scope', opts.scope);
+    if (opts?.dealerId) params.set('dealerId', opts.dealerId);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const data = await apiJson<{ dealerEnquiries: DealerSupportEnquiry[] }>(`/api/dealer-enquiries${q}`);
+    return data.dealerEnquiries || [];
+  },
+
+  createDealerEnquiry: async (payload: {
+    subject: string;
+    category: DealerSupportEnquiry['category'];
+    priority: DealerSupportEnquiry['priority'];
+    description: string;
+    attachment_url?: string | null;
+  }): Promise<DealerSupportEnquiry> => {
+    const data = await apiJson<{ dealerEnquiry: DealerSupportEnquiry }>('/api/dealer-enquiries', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return data.dealerEnquiry;
+  },
+
+  updateDealerEnquiry: async (payload: {
+    id: string;
+    actorRole?: 'dealer' | 'admin';
+    message?: string;
+    attachment_url?: string | null;
+    status?: DealerSupportEnquiry['status'];
+    assigned_to?: string;
+    internal_notes?: string;
+  }): Promise<DealerSupportEnquiry> => {
+    const data = await apiJson<{ dealerEnquiry: DealerSupportEnquiry }>('/api/dealer-enquiries', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    return data.dealerEnquiry;
+  },
 
   fetchEnquiries: async (opts?: { scope?: 'customer' | 'dealer' | 'admin'; dealerId?: string; status?: string }): Promise<Enquiry[]> => {
     const params = new URLSearchParams();
@@ -172,7 +244,7 @@ export const apiSync = {
     return data.applications || [];
   },
 
-  submitDealerApplication: async (app: Partial<DealerApplication> & { dealer_password?: string }): Promise<DealerApplication> => {
+  submitDealerApplication: async (app: Partial<DealerApplication> & { dealer_password?: string | null }): Promise<DealerApplication> => {
     const data = await apiJson<{ application: DealerApplication }>('/api/dealer-applications', {
       method: 'POST',
       body: JSON.stringify(app),

@@ -94,17 +94,17 @@ export function CustomerPreferencesClient() {
       {customer && (
         <div className="space-y-4">
           {savedMessage && (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-3.5 text-xs text-emerald-200">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>{savedMessage}</span>
             </div>
           )}
 
           {/* Theme Selector */}
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] p-5 space-y-3">
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-3 shadow-sm">
             <div className="space-y-0.5">
-              <h2 className="text-sm font-bold text-[#FFFFFF]">Appearance Theme</h2>
-              <p className="text-xs text-[#A0A0A0]">Choose Light, Dark, or match your device setting.</p>
+              <h2 className="text-sm font-bold text-foreground">Appearance Theme</h2>
+              <p className="text-xs text-muted-foreground">Choose Light, Dark, or match your device setting.</p>
             </div>
             <div className="grid grid-cols-3 gap-2.5">
               {THEME_OPTIONS.map((opt) => {
@@ -118,8 +118,8 @@ export function CustomerPreferencesClient() {
                     className={cn(
                       'flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-xs font-semibold transition-colors',
                       active
-                        ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#0A0A0A]'
-                        : 'border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929]'
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-muted/40 text-foreground hover:bg-muted'
                     )}
                   >
                     <IconComp className="h-4 w-4" />
@@ -131,15 +131,15 @@ export function CustomerPreferencesClient() {
           </div>
 
           {/* Language Switcher */}
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] p-5 space-y-3">
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-3 shadow-sm">
             <div className="flex items-center justify-between gap-2">
               <div className="space-y-0.5">
-                <h2 className="text-sm font-bold text-[#FFFFFF] flex items-center gap-2">
-                  <Globe className="h-4 w-4" /> Language
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" /> Language
                 </h2>
-                <p className="text-xs text-[#A0A0A0]">Select EN, TE, HI, TA or another supported language.</p>
+                <p className="text-xs text-muted-foreground">Select EN, TE, HI, TA or another supported language.</p>
               </div>
-              <LanguageSwitcher className="h-8 border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929]" />
+              <LanguageSwitcher className="h-8 border-border bg-muted/40 text-foreground hover:bg-muted" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -153,8 +153,8 @@ export function CustomerPreferencesClient() {
                     className={cn(
                       'flex flex-col items-start rounded-xl border p-3 text-left transition-colors',
                       active
-                        ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#0A0A0A]'
-                        : 'border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929]'
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-muted/40 text-foreground hover:bg-muted'
                     )}
                   >
                     <span className="text-[10px] font-bold opacity-75">{item.short}</span>
@@ -167,16 +167,16 @@ export function CustomerPreferencesClient() {
           </div>
 
           {/* Notifications Toggles */}
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] divide-y divide-[#292929] overflow-hidden">
+          <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden shadow-sm">
             <div className="p-4 flex items-center gap-2">
-              <Bell className="h-4 w-4 text-[#FFFFFF]" />
-              <h2 className="text-sm font-bold text-[#FFFFFF]">Notifications</h2>
+              <Bell className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground">Notifications</h2>
             </div>
 
             <div className="flex items-center justify-between gap-4 p-4">
               <div className="space-y-0.5">
-                <p className="text-xs sm:text-sm font-semibold text-[#FFFFFF]">In-Stock Alerts</p>
-                <p className="text-[11px] text-[#A0A0A0]">Notify when watched products restock locally.</p>
+                <p className="text-xs sm:text-sm font-semibold text-foreground">In-Stock Alerts</p>
+                <p className="text-[11px] text-muted-foreground">Notify when watched products restock locally.</p>
               </div>
               <Switch
                 checked={notifPrefs.in_stock}
@@ -186,8 +186,8 @@ export function CustomerPreferencesClient() {
 
             <div className="flex items-center justify-between gap-4 p-4">
               <div className="space-y-0.5">
-                <p className="text-xs sm:text-sm font-semibold text-[#FFFFFF]">Price Drop Alerts</p>
-                <p className="text-[11px] text-[#A0A0A0]">Get alerted when saved dealers lower offers.</p>
+                <p className="text-xs sm:text-sm font-semibold text-foreground">Price Drop Alerts</p>
+                <p className="text-[11px] text-muted-foreground">Get alerted when saved dealers lower offers.</p>
               </div>
               <Switch
                 checked={notifPrefs.price_drop}
@@ -197,8 +197,8 @@ export function CustomerPreferencesClient() {
 
             <div className="flex items-center justify-between gap-4 p-4">
               <div className="space-y-0.5">
-                <p className="text-xs sm:text-sm font-semibold text-[#FFFFFF]">Nearby Store Updates</p>
-                <p className="text-[11px] text-[#A0A0A0]">New verified shops & replies in your PIN area.</p>
+                <p className="text-xs sm:text-sm font-semibold text-foreground">Nearby Store Updates</p>
+                <p className="text-[11px] text-muted-foreground">New verified shops & replies in your PIN area.</p>
               </div>
               <Switch
                 checked={notifPrefs.nearby}

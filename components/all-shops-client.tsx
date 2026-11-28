@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
+  ArrowLeft,
   MapPin,
   MessageCircle,
   Package,
@@ -98,16 +99,30 @@ export function AllShopsClient() {
     >
       {/* Page Header */}
       <div className="mb-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Link href="/nearby" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-            &larr; Nearby Shops
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/nearby"
+              aria-label="Back to Nearby Shops"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">All Shops</h1>
+              <p className="text-xs text-muted-foreground">
+                {loading ? 'Loading verified shops...' : `${dealers.length} verified active shops`}
+                {location.label ? ` near ${location.label}` : ''}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/"
+            className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Home
           </Link>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">All Shops</h1>
-        <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-          {loading ? 'Loading verified shops...' : `${dealers.length} verified active shops`}
-          {location.label ? ` near ${location.label}` : ''}
-        </p>
       </div>
 
       {/* Search Bar */}

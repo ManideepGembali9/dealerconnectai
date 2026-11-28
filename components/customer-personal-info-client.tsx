@@ -207,24 +207,24 @@ export function CustomerPersonalInfoClient() {
       {customer && (
         <div className="space-y-4">
           {error && (
-            <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/40 bg-red-950/30 p-3.5 text-xs text-red-200">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+            <div className="flex items-start gap-2.5 rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-3.5 text-xs text-emerald-200">
-              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-400" />
+            <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{success}</span>
             </div>
           )}
 
           {/* Profile Identity Card */}
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] p-5">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
-                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#292929] bg-[#202020] text-lg font-bold text-[#FFFFFF]">
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-lg font-bold text-foreground">
                   {avatarUrl ? (
                     <Image src={avatarUrl} alt={customer.full_name} fill unoptimized className="object-cover" />
                   ) : (
@@ -232,11 +232,11 @@ export function CustomerPersonalInfoClient() {
                   )}
                 </div>
                 <div className="min-w-0 space-y-1">
-                  <p className="text-base font-bold text-[#FFFFFF] truncate">{customer.full_name}</p>
-                  <p className="text-xs text-[#A0A0A0] truncate">{customer.email}</p>
+                  <p className="text-base font-bold text-foreground truncate">{customer.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{customer.email}</p>
                   {verified && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF]">
-                      <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      <ShieldCheck className="h-3 w-3" />
                       Verified Customer
                     </span>
                   )}
@@ -246,15 +246,16 @@ export function CustomerPersonalInfoClient() {
               {!editing && (
                 <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setError(null);
                     setSuccess(null);
                     setEditing(true);
                   }}
-                  className="h-9 shrink-0 rounded-xl bg-[#202020] border border-[#292929] text-[#FFFFFF] hover:bg-[#292929] text-xs font-semibold gap-1.5 px-3.5"
+                  className="h-9 shrink-0 rounded-xl text-xs font-semibold gap-1.5 px-3.5"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Edit Personal Information</span>
+                  <span className="hidden sm:inline">Edit</span>
                   <span className="sm:hidden">Edit</span>
                 </Button>
               )}
@@ -263,34 +264,34 @@ export function CustomerPersonalInfoClient() {
 
           {!editing ? (
             /* Read-only Summary Details */
-            <div className="rounded-2xl border border-[#292929] bg-[#151515] divide-y divide-[#292929] overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden shadow-sm">
               <div className="flex items-center gap-3.5 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#202020] border border-[#292929]">
-                  <User className="h-4 w-4 text-[#FFFFFF]" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted border border-border">
+                  <User className="h-4 w-4 text-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium text-[#A0A0A0]">Full Name</p>
-                  <p className="text-sm font-semibold text-[#FFFFFF] truncate">{customer.full_name || 'Not set'}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">Full Name</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{customer.full_name || 'Not set'}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3.5 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#202020] border border-[#292929]">
-                  <Mail className="h-4 w-4 text-[#FFFFFF]" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted border border-border">
+                  <Mail className="h-4 w-4 text-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium text-[#A0A0A0]">Email Address</p>
-                  <p className="text-sm font-semibold text-[#FFFFFF] truncate">{customer.email}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">Email Address</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{customer.email}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3.5 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#202020] border border-[#292929]">
-                  <Phone className="h-4 w-4 text-[#FFFFFF]" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted border border-border">
+                  <Phone className="h-4 w-4 text-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium text-[#A0A0A0]">Phone Number</p>
-                  <p className="text-sm font-semibold text-[#FFFFFF] truncate">
+                  <p className="text-[11px] font-medium text-muted-foreground">Phone Number</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
                     {customer.phone?.trim() ? customer.phone : 'Not provided'}
                   </p>
                 </div>
@@ -300,14 +301,14 @@ export function CustomerPersonalInfoClient() {
             /* Edit Form inside Personal Information */
             <form
               onSubmit={handleSave}
-              className="rounded-2xl border border-[#292929] bg-[#151515] p-5 space-y-4"
+              className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm"
             >
-              <div className="flex items-center justify-between border-b border-[#292929] pb-3">
-                <h2 className="text-sm font-bold text-[#FFFFFF]">Edit Personal Information</h2>
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-bold text-foreground">Edit Personal Information</h2>
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="rounded-lg p-1.5 text-[#A0A0A0] hover:bg-[#202020] hover:text-[#FFFFFF]"
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label="Cancel editing"
                 >
                   <X className="h-4 w-4" />
@@ -315,7 +316,7 @@ export function CustomerPersonalInfoClient() {
               </div>
 
               {/* Photo Controls */}
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#292929] bg-[#202020] p-3">
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
                 <input
                   ref={fileRef}
                   type="file"
@@ -328,7 +329,7 @@ export function CustomerPersonalInfoClient() {
                   size="sm"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className="h-8 rounded-lg bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] text-xs font-bold gap-1.5"
+                  className="h-8 rounded-lg text-xs font-bold gap-1.5"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   {uploading ? 'Uploading...' : 'Change Photo'}
@@ -339,7 +340,7 @@ export function CustomerPersonalInfoClient() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setAvatarUrl('')}
-                    className="h-8 rounded-lg text-xs text-[#A0A0A0] hover:text-red-400 hover:bg-[#292929]"
+                    className="h-8 rounded-lg text-xs text-muted-foreground hover:text-destructive"
                   >
                     Remove Photo
                   </Button>
@@ -347,7 +348,7 @@ export function CustomerPersonalInfoClient() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pi-full-name" className="text-xs font-semibold text-[#A0A0A0]">
+                <Label htmlFor="pi-full-name" className="text-xs font-semibold text-muted-foreground">
                   Full Name *
                 </Label>
                 <Input
@@ -356,12 +357,12 @@ export function CustomerPersonalInfoClient() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
                   required
-                  className="h-10 rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] placeholder:text-[#A0A0A0]/60 text-sm"
+                  className="h-10 rounded-xl text-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pi-email" className="text-xs font-semibold text-[#A0A0A0]">
+                <Label htmlFor="pi-email" className="text-xs font-semibold text-muted-foreground">
                   Email Address *
                 </Label>
                 <Input
@@ -376,12 +377,12 @@ export function CustomerPersonalInfoClient() {
                   }}
                   placeholder="you@email.com"
                   required
-                  className="h-10 rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] placeholder:text-[#A0A0A0]/60 text-sm"
+                  className="h-10 rounded-xl text-sm"
                 />
                 {email.trim().toLowerCase() !== customer.email.trim().toLowerCase() && (
-                  <div className="mt-2 rounded-xl border border-[#292929] bg-[#202020] p-3 space-y-2 text-xs">
+                  <div className="mt-2 rounded-xl border border-border bg-muted/40 p-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[#FFFFFF] font-medium">
+                      <span className="text-foreground font-medium">
                         {emailVerifiedNew ? 'New email verified.' : 'Verify new email with OTP'}
                       </span>
                       {!emailVerifiedNew && !otpSent && (
@@ -390,7 +391,7 @@ export function CustomerPersonalInfoClient() {
                           size="sm"
                           onClick={handleSendEmailOtp}
                           disabled={sendingOtp}
-                          className="h-7 rounded-lg bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] text-[11px] font-bold"
+                          className="h-7 rounded-lg text-[11px] font-bold"
                         >
                           {sendingOtp ? 'Sending...' : 'Send OTP'}
                         </Button>
@@ -399,8 +400,8 @@ export function CustomerPersonalInfoClient() {
                     {otpSent && !emailVerifiedNew && (
                       <div className="space-y-2">
                         {otpExpected && (
-                          <p className="text-[11px] font-mono text-[#A0A0A0]">
-                            Test OTP: <span className="text-[#FFFFFF] font-bold">{otpExpected}</span>
+                          <p className="text-[11px] font-mono text-muted-foreground">
+                            Test OTP: <span className="text-foreground font-bold">{otpExpected}</span>
                           </p>
                         )}
                         <div className="flex items-center gap-2">
@@ -409,13 +410,13 @@ export function CustomerPersonalInfoClient() {
                             onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="6-digit OTP"
                             inputMode="numeric"
-                            className="h-8 rounded-lg border-[#292929] bg-[#151515] text-[#FFFFFF] text-xs font-mono"
+                            className="h-8 rounded-lg text-xs font-mono"
                           />
                           <Button
                             type="button"
                             size="sm"
                             onClick={handleVerifyOtp}
-                            className="h-8 rounded-lg bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] text-xs font-bold shrink-0"
+                            className="h-8 rounded-lg text-xs font-bold shrink-0"
                           >
                             Verify
                           </Button>
@@ -427,7 +428,7 @@ export function CustomerPersonalInfoClient() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pi-phone" className="text-xs font-semibold text-[#A0A0A0]">
+                <Label htmlFor="pi-phone" className="text-xs font-semibold text-muted-foreground">
                   Phone Number
                 </Label>
                 <Input
@@ -436,7 +437,7 @@ export function CustomerPersonalInfoClient() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="9848012345"
-                  className="h-10 rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] placeholder:text-[#A0A0A0]/60 text-sm"
+                  className="h-10 rounded-xl text-sm"
                 />
               </div>
 
@@ -444,7 +445,7 @@ export function CustomerPersonalInfoClient() {
                 <Button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 h-10 rounded-xl bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] font-bold text-xs gap-2"
+                  className="flex-1 h-10 rounded-xl font-bold text-xs gap-2"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -453,7 +454,7 @@ export function CustomerPersonalInfoClient() {
                   type="button"
                   variant="outline"
                   onClick={cancelEdit}
-                  className="h-10 rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929] text-xs font-semibold px-4"
+                  className="h-10 rounded-xl text-xs font-semibold px-4"
                 >
                   Cancel
                 </Button>

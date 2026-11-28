@@ -3,8 +3,19 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import {
-  Package, Search, Plus, Check, Edit, Trash2, Power, Loader2,
-  ShoppingCart, Store, Tag, Save, PackageCheck,
+  Package,
+  Search,
+  Plus,
+  Check,
+  Loader2,
+  ShoppingCart,
+  Tag,
+  Eye,
+  Clock,
+  Sparkles,
+  FilePlus2,
+  CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,201 +23,369 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatINR } from '@/lib/format';
+import { ImagePicker } from '@/components/ui/image-picker';
+import { formatINR, getEffectivePrice } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { supabase, type Product, type Category, type DealerInventory, type Dealer } from '@/lib/supabase';
-import { saveDbProduct, broadcastSync } from '@/lib/firebase-db';
+import type { Product, Category, Brand, Dealer } from '@/lib/types';
+import { apiSync } from '@/lib/api-sync';
 import {
-  fetchMasterCatalog, fetchCategories,
-  addProductToInventory, updateDealerInventory, removeDealerInventory,
-  toggleInventoryActive, fetchDealerInventory, fetchDealerInventoryProductIds,
-  quickAddToInventory,
-  type DealerInventoryInput,
-} from '@/lib/catalog';
+  getDbBrands,
+  getDbCategories,
+  getDbProducts,
+  saveDbProduct,
+} from '@/lib/firebase-db';
+import { useRealtimeSync } from '@/lib/realtime-client';
 
 export function DealerCatalogClient({
   dealer,
   onInventoryChanged,
+  initialMode = 'catalogue',
 }: {
   dealer: Dealer;
   onInventoryChanged?: () => Promise<void> | void;
+  initialMode?: 'catalogue' | 'request';
 }) {
-  const [tab, setTab] = useState('browse');
+  const [mode, setMode] = useState<'catalogue' | 'request'>(initialMode);
   const [catalog, setCatalog] = useState<Product[]>([]);
+  const [dealerProducts, setDealerProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [inventory, setInventory] = useState<DealerInventory[]>([]);
-  const [inventoryProductIds, setInventoryProductIds] = useState<Set<string>>(new Set());
-  const [addingIds, setAddingIds] = useState<Set<string>>(new Set());
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [editTarget, setEditTarget] = useState<DealerInventory | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DealerInventory | null>(null);
+  const [filterBrand, setFilterBrand] = useState('all');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Preview dialog & Quick Add dialog
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+  const [addTarget, setAddTarget] = useState<Product | null>(null);
+  const [addPrice, setAddPrice] = useState('');
+  const [addDiscount, setAddDiscount] = useState('');
+  const [addStockQty, setAddStockQty] = useState('10');
+  const [addDelivery, setAddDelivery] = useState(dealer.delivery_available ?? true);
+  const [addPickup, setAddPickup] = useState(dealer.pickup_available ?? true);
+  const [submittingCatalogue, setSubmittingCatalogue] = useState(false);
+
+  // Custom / Request New Product Form
+  const [reqName, setReqName] = useState('');
+  const [reqBrandId, setReqBrandId] = useState('');
+  const [reqCustomBrand, setReqCustomBrand] = useState('');
+  const [reqCategoryId, setReqCategoryId] = useState('');
+  const [reqModel, setReqModel] = useState('');
+  const [reqPrice, setReqPrice] = useState('');
+  const [reqDiscount, setReqDiscount] = useState('');
+  const [reqStockQty, setReqStockQty] = useState('10');
+  const [reqImage, setReqImage] = useState('');
+  const [reqWarranty, setReqWarranty] = useState('1 Year Brand Warranty');
+  const [reqColor, setReqColor] = useState('');
+  const [reqDescription, setReqDescription] = useState('');
+  const [reqSpecsText, setReqSpecsText] = useState('');
+  const [reqDelivery, setReqDelivery] = useState(dealer.delivery_available ?? true);
+  const [reqPickup, setReqPickup] = useState(dealer.pickup_available ?? true);
+  const [submittingCustom, setSubmittingCustom] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cat, inv, cats] = await Promise.all([
-        fetchMasterCatalog(),
-        fetchDealerInventory(dealer.id),
-        fetchCategories(),
+      const [masterList, myList, cats, brnds] = await Promise.all([
+        apiSync.fetchProducts({ masterOnly: true }),
+        getDbProducts({ dealerId: dealer.id, includeUnapproved: true }),
+        getDbCategories(),
+        getDbBrands(),
       ]);
-      setCatalog(cat);
-      setInventory(inv);
-      setInventoryProductIds(await fetchDealerInventoryProductIds(dealer.id));
+
+      const catMap = new Map(cats.map((c) => [c.id, c]));
+      const brandMap = new Map(brnds.map((b) => [b.id, b]));
+      const enrichedMaster = masterList.map((p) => ({
+        ...p,
+        category: p.category ?? (p.category_id ? catMap.get(p.category_id) ?? null : null),
+        brand: p.brand ?? (p.brand_id ? brandMap.get(p.brand_id) ?? null : null),
+      }));
+
+      setCatalog(enrichedMaster);
+      setDealerProducts(myList);
       setCategories(cats);
-    } catch (e: any) {
-      toast.error(e.message ?? 'Failed to load catalog');
-    } finally { setLoading(false); }
-  }, [dealer.id]);
+      setBrands(brnds);
+      if (!reqCategoryId && cats.length > 0) {
+        setReqCategoryId(cats[0].id);
+      }
+      if (!reqBrandId && brnds.length > 0) {
+        setReqBrandId(brnds[0].id);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to load catalogue';
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [dealer.id, reqCategoryId, reqBrandId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const rootCategories = categories.filter((c) => !c.parent_id);
+  useRealtimeSync(['products', 'categories', 'brands'], () => load(), {
+    enabled: Boolean(dealer.id),
+  });
+
+  // Map master IDs and normalized names already in this dealer's showroom to prevent duplicates
+  const ownedLookup = useMemo(() => {
+    const masterMap = new Map<string, Product>();
+    const nameMap = new Map<string, Product>();
+    for (const p of dealerProducts) {
+      if (p.master_product_id) masterMap.set(p.master_product_id, p);
+      const prefix = `prod-${dealer.id}-`;
+      if (p.id.startsWith(prefix)) {
+        masterMap.set(p.id.slice(prefix.length), p);
+      }
+      if (p.is_master && p.dealer_id === dealer.id) {
+        masterMap.set(p.id, p);
+      }
+      nameMap.set(p.name.trim().toLowerCase(), p);
+    }
+    return { masterMap, nameMap };
+  }, [dealerProducts, dealer.id]);
+
+  const getExistingOwnedListing = useCallback(
+    (master: Product): Product | undefined => {
+      return (
+        ownedLookup.masterMap.get(master.id) ||
+        ownedLookup.nameMap.get(master.name.trim().toLowerCase())
+      );
+    },
+    [ownedLookup]
+  );
+
+  const rootCategories = useMemo(
+    () => categories.filter((c) => !c.parent_id),
+    [categories]
+  );
 
   const filteredCatalog = useMemo(() => {
     return catalog.filter((p) => {
-      if (search) {
-        const q = search.toLowerCase();
-        const haystack = `${p.name} ${p.brand?.name ?? ''} ${p.category?.name ?? ''} ${p.tags.join(' ')} ${(p as any).keywords?.join(' ') ?? ''} ${(p as any).model_number ?? ''} ${p.model ?? ''}`.toLowerCase();
+      if (filterCategory !== 'all' && p.category_id !== filterCategory) return false;
+      if (filterBrand !== 'all' && p.brand_id !== filterBrand) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const haystack = [
+          p.name,
+          p.brand?.name || p.brand_name || '',
+          p.category?.name || '',
+          p.model || '',
+          p.model_number || '',
+          ...(p.tags || []),
+        ]
+          .join(' ')
+          .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (filterCategory !== 'all' && p.category_id !== filterCategory) return false;
       return true;
     });
-  }, [catalog, search, filterCategory]);
+  }, [catalog, search, filterCategory, filterBrand]);
 
-  // Group products by category for the tick-list view
-  const groupedCatalog = useMemo(() => {
-    const groups: Record<string, Product[]> = {};
-    for (const p of filteredCatalog) {
-      const catName = p.category?.name ?? 'Uncategorized';
-      if (!groups[catName]) groups[catName] = [];
-      groups[catName].push(p);
+  const openAddDialog = (master: Product) => {
+    if (getExistingOwnedListing(master)) {
+      toast.info(`"${master.name}" is already in your shop.`);
+      return;
     }
-    return groups;
-  }, [filteredCatalog]);
+    setAddTarget(master);
+    setAddPrice(String(master.price || 999));
+    setAddDiscount(master.discount_price ? String(master.discount_price) : '');
+    setAddStockQty('10');
+    setAddDelivery(dealer.delivery_available ?? true);
+    setAddPickup(dealer.pickup_available ?? true);
+  };
 
-  // Instant single-click addition to dealer shop & inventory (NO confirmation popups!)
-  const handleSingleClickAdd = async (product: Product) => {
-    setAddingIds((prev) => new Set(prev).add(product.id));
-    // Optimistic instant badge update:
-    setInventoryProductIds((prev) => new Set(prev).add(product.id));
+  const handleConfirmAddToShop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addTarget) return;
 
+    const priceVal = Number(addPrice);
+    const discountVal = addDiscount ? Number(addDiscount) : null;
+    const stockVal = Math.max(0, Math.floor(Number(addStockQty) || 0));
+
+    if (!Number.isFinite(priceVal) || priceVal <= 0) {
+      toast.error('Please enter a valid positive selling price.');
+      return;
+    }
+    if (discountVal !== null && (!Number.isFinite(discountVal) || discountVal <= 0 || discountVal >= priceVal)) {
+      toast.error('Discount offer price must be positive and less than MRP.');
+      return;
+    }
+
+    setSubmittingCatalogue(true);
     try {
-      // 1. Create or sync dealer-specific product record
-      const dealerProduct: Product = {
-        ...product,
-        id: `prod-${dealer.id}-${product.id}`,
+      const saved = await saveDbProduct({
+        id: `prod-${dealer.id}-${addTarget.id}`,
         dealer_id: dealer.id,
-        name: product.name,
-        price: product.price,
-        discount_price: product.discount_price,
-        stock_qty: 10,
-        stock_status: 'in_stock',
-        delivery_available: dealer.delivery_available ?? true,
-        pickup_available: dealer.pickup_available ?? true,
+        master_product_id: addTarget.id,
+        from_catalogue: true,
+        name: addTarget.name,
+        brand_id: addTarget.brand_id,
+        brand_name: addTarget.brand?.name || addTarget.brand_name || null,
+        category_id: addTarget.category_id,
+        model: addTarget.model || addTarget.model_number || null,
+        description: addTarget.description,
+        specifications: addTarget.specifications || {},
+        features: addTarget.features || [],
+        tags: addTarget.tags || [],
+        images: addTarget.images || [],
+        warranty: addTarget.warranty || '1 Year Brand Warranty',
+        color: addTarget.color || null,
+        price: priceVal,
+        discount_price: discountVal,
+        stock_qty: stockVal,
+        stock_quantity: stockVal,
+        low_stock_threshold: dealer.low_stock_threshold ?? 5,
+        stock_status: stockVal <= 0 ? 'out_of_stock' : stockVal <= (dealer.low_stock_threshold ?? 5) ? 'limited' : 'in_stock',
+        delivery_available: addDelivery,
+        pickup_available: addPickup,
         is_master: false,
         is_active: true,
-        moderation_status: 'approved',
-        created_at: new Date().toISOString(),
-      };
-      await saveDbProduct(dealerProduct);
+        moderation_status: 'pending',
+      });
 
-      // 2. Add to dealer_inventory table
-      await quickAddToInventory(dealer.id, product.id);
-
-      // 3. Update in-memory state so page never needs manual refresh
-      setInventory((prev) => [
-        {
-          id: `inv-${Date.now()}-${product.id}`,
-          dealer_id: dealer.id,
-          product_id: product.id,
-          product,
-          images: product.images ?? [],
-          price: product.price,
-          stock_qty: 10,
-          stock_status: 'in_stock',
-          is_active: true,
-          created_at: new Date().toISOString(),
-        } as any,
-        ...prev.filter((x) => x.product_id !== product.id),
-      ]);
-
-      broadcastSync('products', dealerProduct);
+      setDealerProducts((prev) => [saved, ...prev.filter((p) => p.id !== saved.id)]);
+      setAddTarget(null);
+      setPreviewProduct(null);
+      const msg = `"${saved.name}" submitted from Catalogue and added to My Products (Pending Admin Approval).`;
+      setFeedback({ type: 'success', text: msg });
+      toast.success(msg);
       if (onInventoryChanged) await onInventoryChanged();
-      setFeedback({ type: 'success', text: `"${product.name}" added to your showroom & inventory!` });
-      toast.success(`"${product.name}" added to your showroom & inventory!`);
-    } catch (e: any) {
-      const msg = e.message ?? 'Failed to add product';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to add product to shop';
       setFeedback({ type: 'error', text: msg });
       toast.error(msg);
-      // Rollback optimistic update on error
-      setInventoryProductIds((prev) => {
-        const next = new Set(prev);
-        next.delete(product.id);
-        return next;
-      });
     } finally {
-      setAddingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(product.id);
-        return next;
+      setSubmittingCatalogue(false);
+    }
+  };
+
+  const handleSubmitNewProductRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = reqName.trim();
+    const priceVal = Number(reqPrice);
+    const discountVal = reqDiscount ? Number(reqDiscount) : null;
+    const stockVal = Math.max(0, Math.floor(Number(reqStockQty) || 0));
+
+    if (cleanName.length < 2) {
+      toast.error('Please enter a valid product name.');
+      return;
+    }
+    if (!Number.isFinite(priceVal) || priceVal <= 0) {
+      toast.error('Please enter a positive selling price.');
+      return;
+    }
+    if (discountVal !== null && (!Number.isFinite(discountVal) || discountVal <= 0 || discountVal >= priceVal)) {
+      toast.error('Discount offer price must be less than MRP.');
+      return;
+    }
+
+    // Parse key: value specs lines
+    const parsedSpecs: Record<string, string> = {};
+    if (reqWarranty.trim()) parsedSpecs['Warranty'] = reqWarranty.trim();
+    if (reqColor.trim()) parsedSpecs['Color'] = reqColor.trim();
+    for (const line of reqSpecsText.split('\n')) {
+      const idx = line.indexOf(':');
+      if (idx > 0) {
+        const k = line.slice(0, idx).trim();
+        const v = line.slice(idx + 1).trim();
+        if (k && v) parsedSpecs[k] = v;
+      }
+    }
+
+    const isOtherBrand = reqBrandId === '__custom__';
+    const selectedBrandObj = !isOtherBrand ? brands.find((b) => b.id === reqBrandId) : null;
+    const brandName = isOtherBrand ? reqCustomBrand.trim() : selectedBrandObj?.name || null;
+
+    setSubmittingCustom(true);
+    try {
+      const saved = await saveDbProduct({
+        dealer_id: dealer.id,
+        name: cleanName,
+        brand_id: isOtherBrand ? null : (reqBrandId || null),
+        brand_name: brandName,
+        category_id: reqCategoryId || (categories[0]?.id ?? 'cat-electronics'),
+        model: reqModel.trim() || null,
+        price: priceVal,
+        discount_price: discountVal,
+        stock_qty: stockVal,
+        stock_quantity: stockVal,
+        low_stock_threshold: dealer.low_stock_threshold ?? 5,
+        stock_status: stockVal <= 0 ? 'out_of_stock' : stockVal <= (dealer.low_stock_threshold ?? 5) ? 'limited' : 'in_stock',
+        description: reqDescription.trim() || `${cleanName} available at ${dealer.shop_name}.`,
+        specifications: parsedSpecs,
+        images: reqImage.trim()
+          ? [reqImage.trim()]
+          : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'],
+        warranty: reqWarranty.trim() || null,
+        color: reqColor.trim() || null,
+        delivery_available: reqDelivery,
+        pickup_available: reqPickup,
+        is_master: false,
+        is_active: true,
+        moderation_status: 'pending',
       });
-    }
-  };
 
-  const handleRemove = async () => {
-    if (!deleteTarget) return;
-    const { error } = await removeDealerInventory(deleteTarget.id, dealer.id);
-    if (error) {
-      setFeedback({ type: 'error', text: error });
-      toast.error(error);
-      return;
-    }
-    setFeedback({ type: 'success', text: `"${deleteTarget.product?.name || 'Product'}" removed from your store.` });
-    toast.success('Product removed from your store');
-    setDeleteTarget(null);
-    await load();
-    if (onInventoryChanged) await onInventoryChanged();
-  };
+      setDealerProducts((prev) => [saved, ...prev]);
+      setReqName('');
+      setReqModel('');
+      setReqPrice('');
+      setReqDiscount('');
+      setReqStockQty('10');
+      setReqImage('');
+      setReqColor('');
+      setReqDescription('');
+      setReqSpecsText('');
+      setReqCustomBrand('');
 
-  const handleToggleInv = async (inv: DealerInventory) => {
-    const { error } = await toggleInventoryActive(inv.id, !inv.is_active);
-    if (error) {
-      setFeedback({ type: 'error', text: error });
-      toast.error(error);
-      return;
+      const msg = `"${saved.name}" submitted for Admin review! Once approved, it will go live in the Customer App.`;
+      setFeedback({ type: 'success', text: msg });
+      toast.success(msg);
+      if (onInventoryChanged) await onInventoryChanged();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit new product';
+      setFeedback({ type: 'error', text: msg });
+      toast.error(msg);
+    } finally {
+      setSubmittingCustom(false);
     }
-    const nextLabel = inv.is_active ? 'paused' : 'enabled';
-    setFeedback({ type: 'success', text: `Listing ${nextLabel}.` });
-    toast.success(`Listing ${inv.is_active ? 'disabled' : 'enabled'}`);
-    setInventory((prev) => prev.map((i) => i.id === inv.id ? { ...i, is_active: !i.is_active } : i));
-    if (onInventoryChanged) await onInventoryChanged();
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {feedback && (
         <div
+          data-testid="dealer-catalog-feedback"
           className={cn(
             'rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2',
             feedback.type === 'success'
@@ -214,7 +393,10 @@ export function DealerCatalogClient({
               : 'border-destructive/30 bg-destructive/10 text-destructive'
           )}
         >
-          <span>{feedback.text}</span>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {feedback.text}
+          </span>
           <button
             type="button"
             onClick={() => setFeedback(null)}
@@ -224,51 +406,93 @@ export function DealerCatalogClient({
           </button>
         </div>
       )}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full">
-          <TabsTrigger value="browse" className="flex-1"><ShoppingCart className="mr-1.5 h-4 w-4" /> Add Products</TabsTrigger>
-          <TabsTrigger value="inventory" className="flex-1"><Store className="mr-1.5 h-4 w-4" /> My Store ({inventory.length})</TabsTrigger>
+
+      <Tabs value={mode} onValueChange={(v) => setMode(v as 'catalogue' | 'request')}>
+        <TabsList className="grid w-full max-w-xl grid-cols-2 h-10 p-1 bg-muted/60">
+          <TabsTrigger value="catalogue" className="text-xs font-bold gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5 text-emerald-600" /> Add Products from Catalogue ({catalog.length})
+          </TabsTrigger>
+          <TabsTrigger value="request" className="text-xs font-bold gap-1.5">
+            <FilePlus2 className="h-3.5 w-3.5 text-primary" /> Request New Product
+          </TabsTrigger>
         </TabsList>
 
-        {/* Browse catalog — tick list / quick add */}
-        <TabsContent value="browse" className="mt-4 space-y-4">
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-primary">Add Products to My Store</h3>
+        {/* TAB 1: ADD PRODUCTS FROM CATALOGUE */}
+        <TabsContent value="catalogue" className="mt-4 space-y-4">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <h3 className="font-bold text-sm sm:text-base text-foreground">
+                  Add Products from Catalogue
+                </h3>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Browse Admin-approved master products, preview full specs, set your showroom selling price &amp; stock, and submit to your shop.
+              </p>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">Search and select products you have in your shop. Just click &quot;Add&quot; &mdash; no forms needed. You can add price and details later.</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setMode('request')}
+              className="text-xs font-semibold shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Not listed? Request New Product
+            </Button>
           </div>
 
-          {/* AI-powered search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, brand, model... (e.g. S25 ultra, Samsung latest phone)"
-              className="pl-9"
-            />
+          {/* Search + Brand filter */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="relative sm:col-span-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search catalogue by product name, brand, category, model..."
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
+
+            <Select value={filterBrand} onValueChange={setFilterBrand}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="All Brands" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All Brands ({brands.length})</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b.id} value={b.id} className="text-xs">
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Category chips */}
-          <div className="flex flex-wrap gap-2">
+          {/* Category filter chips */}
+          <div className="flex flex-wrap gap-1.5">
             <button
+              type="button"
               onClick={() => setFilterCategory('all')}
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                filterCategory === 'all' ? 'border-primary bg-primary text-primary-foreground' : 'border-border/60 hover:bg-muted/50'
+                filterCategory === 'all'
+                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : 'border-border/60 hover:bg-muted/50'
               )}
             >
-              All
+              All Categories
             </button>
             {rootCategories.map((c) => (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => setFilterCategory(c.id)}
                 className={cn(
                   'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                  filterCategory === c.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border/60 hover:bg-muted/50'
+                  filterCategory === c.id
+                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    : 'border-border/60 hover:bg-muted/50'
                 )}
               >
                 {c.name}
@@ -276,354 +500,529 @@ export function DealerCatalogClient({
             ))}
           </div>
 
-          {/* Product list grouped by category */}
           {filteredCatalog.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="font-semibold">No Products Found</p>
-              <p className="mt-1 text-sm text-muted-foreground">Try a different search term. The admin needs to create products first.</p>
+            <Card className="p-10 text-center space-y-3">
+              <Package className="mx-auto h-10 w-10 text-muted-foreground opacity-50" />
+              <div>
+                <p className="font-bold text-sm text-foreground">No Matching Catalogue Products</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cannot find the product you carry? Submit a custom product request directly to Admin for approval.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (search.trim()) setReqName(search.trim());
+                  setMode('request');
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+              >
+                <FilePlus2 className="h-3.5 w-3.5 mr-1.5" /> Request New Product
+              </Button>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {Object.entries(groupedCatalog).map(([catName, products]) => (
-                <div key={catName}>
-                  <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                    <Tag className="h-3.5 w-3.5" /> {catName}
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {products.map((product) => {
-                      const inInventory = inventoryProductIds.has(product.id);
-                      return (
-                        <div
-                          key={product.id}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredCatalog.map((product) => {
+                const owned = getExistingOwnedListing(product);
+                const specPairs = Object.entries(product.specifications || {}).slice(0, 2);
+
+                return (
+                  <Card
+                    key={product.id}
+                    className={cn(
+                      'p-3.5 flex flex-col justify-between gap-3 border transition-all',
+                      owned
+                        ? 'border-emerald-500/40 bg-emerald-500/5'
+                        : 'border-border/80 hover:border-primary/40'
+                    )}
+                  >
+                    <div className="flex gap-3">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted border border-border/50">
+                        {product.images?.[0] ? (
+                          <Image
+                            src={product.images[0]}
+                            alt={product.name}
+                            fill
+                            sizes="64px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="line-clamp-2 text-xs sm:text-sm font-bold text-foreground leading-snug">
+                          {product.name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span className="font-semibold text-foreground/80">
+                            {product.brand?.name || product.brand_name || 'Brand'}
+                          </span>
+                          <span>•</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {product.category?.name || 'General'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          Ref Price: {formatINR(getEffectivePrice(product.price, product.discount_price))}
+                        </p>
+                      </div>
+                    </div>
+
+                    {specPairs.length > 0 && (
+                      <div className="rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground space-y-0.5">
+                        {specPairs.map(([k, v]) => (
+                          <div key={k} className="flex justify-between gap-2 truncate">
+                            <span className="font-medium text-foreground/70">{k}:</span>
+                            <span className="truncate">{String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPreviewProduct(product)}
+                        className="h-8 px-2.5 text-xs font-semibold"
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Preview
+                      </Button>
+
+                      {owned ? (
+                        <Badge
                           className={cn(
-                            'flex items-center gap-3 rounded-lg border p-3 transition-all',
-                            inInventory ? 'border-success/30 bg-success/5' : 'border-border/60 hover:border-primary/40 hover:bg-muted/30',
+                            'text-[10px] font-bold gap-1',
+                            owned.moderation_status === 'approved'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                              : owned.moderation_status === 'rejected'
+                                ? 'bg-rose-500/15 text-rose-700 border-rose-500/30'
+                                : 'bg-amber-500/15 text-amber-700 border-amber-500/30'
                           )}
                         >
-                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-muted">
-                            {product.images?.[0] ? (
-                              <Image src={product.images[0]} alt={product.name} fill sizes="48px" className="object-cover" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-medium">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.brand?.name ?? 'No brand'}</p>
-                          </div>
-                          {inInventory ? (
-                            <Badge className="shrink-0 bg-success/15 text-success font-semibold gap-1">
-                              <Check className="h-3 w-3" /> In Store
-                            </Badge>
+                          {owned.moderation_status === 'approved' ? (
+                            <Check className="h-3 w-3" />
                           ) : (
-                            <Button
-                              size="sm"
-                              className="shrink-0 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-                              disabled={addingIds.has(product.id)}
-                              onClick={() => handleSingleClickAdd(product)}
-                            >
-                              {addingIds.has(product.id) ? (
-                                <>
-                                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Adding...
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="mr-1 h-3.5 w-3.5" /> Add
-                                </>
-                              )}
-                            </Button>
+                            <Clock className="h-3 w-3" />
                           )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                          In Shop ({owned.moderation_status})
+                        </Badge>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => openAddDialog(product)}
+                          className="h-8 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add to My Shop
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
 
-        {/* My Store inventory */}
-        <TabsContent value="inventory" className="mt-4 space-y-4">
-          <div className="rounded-lg border border-success/30 bg-success/5 p-4">
-            <div className="flex items-center gap-2">
-              <Store className="h-5 w-5 text-success" />
-              <h3 className="font-semibold text-success">My Store Inventory ({inventory.length})</h3>
+        {/* TAB 2: REQUEST / SUBMIT NEW PRODUCT */}
+        <TabsContent value="request" className="mt-4">
+          <Card className="p-5 border-border/80 max-w-3xl space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
+              <div>
+                <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-600" /> Request / Submit New Product
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Submit a custom showroom product not listed in the Master Catalogue. Submissions enter Pending Approval until reviewed by an Admin.
+                </p>
+              </div>
+              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] shrink-0">
+                Requires Admin Approval
+              </Badge>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">Products in your shop. Click edit to update price, stock, or add a store photo.</p>
-          </div>
 
-          {inventory.length === 0 ? (
-            <Card className="p-12 text-center">
-              <PackageCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="font-semibold">No Products in Your Store Yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">Browse the catalog and add products you stock. Just one click per product.</p>
-              <Button className="mt-4" onClick={() => setTab('browse')}><ShoppingCart className="mr-1.5 h-4 w-4" /> Add Products</Button>
-            </Card>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-left text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Product</th>
-                    <th className="px-3 py-2 font-medium">Price</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Stock</th>
-                    <th className="hidden px-3 py-2 font-medium md:table-cell">Condition</th>
-                    <th className="hidden px-3 py-2 font-medium md:table-cell">Delivery</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                    <th className="px-3 py-2 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {inventory.map((inv) => (
-                    <tr key={inv.id} className={cn('hover:bg-muted/20', !inv.is_active && 'opacity-50')}>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                            {(inv.images?.[0] || inv.product?.images?.[0]) && (
-                              <Image
-                                src={inv.images?.[0] || inv.product?.images?.[0] || ''}
-                                alt={inv.product?.name ?? ''}
-                                fill
-                                sizes="40px"
-                                className="object-cover"
-                              />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="line-clamp-1 font-medium">{inv.product?.name}</p>
-                            <p className="text-xs text-muted-foreground">{inv.product?.brand?.name}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        {inv.price > 0 ? (
-                          <span className="font-medium">{formatINR(inv.price)}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not set</span>
-                        )}
-                        {inv.offer_price && <p className="text-xs text-success">Offer: {formatINR(inv.offer_price)}</p>}
-                      </td>
-                      <td className="hidden px-3 py-2 sm:table-cell">
-                        {inv.stock_qty > 0 ? (
-                          <Badge className={cn(inv.stock_status === 'in_stock' ? 'bg-success/15 text-success' : inv.stock_status === 'limited' ? 'bg-warning/15 text-warning' : 'bg-destructive/15 text-destructive')}>
-                            {inv.stock_qty} {inv.stock_status === 'in_stock' ? 'in stock' : inv.stock_status === 'limited' ? 'limited' : 'out'}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not set</span>
-                        )}
-                      </td>
-                      <td className="hidden px-3 py-2 capitalize md:table-cell">{inv.condition}</td>
-                      <td className="hidden px-3 py-2 md:table-cell">
-                        <div className="flex gap-1">
-                          {inv.delivery_available && <Badge variant="outline" className="text-[10px]">Delivery</Badge>}
-                          {inv.pickup_available && <Badge variant="outline" className="text-[10px]">Pickup</Badge>}
-                          {!inv.delivery_available && !inv.pickup_available && <span className="text-xs text-muted-foreground">—</span>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge className={cn(inv.is_active ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground')}>
-                          {inv.is_active ? 'Active' : 'Paused'}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit details" onClick={() => setEditTarget(inv)}><Edit className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Enable/Disable" onClick={() => handleToggleInv(inv)}><Power className={cn('h-3.5 w-3.5', inv.is_active ? 'text-success' : 'text-muted-foreground')} /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Remove" onClick={() => setDeleteTarget(inv)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            <form onSubmit={handleSubmitNewProductRequest} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <Label className="text-xs font-bold">Product Name *</Label>
+                  <Input
+                    value={reqName}
+                    onChange={(e) => setReqName(e.target.value)}
+                    placeholder="e.g. Samsung Odyssey G7 32-inch Gaming Monitor"
+                    className="mt-1 h-9 text-xs"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Category *</Label>
+                  <Select value={reqCategoryId} onValueChange={setReqCategoryId}>
+                    <SelectTrigger className="mt-1 h-9 text-xs">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Brand *</Label>
+                  <Select value={reqBrandId} onValueChange={setReqBrandId}>
+                    <SelectTrigger className="mt-1 h-9 text-xs">
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((b) => (
+                        <SelectItem key={b.id} value={b.id} className="text-xs">
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__custom__" className="text-xs font-semibold text-emerald-600">
+                        + Other / Enter Brand Name
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {reqBrandId === '__custom__' && (
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs font-bold">Brand Name *</Label>
+                    <Input
+                      value={reqCustomBrand}
+                      onChange={(e) => setReqCustomBrand(e.target.value)}
+                      placeholder="Enter brand name (e.g. Nothing, Dyson, Asus)"
+                      className="mt-1 h-9 text-xs"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-xs font-bold">MRP / Regular Price (₹) *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={reqPrice}
+                    onChange={(e) => setReqPrice(e.target.value)}
+                    placeholder="e.g. 42990"
+                    className="mt-1 h-9 text-xs font-bold"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Special Selling Price (₹ optional)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={reqDiscount}
+                    onChange={(e) => setReqDiscount(e.target.value)}
+                    placeholder="Discounted showroom price"
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Initial Stock Quantity *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={reqStockQty}
+                    onChange={(e) => setReqStockQty(e.target.value)}
+                    className="mt-1 h-9 text-xs font-mono font-bold"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Model Number / SKU</Label>
+                  <Input
+                    value={reqModel}
+                    onChange={(e) => setReqModel(e.target.value)}
+                    placeholder="e.g. LC32G75TQSWXXL"
+                    className="mt-1 h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Warranty Info</Label>
+                  <Input
+                    value={reqWarranty}
+                    onChange={(e) => setReqWarranty(e.target.value)}
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Color / Variant</Label>
+                  <Input
+                    value={reqColor}
+                    onChange={(e) => setReqColor(e.target.value)}
+                    placeholder="e.g. Matte Black"
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-border bg-muted/20">
+                <ImagePicker
+                  value={reqImage}
+                  onChange={setReqImage}
+                  label="Product Photo"
+                  description="Upload product photo or paste image URL"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">Description</Label>
+                <Textarea
+                  rows={3}
+                  value={reqDescription}
+                  onChange={(e) => setReqDescription(e.target.value)}
+                  placeholder="Key highlights, box contents, and showroom availability..."
+                  className="mt-1 text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">Technical Specifications (Optional, Key: Value per line)</Label>
+                <Textarea
+                  rows={3}
+                  value={reqSpecsText}
+                  onChange={(e) => setReqSpecsText(e.target.value)}
+                  placeholder={'Display: 32-inch QLED QHD\nRefresh Rate: 240Hz\nPorts: HDMI 2.1, DisplayPort'}
+                  className="mt-1 text-xs font-mono"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4 p-3 rounded-xl border border-border bg-muted/20">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={reqDelivery}
+                    onChange={(e) => setReqDelivery(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-emerald-600"
+                  />
+                  Home Delivery Available
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={reqPickup}
+                    onChange={(e) => setReqPickup(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-emerald-600"
+                  />
+                  Showroom Pickup Available
+                </label>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={submittingCustom}
+                  className="h-10 px-5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {submittingCustom ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-1.5" /> Submit Product for Approval
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Edit inventory dialog */}
-      {editTarget && (
-        <InventoryEditDialog
-          open={!!editTarget}
-          onOpenChange={(v) => !v && setEditTarget(null)}
-          product={editTarget.product!}
-          dealerId={dealer.id}
-          existing={editTarget}
-          onSaved={async () => {
-            setEditTarget(null);
-            setFeedback({ type: 'success', text: 'Inventory pricing & stock saved.' });
-            await load();
-            if (onInventoryChanged) await onInventoryChanged();
-          }}
-        />
-      )}
+      {/* Preview Modal */}
+      <Dialog open={!!previewProduct} onOpenChange={(v) => !v && setPreviewProduct(null)}>
+        {previewProduct && (
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base font-black">{previewProduct.name}</DialogTitle>
+              <DialogDescription className="text-xs">
+                {previewProduct.brand?.name || 'Brand'} • {previewProduct.category?.name || 'Category'}
+                {previewProduct.model ? ` • Model: ${previewProduct.model}` : ''}
+              </DialogDescription>
+            </DialogHeader>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Product</AlertDialogTitle>
-            <AlertDialogDescription>
-              Remove &quot;{deleteTarget?.product?.name}&quot; from your store? You can re-add it later from the catalog.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleRemove}>Remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            <div className="space-y-4 text-xs">
+              {previewProduct.images?.[0] && (
+                <div className="relative h-48 w-full overflow-hidden rounded-xl bg-muted border border-border">
+                  <Image
+                    src={previewProduct.images[0]}
+                    alt={previewProduct.name}
+                    fill
+                    sizes="420px"
+                    className="object-contain p-2"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Catalog Reference MRP</span>
+                  <span className="text-base font-black text-foreground">
+                    {formatINR(previewProduct.price)}
+                  </span>
+                </div>
+                {previewProduct.warranty && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {previewProduct.warranty}
+                  </Badge>
+                )}
+              </div>
+
+              {previewProduct.description && (
+                <div>
+                  <span className="font-bold text-foreground block mb-1">Description</span>
+                  <p className="text-muted-foreground leading-relaxed">{previewProduct.description}</p>
+                </div>
+              )}
+
+              {previewProduct.specifications && Object.keys(previewProduct.specifications).length > 0 && (
+                <div>
+                  <span className="font-bold text-foreground block mb-1.5">Specifications</span>
+                  <div className="rounded-xl border border-border divide-y divide-border/60">
+                    {Object.entries(previewProduct.specifications).map(([k, v]) => (
+                      <div key={k} className="flex justify-between gap-4 px-3 py-2">
+                        <span className="font-semibold text-muted-foreground">{k}</span>
+                        <span className="font-medium text-foreground text-right">{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setPreviewProduct(null)}>
+                Close
+              </Button>
+              {!getExistingOwnedListing(previewProduct) && (
+                <Button
+                  type="button"
+                  onClick={() => openAddDialog(previewProduct)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add to My Shop
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Set Own Price & Stock Dialog for Catalogue Product */}
+      <Dialog open={!!addTarget} onOpenChange={(v) => !v && setAddTarget(null)}>
+        {addTarget && (
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-black">
+                <Tag className="h-4 w-4 text-emerald-600" /> Add to My Shop
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Set your showroom selling price and initial stock for &quot;{addTarget.name}&quot;. It will be submitted for Admin approval.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleConfirmAddToShop} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold">Your Selling MRP (₹) *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={addPrice}
+                    onChange={(e) => setAddPrice(e.target.value)}
+                    className="mt-1 h-9 text-xs font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold">Offer Price (₹ optional)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={addDiscount}
+                    onChange={(e) => setAddDiscount(e.target.value)}
+                    placeholder="Optional offer price"
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">Initial Stock Quantity *</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={addStockQty}
+                  onChange={(e) => setAddStockQty(e.target.value)}
+                  className="mt-1 h-9 text-xs font-mono font-bold"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4 p-2.5 rounded-xl border border-border bg-muted/20">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={addDelivery}
+                    onChange={(e) => setAddDelivery(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-emerald-600"
+                  />
+                  Home Delivery
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={addPickup}
+                    onChange={(e) => setAddPickup(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-emerald-600"
+                  />
+                  Store Pickup
+                </label>
+              </div>
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setAddTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingCatalogue}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                >
+                  {submittingCatalogue ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add to My Shop
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
-  );
-}
-
-// ============================================================
-// Inventory Edit Dialog — simple optional fields
-// ============================================================
-
-function InventoryEditDialog({
-  open, onOpenChange, product, dealerId, existing, onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  product: Product;
-  dealerId: string;
-  existing?: DealerInventory;
-  onSaved: () => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [price, setPrice] = useState(existing?.price ? String(existing.price) : '');
-  const [offerPrice, setOfferPrice] = useState(existing?.offer_price ? String(existing.offer_price) : '');
-  const [stockQty, setStockQty] = useState(existing?.stock_qty ? String(existing.stock_qty) : '');
-  const [condition, setCondition] = useState<'new' | 'used' | 'refurbished' | 'open_box'>(existing?.condition ?? 'new');
-  const [deliveryAvailable, setDeliveryAvailable] = useState(existing?.delivery_available ?? false);
-  const [pickupAvailable, setPickupAvailable] = useState(existing?.pickup_available ?? true);
-  const [images, setImages] = useState((existing?.images ?? []).join('\n'));
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const input: DealerInventoryInput = {
-        product_id: product.id,
-        price: price ? parseFloat(price) : 0,
-        discount_price: null,
-        stock_qty: stockQty ? parseInt(stockQty) : 0,
-        stock_status: stockQty ? 'in_stock' : 'in_stock',
-        condition,
-        images: images.split('\n').map((s: string) => s.trim()).filter(Boolean),
-      };
-
-      if (existing) {
-        const { error } = await updateDealerInventory(existing.id, input);
-        if (error) throw error;
-
-        // Update delivery/pickup and offer_price via direct supabase call
-        const { error: extraError } = await supabase
-          .from('dealer_inventory')
-          .update({
-            delivery_available: deliveryAvailable,
-            pickup_available: pickupAvailable,
-            offer_price: offerPrice ? parseFloat(offerPrice) : null,
-          })
-          .eq('id', existing.id);
-        if (extraError) console.warn('Extra field update:', extraError.message);
-
-        toast.success('Inventory updated');
-      } else {
-        const { error } = await addProductToInventory(dealerId, input);
-        if (error) throw error;
-        toast.success('Product added to your store');
-      }
-      onSaved();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Failed to save');
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Store className="h-5 w-5 text-primary" /> Edit Store Details
-          </DialogTitle>
-          <DialogDescription className="sr-only">Update pricing, quantity, and condition for this product in your store.</DialogDescription>
-        </DialogHeader>
-
-        {/* Product summary — read only */}
-        <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
-          <div className="relative h-16 w-16 overflow-hidden rounded bg-muted">
-            {product.images?.[0] && <Image src={product.images[0]} alt={product.name} fill sizes="64px" className="object-cover" />}
-          </div>
-          <div>
-            <p className="font-semibold">{product.name}</p>
-            <p className="text-xs text-muted-foreground">{product.brand?.name} · {product.category?.name}</p>
-            <p className="text-xs text-muted-foreground">{(product as any).short_description ?? product.description?.slice(0, 60)}</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-xs text-muted-foreground">
-            All fields below are optional. Just save to mark this product as available in your store.
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="mb-1 block text-sm">Your Price</Label>
-              <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <Label className="mb-1 block text-sm">Offer Price</Label>
-              <Input type="number" value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)} placeholder="0" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="mb-1 block text-sm">Quantity</Label>
-              <Input type="number" value={stockQty} onChange={(e) => setStockQty(e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <Label className="mb-1 block text-sm">Condition</Label>
-              <Select value={condition} onValueChange={(v) => setCondition(v as 'new' | 'used' | 'refurbished' | 'open_box')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="used">Used</SelectItem>
-                  <SelectItem value="refurbished">Refurbished</SelectItem>
-                  <SelectItem value="open_box">Open Box</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={deliveryAvailable} onCheckedChange={setDeliveryAvailable} />
-              <Label className="text-sm">Delivery Available</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={pickupAvailable} onCheckedChange={setPickupAvailable} />
-              <Label className="text-sm">Pickup Available</Label>
-            </div>
-          </div>
-
-          <div>
-            <Label className="mb-1 block text-sm">Store Photo (optional, one URL per line)</Label>
-            <Textarea value={images} onChange={(e) => setImages(e.target.value)} placeholder="Upload a photo of this product in your shop" className="min-h-[50px] text-xs" />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

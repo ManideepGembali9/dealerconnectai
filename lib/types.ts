@@ -76,6 +76,7 @@ export type Dealer = {
   home_delivery_radius_km: number;
   product_count: number;
   view_count: number;
+  low_stock_threshold?: number;
   created_at: string;
   updated_at: string | null;
   approved_at: string | null;
@@ -197,6 +198,20 @@ export type Product = {
   warranty_info?: string;
   rating?: number;
   rating_count?: number;
+  enquiry_count?: number;
+  low_stock_threshold?: number;
+  master_product_id?: string | null;
+  admin_info_request?: string | null;
+  rejection_reason?: string | null;
+  brand_name?: string | null;
+  price_history?: Array<{
+    old_price: number;
+    new_price: number;
+    old_discount?: number | null;
+    new_discount?: number | null;
+    changed_at: string;
+    changed_by: string;
+  }>;
 
   dealer?: Dealer | null;
   category?: Category | null;
@@ -252,12 +267,12 @@ export type ProductImage = {
   ai_tags: string[] | null;
   ai_warning: string | null;
   moderation_status:
-    | 'pending'
-    | 'ai_approved'
-    | 'ai_flagged'
-    | 'admin_approved'
-    | 'admin_rejected'
-    | 'dealer_reuploaded';
+  | 'pending'
+  | 'ai_approved'
+  | 'ai_flagged'
+  | 'admin_approved'
+  | 'admin_rejected'
+  | 'dealer_reuploaded';
   dealer_comment: string | null;
   admin_notes: string | null;
   reviewed_by: string | null;
@@ -283,10 +298,10 @@ export type ModerationLog = {
   image_url: string | null;
   image_version: number | null;
   metadata: Record<string, unknown>;
-  entity_type?: 'product' | 'dealer' | 'review' | 'category' | 'brand';
-  entity_id?: string;
+  entity_type?: 'product' | 'dealer' | 'review' | 'category' | 'settings' | 'application' | 'user' | string;
+  entity_id?: string | null;
   entity_name?: string | null;
-  performed_by?: string;
+  performed_by?: string | null;
   reason?: string | null;
   details?: Record<string, unknown>;
   created_at: string;
@@ -321,18 +336,21 @@ export type Notification = {
   recipient_id?: string;
   recipient_role?: NotificationRecipientRole;
   type:
-    | 'in_stock'
-    | 'price_drop'
-    | 'nearby_available'
-    | 'moderation_update'
-    | 'enquiry_update'
-    | 'new_enquiry'
-    | 'review_update'
-    | 'new_review'
-    | 'dealer_reply'
-    | 'dealer_application'
-    | 'product_update'
-    | 'system';
+  | 'in_stock'
+  | 'price_drop'
+  | 'nearby_available'
+  | 'moderation_update'
+  | 'product_approved'
+  | 'product_rejected'
+  | 'enquiry_update'
+  | 'new_enquiry'
+  | 'dealer_support'
+  | 'review_update'
+  | 'new_review'
+  | 'dealer_reply'
+  | 'dealer_application'
+  | 'product_update'
+  | 'system';
   title: string;
   message: string;
   product_id: string | null;
@@ -533,6 +551,17 @@ export type AppSettings = {
   secondary_color: string | null;
   accent_color: string | null;
   background_color: string | null;
+  custom_colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    text?: string;
+    button?: string;
+    header?: string;
+    navigation?: string;
+  } | null;
+  default_appearance?: 'light' | 'dark' | 'system';
   homepage_config: {
     sections: HomepageSection[];
     banners: { id: string; image_url: string; title: string; subtitle: string; link: string; enabled: boolean }[];
@@ -581,4 +610,57 @@ export type UserPushSubscription = {
   device_type: 'web' | 'android' | 'ios' | null;
   created_at: string;
   is_active: boolean;
+};
+
+// ==================== DEALER-TO-ADMIN ENQUIRY & LEAD MANAGEMENT ====================
+
+export type DealerEnquiryCategory =
+  | 'product_approval'
+  | 'catalog_request'
+  | 'account_issue'
+  | 'verification'
+  | 'technical_support'
+  | 'platform_issue'
+  | 'billing_subscription'
+  | 'other';
+
+export type DealerEnquiryPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export type DealerEnquiryStatus =
+  | 'new'
+  | 'open'
+  | 'in_progress'
+  | 'waiting_for_dealer'
+  | 'responded'
+  | 'resolved'
+  | 'closed';
+
+export type DealerSupportMessage = {
+  id: string;
+  sender_role: 'dealer' | 'admin';
+  sender_name: string;
+  message: string;
+  attachment_url?: string | null;
+  created_at: string;
+};
+
+export type DealerSupportEnquiry = {
+  id: string;
+  dealer_id: string;
+  dealer_name: string;
+  shop_name: string;
+  dealer_email: string;
+  subject: string;
+  category: DealerEnquiryCategory;
+  priority: DealerEnquiryPriority;
+  description: string;
+  attachment_url?: string | null;
+  status: DealerEnquiryStatus;
+  assigned_to?: string | null;
+  internal_notes?: string | null;
+  conversation: DealerSupportMessage[];
+  first_responded_at?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
 };

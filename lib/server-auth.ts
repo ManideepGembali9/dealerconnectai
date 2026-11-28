@@ -67,6 +67,13 @@ export function canClientReceiveRealtimeEvent(
     return Boolean(auth.admin);
   }
 
+  if (event.topic === 'dealer_enquiries') {
+    if (auth.dealer && event.dealerId && auth.dealer.dealerId === event.dealerId) {
+      return true;
+    }
+    return false;
+  }
+
   if (event.topic === 'enquiries') {
     if (auth.dealer && event.dealerId && auth.dealer.dealerId === event.dealerId) {
       return true;

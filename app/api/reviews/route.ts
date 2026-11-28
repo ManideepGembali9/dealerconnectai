@@ -50,18 +50,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ reviews: list });
   }
 
-  // Public product or shop scoped listing
-  let list = db.reviews.filter((r) => {
-    if (r.is_approved !== false && !r.is_hidden) return true;
-    if (
-      auth.customer &&
-      (r.customer_id === auth.customer.sub ||
-        (r.customer_email && r.customer_email.toLowerCase() === auth.customer.email.toLowerCase()))
-    ) {
-      return true;
-    }
-    return false;
-  });
+  // Public product or shop scoped listing (hidden reviews are visible only in scope=customer / scope=admin)
+  let list = db.reviews.filter((r) => r.is_approved !== false && !r.is_hidden);
 
   if (productId) {
     list = list.filter((r) => r.product_id === productId);

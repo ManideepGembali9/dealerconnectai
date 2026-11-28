@@ -9,9 +9,11 @@ import {
   Home,
   LayoutGrid,
   Heart,
+  GitCompareArrows,
   ShoppingCart,
   User,
 } from 'lucide-react';
+import Image from 'next/image';
 import { useApp } from '@/lib/providers';
 import { useAuth } from '@/lib/auth';
 import { fetchUnreadCount } from '@/lib/notifications';
@@ -20,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { wishlist, cartCount, t } = useApp();
+  const { wishlist, compare, cartCount, appSettings, t } = useApp();
   const { customer } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -76,6 +78,13 @@ export function SiteHeader() {
       isActive: pathname.startsWith('/wishlist'),
     },
     {
+      href: '/compare',
+      label: 'Compare',
+      icon: GitCompareArrows,
+      badge: compare.length,
+      isActive: pathname.startsWith('/compare'),
+    },
+    {
       href: '/cart',
       label: t('cart') || 'Cart',
       icon: ShoppingCart,
@@ -103,22 +112,32 @@ export function SiteHeader() {
     : null;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 text-foreground shadow-sm transition-colors">
+    <header
+      className="sticky top-0 z-40 w-full border-b border-border backdrop-blur text-foreground shadow-sm transition-colors"
+      style={{ backgroundColor: 'var(--dc-header-bg)' }}
+    >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         {/* Brand Logo & Name */}
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2.5 transition-transform active:scale-95"
         >
-          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-sm">
-            <Store className="h-5 w-5 sm:h-6 sm:w-6" />
+          <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground font-black shadow-sm">
+            {appSettings.logo_url ? (
+              <Image
+                src={appSettings.logo_url}
+                alt={appSettings.app_name || 'DealerConnect AI'}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              <Store className="h-5 w-5 sm:h-6 sm:w-6" />
+            )}
           </div>
           <div className="text-left">
             <span className="text-base sm:text-lg font-black tracking-tight text-foreground">
-              Dealer<span className="text-muted-foreground">Connect</span>
-            </span>
-            <span className="ml-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-black text-foreground">
-              AI
+              {appSettings.app_name || 'DealerConnect AI'}
             </span>
           </div>
         </Link>

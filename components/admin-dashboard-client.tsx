@@ -12,7 +12,6 @@ import { Module02Dealers } from '@/components/admin/modules/module-02-dealers';
 import { Module03Customers } from '@/components/admin/modules/module-03-customers';
 import { Module04Products } from '@/components/admin/modules/module-04-products';
 import { Module05Categories } from '@/components/admin/modules/module-05-categories';
-import { Module06Brands } from '@/components/admin/modules/module-06-brands';
 import { Module07Inventory } from '@/components/admin/modules/module-07-inventory';
 import { Module08Enquiries } from '@/components/admin/modules/module-08-enquiries';
 import { Module09Reviews } from '@/components/admin/modules/module-09-reviews';
@@ -21,10 +20,10 @@ import { Module11Notifications } from '@/components/admin/modules/module-11-noti
 import { Module12Analytics } from '@/components/admin/modules/module-12-analytics';
 import { Module13Customization } from '@/components/admin/modules/module-13-customization';
 import { Module14Settings } from '@/components/admin/modules/module-14-settings';
+import { Module15DealerLeads } from '@/components/admin/modules/module-15-dealer-leads';
 
 import {
   deleteDbDealer,
-  getDbBrands,
   getDbCategories,
   getDbDealers,
   getDbEnquiries,
@@ -33,7 +32,7 @@ import {
   saveDbDealer,
 } from '@/lib/firebase-db';
 import { supabase } from '@/lib/supabase';
-import type { Brand,Category,Dealer,Enquiry,Product,Review } from '@/lib/types';
+import type { Category, Dealer, Enquiry, Product, Review } from '@/lib/types';
 
 export function AdminDashboardClient() {
   const { adminAuthenticated, loading: authLoading } = useAuth();
@@ -43,7 +42,6 @@ export function AdminDashboardClient() {
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [searchLogs, setSearchLogs] = useState<any[]>([]);
@@ -54,11 +52,10 @@ export function AdminDashboardClient() {
   const loadPlatformData = useCallback(async (isInitial = false) => {
     if (isInitial) setDataLoading(true);
     try {
-      const [dls, prods, cats, brnds, revs, logs, enqs] = await Promise.all([
+      const [dls, prods, cats, revs, logs, enqs] = await Promise.all([
         getDbDealers(),
         getDbProducts({ includeUnapproved: true }),
         getDbCategories(),
-        getDbBrands(),
         getDbReviews(),
         supabase.from('search_logs').select('*').limit(100),
         getDbEnquiries(),
@@ -67,7 +64,6 @@ export function AdminDashboardClient() {
       setDealers(dls);
       setProducts(prods);
       setCategories(cats);
-      setBrands(brnds);
       setReviews(revs);
       setSearchLogs(logs?.data || []);
 
@@ -252,15 +248,6 @@ export function AdminDashboardClient() {
         />
       )}
 
-      {/* 06. Brand Management */}
-      {activeTab === '06-brands' && (
-        <Module06Brands
-          brands={brands}
-          products={products}
-          onRefreshBrands={loadPlatformData}
-        />
-      )}
-
       {/* 07. Inventory Management */}
       {activeTab === '07-inventory' && (
         <Module07Inventory
@@ -270,7 +257,7 @@ export function AdminDashboardClient() {
         />
       )}
 
-      {/* 08. Enquiry Management */}
+      {/* 08. Customer Enquiries */}
       {activeTab === '08-enquiries' && (
         <Module08Enquiries
           enquiries={enquiries}
@@ -278,6 +265,11 @@ export function AdminDashboardClient() {
           products={products}
           onRefreshEnquiries={loadPlatformData}
         />
+      )}
+
+      {/* 15. Dealer Enquiry & Lead Management */}
+      {(activeTab === '15-dealer-leads' || activeTab === '06-brands') && (
+        <Module15DealerLeads dealers={dealers} />
       )}
 
       {/* 09. Reviews and Ratings */}

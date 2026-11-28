@@ -11,10 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth';
 import { apiSync } from '@/lib/api-sync';
-import { fetchApprovedDealers,fetchProductById,fetchProductsByName,fetchReviewsForProduct,fetchSimilarProducts } from '@/lib/data';
+import { fetchApprovedDealers, fetchProductById, fetchProductsByName, fetchReviewsForProduct, fetchSimilarProducts } from '@/lib/data';
 import { saveDbEnquiry } from '@/lib/firebase-db';
-import { formatINR,getDiscountPercent,getEffectivePrice,timeAgo } from '@/lib/format';
-import { estimateDriveTime,haversineKm } from '@/lib/geo';
+import { formatINR, getDiscountPercent, getEffectivePrice, timeAgo } from '@/lib/format';
+import { estimateDriveTime, haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
 import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Dealer, Product, Review } from '@/lib/types';
@@ -369,14 +369,31 @@ export function ProductDetailClient({ id }: { id: string }) {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      {/* Breadcrumb */}
-      <nav className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-primary">Home</Link>
-        <ChevronRight className="h-3 w-3" />
-        {product.category && <><Link href={`/search?category=${product.category.slug}`} className="hover:text-primary">{product.category.name}</Link><ChevronRight className="h-3 w-3" /></>}
-        <span className="line-clamp-1 text-foreground">{product.name}</span>
-      </nav>
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+      {/* Compact Back + Breadcrumb */}
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+          aria-label="Go back"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <nav className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground min-w-0">
+          <Link href="/" className="hover:text-primary shrink-0">Home</Link>
+          <ChevronRight className="h-3 w-3 shrink-0" />
+          {product.category && (
+            <>
+              <Link href={`/categories/${product.category.slug}`} className="hover:text-primary shrink-0">
+                {product.category.name}
+              </Link>
+              <ChevronRight className="h-3 w-3 shrink-0" />
+            </>
+          )}
+          <span className="truncate text-foreground font-medium">{product.name}</span>
+        </nav>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Image gallery */}
@@ -495,10 +512,12 @@ export function ProductDetailClient({ id }: { id: string }) {
                     router.push(`/customer/login?redirect=/product/${product.id}`);
                     return;
                   }
-                  addToCart(product, 1);
-                  setAddedToCartNotice(true);
-                  setTimeout(() => setAddedToCartNotice(false), 2500);
-                  toast.success('Added to your Shopping Cart!');
+                  const added = addToCart(product, 1);
+                  if (added) {
+                    setAddedToCartNotice(true);
+                    setTimeout(() => setAddedToCartNotice(false), 2500);
+                    toast.success('Added to your Shopping Cart!');
+                  }
                 }}
                 className="w-full h-12 rounded-xl text-sm font-bold shadow-md"
                 disabled={product.stock_status === 'out_of_stock'}
@@ -1077,9 +1096,9 @@ export function ProductDetailClient({ id }: { id: string }) {
                   reviews.map((rev) => {
                     const isOwn = Boolean(
                       customer &&
-                        (rev.customer_id === customer.id ||
-                          (customer.email &&
-                            rev.customer_email?.toLowerCase() === customer.email.toLowerCase()))
+                      (rev.customer_id === customer.id ||
+                        (customer.email &&
+                          rev.customer_email?.toLowerCase() === customer.email.toLowerCase()))
                     );
                     return (
                       <Card key={rev.id} className="p-4 space-y-2.5">

@@ -110,10 +110,10 @@ export function Module01DealerDashboard({
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            onClick={() => onNavigateTab('04-add-products')}
+            onClick={() => onNavigateTab('03-products')}
             className="h-9 gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
           >
-            <Plus className="h-4 w-4" /> Add Master Product
+            <Plus className="h-4 w-4" /> Add Products
           </Button>
           <Button
             size="sm"
@@ -238,18 +238,18 @@ export function Module01DealerDashboard({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onNavigateTab('04-add-products')}
+            onClick={() => onNavigateTab('03-products')}
             className="justify-start gap-2 h-9 text-xs font-semibold bg-card"
           >
-            <Plus className="h-3.5 w-3.5 text-emerald-600" /> Add Master Item
+            <Plus className="h-3.5 w-3.5 text-emerald-600" /> Add from Catalogue
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onNavigateTab('05-inventory')}
+            onClick={() => onNavigateTab('13-support')}
             className="justify-start gap-2 h-9 text-xs font-semibold bg-card"
           >
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Stock Count
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Admin Support
           </Button>
           <Button
             variant="outline"

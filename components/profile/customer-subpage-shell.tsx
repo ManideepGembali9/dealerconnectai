@@ -60,49 +60,57 @@ export function CustomerSubpageShell({
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-[#0A0A0A] text-[#FFFFFF] px-4 py-20 flex flex-col items-center justify-center gap-3">
-        <div className="h-9 w-9 animate-spin rounded-full border-4 border-[#FFFFFF] border-t-transparent" />
-        <p className="text-xs font-medium text-[#A0A0A0]">Loading account details...</p>
+      <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-background text-foreground px-4 py-20 flex flex-col items-center justify-center gap-3">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-xs font-medium text-muted-foreground">Loading account details...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-[#0A0A0A] text-[#FFFFFF] pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
-      <div className="mx-auto max-w-2xl px-4 pt-5 pb-6 space-y-5">
-        {/* Top Back Navigation */}
-        <div className="flex items-center justify-between gap-3">
+    <div className="min-h-[calc(100dvh-4rem)] w-full overflow-x-hidden bg-background text-foreground pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+      {/* Clean Minimal Page Header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href="/profile"
+              aria-label="Back to My Account"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <h1 className="truncate text-lg font-extrabold tracking-tight text-foreground">
+              {title}
+            </h1>
+          </div>
           <Link
-            href="/profile"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#292929] bg-[#151515] px-3 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#202020] transition-colors"
+            href="/"
+            className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span>Back to Profile</span>
+            Home
           </Link>
         </div>
+      </header>
 
-        {/* Page Heading */}
-        <div className="space-y-1 px-0.5">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#FFFFFF]">{title}</h1>
-          {subtitle && <p className="text-xs sm:text-sm text-[#A0A0A0]">{subtitle}</p>}
-        </div>
+      <div className="mx-auto max-w-2xl px-4 pt-4 pb-6 space-y-4">
+        {subtitle && <p className="text-xs sm:text-sm text-muted-foreground px-0.5">{subtitle}</p>}
 
-        {/* Auth Guard or Subpage Body */}
         {!customer ? (
-          <div className="rounded-2xl border border-[#292929] bg-[#151515] p-6 text-center space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#202020] border border-[#292929]">
-              <ShieldAlert className="h-5 w-5 text-[#FFFFFF]" />
+          <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-4 shadow-sm">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted border border-border">
+              <ShieldAlert className="h-5 w-5 text-foreground" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-base font-bold text-[#FFFFFF]">Sign In Required</h2>
-              <p className="text-xs text-[#A0A0A0] max-w-sm mx-auto">
+              <h2 className="text-base font-bold text-foreground">Sign In Required</h2>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 Sign in to your customer account to view and manage {title.toLowerCase()}.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
               <Button
                 asChild
-                className="h-10 rounded-xl bg-[#FFFFFF] text-[#0A0A0A] hover:bg-[#E5E5E5] font-bold text-xs px-5"
+                className="h-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs px-5"
               >
                 <Link href={`/customer/login?redirect=${encodeURIComponent(redirectPath)}`}>
                   Customer Sign In
@@ -111,7 +119,7 @@ export function CustomerSubpageShell({
               <Button
                 asChild
                 variant="outline"
-                className="h-10 rounded-xl border-[#292929] bg-[#202020] text-[#FFFFFF] hover:bg-[#292929] font-semibold text-xs px-4"
+                className="h-10 rounded-xl border-border text-foreground hover:bg-muted font-semibold text-xs px-4"
               >
                 <Link href="/profile">Return to Profile</Link>
               </Button>

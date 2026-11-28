@@ -65,31 +65,31 @@ export const DEFAULT_ADMIN_MENU: AdminMenuItem[] = [
     order: 5,
   },
   {
-    id: '06-brands',
-    number: '06',
-    title: 'Brand Management',
-    shortDesc: 'Authorized brands, logos & product links',
-    iconName: 'Building2',
-    group: 'Catalog & Stores',
-    enabled: true,
-    order: 6,
-  },
-  {
     id: '07-inventory',
-    number: '07',
+    number: '06',
     title: 'Inventory Management',
     shortDesc: 'Cross-dealer stock, prices & availability',
     iconName: 'Boxes',
     group: 'Catalog & Stores',
     enabled: true,
-    order: 7,
+    order: 6,
   },
   {
     id: '08-enquiries',
-    number: '08',
-    title: 'Enquiry Management',
-    shortDesc: 'Customer queries, quotes & lead tracking',
+    number: '07',
+    title: 'Customer Enquiries',
+    shortDesc: 'Customer queries, quotes & showroom leads',
     iconName: 'MessageSquareText',
+    group: 'Engagement & Moderation',
+    enabled: true,
+    order: 7,
+  },
+  {
+    id: '15-dealer-leads',
+    number: '08',
+    title: 'Dealer Enquiry & Lead Management',
+    shortDesc: 'Dealer-to-Admin support tickets & partner escalations',
+    iconName: 'Headphones',
     group: 'Engagement & Moderation',
     enabled: true,
     order: 8,
@@ -164,17 +164,24 @@ export function getStoredAdminMenu(): AdminMenuItem[] {
   try {
     const raw = localStorage.getItem(MENU_STORAGE_KEY);
     if (!raw) return DEFAULT_ADMIN_MENU;
-    const parsed = JSON.parse(raw) as AdminMenuItem[];
-    // Ensure all 14 items exist even if an older stored version has missing items
+    const parsed = (JSON.parse(raw) as AdminMenuItem[]).filter((item) => item.id !== '06-brands');
+    // Ensure all current items exist even if an older stored version has missing items
     const existingIds = new Set(parsed.map((item) => item.id));
     const merged = [...parsed];
     for (const def of DEFAULT_ADMIN_MENU) {
       if (!existingIds.has(def.id)) {
-        merged.push({ ...def, order: merged.length + 1 });
+        merged.push({ ...def });
+      } else {
+        // Keep renamed titles up to date when defaults evolve
+        const idx = merged.findIndex((m) => m.id === def.id);
+        if (idx >= 0 && def.id === '08-enquiries') {
+          merged[idx] = { ...merged[idx], title: def.title, shortDesc: def.shortDesc };
+        }
       }
     }
     // Always keep locked items enabled
     return merged
+      .filter((item) => item.id !== '06-brands')
       .map((item) => (item.locked ? { ...item, enabled: true } : item))
       .sort((a, b) => a.order - b.order);
   } catch {

@@ -19,7 +19,6 @@ import { DealerShell } from './dealer/dealer-shell';
 import { Module01DealerDashboard } from './dealer/modules/module-01-dashboard';
 import { Module02DealerProfile } from './dealer/modules/module-02-profile';
 import { Module03DealerProducts } from './dealer/modules/module-03-products';
-import { Module04DealerAddProducts } from './dealer/modules/module-04-add-products';
 import { Module05DealerInventory } from './dealer/modules/module-05-inventory';
 import { Module06DealerPricing } from './dealer/modules/module-06-pricing';
 import { Module07DealerStock } from './dealer/modules/module-07-stock';
@@ -250,7 +249,7 @@ export function DealerDashboardClient() {
         />
       )}
 
-      {activeTab === '03-products' && (
+      {(activeTab === '03-products' || activeTab === '04-add-products') && (
         <Module03DealerProducts
           dealer={effectiveDealer}
           products={products}
@@ -258,15 +257,7 @@ export function DealerDashboardClient() {
             await loadProducts(effectiveDealer.id);
           }}
           onNavigateTab={setActiveTab}
-        />
-      )}
-
-      {activeTab === '04-add-products' && (
-        <Module04DealerAddProducts
-          dealer={effectiveDealer}
-          onInventoryChanged={async () => {
-            await loadProducts(effectiveDealer.id);
-          }}
+          defaultSubTab={activeTab === '04-add-products' ? 'add' : 'all'}
         />
       )}
 

@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderTree,
+  Headphones,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -48,6 +49,7 @@ function renderModuleIcon(iconName: string, className = 'h-4 w-4') {
     case 'Building2': return <Building2 className={className} />;
     case 'Boxes': return <Boxes className={className} />;
     case 'MessageSquareText': return <MessageSquareText className={className} />;
+    case 'Headphones': return <Headphones className={className} />;
     case 'Star': return <Star className={className} />;
     case 'PanelsTopLeft': return <PanelsTopLeft className={className} />;
     case 'Bell': return <Bell className={className} />;

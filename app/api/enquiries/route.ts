@@ -164,6 +164,14 @@ export async function POST(request: Request) {
 
       state.enquiries = [created, ...state.enquiries];
 
+      if (created.product_id) {
+        state.products = state.products.map((p) =>
+          p.id === created.product_id
+            ? { ...p, enquiry_count: Number(p.enquiry_count || 0) + 1 }
+            : p
+        );
+      }
+
       // Notify Dealer
       createNotificationInState(state, {
         recipientId: dealer.id,

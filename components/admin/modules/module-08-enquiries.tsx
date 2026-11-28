@@ -166,10 +166,10 @@ export function Module08Enquiries({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
-            <MessageSquareText className="h-7 w-7 text-primary" /> Enquiry & Lead Management
+            <MessageSquareText className="h-7 w-7 text-primary" /> Customer Enquiries (Monitor)
           </h1>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Track real customer inquiries, monitor dealer responses & moderate resolution statuses across all showrooms
+            Track real Customer-to-Dealer product inquiries, showroom quotes &amp; resolution statuses across all showrooms
           </p>
         </div>
 

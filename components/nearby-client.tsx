@@ -11,7 +11,7 @@ import { estimateDriveTime,formatDistance,getAllPinCentroids,getPinCentroid,have
 import { useApp } from '@/lib/providers';
 import type { Category,Dealer } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Clock,LocateFixed,MapPin,MessageCircle,Navigation,Navigation2,Phone,Search,ShoppingBag,Star,Store,X } from 'lucide-react';
+import { ArrowLeft,Clock,LocateFixed,MapPin,MessageCircle,Navigation,Navigation2,Phone,Search,ShoppingBag,Star,Store,X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback,useEffect,useMemo,useState } from 'react';
@@ -145,7 +145,25 @@ export function NearbyClient() {
   const openCount = filteredDealers.filter((d) => d.isOpen).length;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            aria-label="Back to Home"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <span className="text-base font-extrabold tracking-tight text-foreground">Nearby Shops</span>
+        </div>
+        <Link
+          href="/shops"
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          View All Shops &rarr;
+        </Link>
+      </div>
       {/* Hero search */}
       <Card className="mb-6 overflow-hidden border border-border rounded-3xl shadow-sm">
         <div className="relative bg-card p-6 text-card-foreground sm:p-8">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Home,
   LayoutGrid,
-  Heart,
+  GitCompareArrows,
   ShoppingCart,
   User,
 } from 'lucide-react';
@@ -14,9 +14,9 @@ import { useApp } from '@/lib/providers';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { wishlist, cartCount } = useApp();
+  const { compare, cartCount } = useApp();
 
-  // Exact 5 items requested: Home, Categories, Wishlist, Cart, My Profile
+  // Exact 5 mobile items: Home, Categories, Compare, Cart, My Profile (Wishlist in Header & Profile)
   const navItems = [
     {
       href: '/',
@@ -31,11 +31,11 @@ export function MobileBottomNav() {
       isActive: pathname.startsWith('/categories'),
     },
     {
-      href: '/wishlist',
-      label: 'Wishlist',
-      icon: Heart,
-      badge: wishlist.length,
-      isActive: pathname.startsWith('/wishlist'),
+      href: '/compare',
+      label: 'Compare',
+      icon: GitCompareArrows,
+      badge: compare.length,
+      isActive: pathname.startsWith('/compare'),
     },
     {
       href: '/cart',
@@ -46,7 +46,7 @@ export function MobileBottomNav() {
     },
     {
       href: '/profile',
-      label: 'My Profile',
+      label: 'Profile',
       icon: User,
       isActive:
         pathname === '/profile' ||
@@ -58,8 +58,11 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur text-foreground shadow-lg md:hidden transition-colors"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur text-foreground shadow-lg md:hidden transition-colors"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        backgroundColor: 'var(--dc-nav-bg)',
+      }}
     >
       <div className="flex items-center justify-around px-1 py-1.5">
         {navItems.map((item) => {
@@ -98,7 +101,7 @@ export function MobileBottomNav() {
               <span
                 className={cn(
                   'mt-0.5 max-w-full truncate px-0.5 text-[10px] sm:text-[11px] font-medium leading-none tracking-tight',
-                  item.isActive && 'font-black text-foreground'
+                  item.isActive && 'font-black'
                 )}
               >
                 {item.label}

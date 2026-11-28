@@ -20,7 +20,8 @@ import { useApp } from '@/lib/providers';
 import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Category,Dealer,Product } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { Camera,History,MapPin,Mic,Search,SlidersHorizontal,Sparkles,X } from 'lucide-react';
+import { ArrowLeft,Camera,History,MapPin,Mic,Search,SlidersHorizontal,Sparkles,X } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter,useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -355,7 +356,25 @@ export function SearchClient() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            aria-label="Back to Home"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-lg font-extrabold tracking-tight text-foreground">Search Products</h1>
+        </div>
+        <Link
+          href="/"
+          className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          Home
+        </Link>
+      </div>
       {/* Search bar */}
       <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">

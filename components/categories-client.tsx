@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { fetchApprovedDealers, fetchCategories, fetchProducts } from '@/lib/data';
 import { INITIAL_CATEGORIES } from '@/lib/seed-data';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Category, Dealer, Product } from '@/lib/types';
 import {
   Apple,
@@ -62,6 +63,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -126,11 +128,41 @@ function getCategoryIcon(cat: Category): LucideIcon {
   return Store;
 }
 
+function CategoryImageTile({ category }: { category: Category }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const CatIcon = getCategoryIcon(category);
+
+  if (category.image_url && !imgFailed) {
+    return (
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-muted/40">
+        <Image
+          src={category.image_url}
+          alt={category.name}
+          fill
+          unoptimized
+          onError={() => setImgFailed(true)}
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-muted/60">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <CatIcon className="h-7 w-7" />
+      </div>
+    </div>
+  );
+}
+
 export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?: string } = {}) {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [productSearch, setProductSearch] = useState('');
 
@@ -149,7 +181,7 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
     try {
       const [cats, dls, prods] = await Promise.all([
         fetchCategories(),
-        fetchApprovedDealers(100),
+        fetchApprovedDealers(200),
         fetchProducts({ limit: 500 }),
       ]);
       if (cats && cats.length > 0) {
@@ -168,6 +200,10 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
     }
   }, [initialCategorySlug]);
 
+  useRealtimeSync(['categories', 'products', 'dealers'], loadCatalogData, {
+    onReconnect: loadCatalogData,
+  });
+
   useEffect(() => {
     loadCatalogData();
     const handleSync = () => loadCatalogData();
@@ -179,7 +215,7 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
     };
   }, [loadCatalogData]);
 
-  // Filter categories cleanly by name, group, or subcategories
+  // Filter categories by search query
   const filteredCategories = useMemo(() => {
     const q = searchFilter.trim().toLowerCase();
     if (!q) return categories;
@@ -192,7 +228,7 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
     });
   }, [categories, searchFilter]);
 
-  // Filter products strictly belonging to selectedCategory
+  // Strictly match products belonging to selectedCategory.id
   const categoryProducts = useMemo(() => {
     if (!selectedCategory) return [];
     const q = productSearch.trim().toLowerCase();
@@ -228,62 +264,82 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
     );
   }, [dealers, products, selectedCategory]);
 
-  return (
-    <div
-      className="mx-auto w-full max-w-7xl px-3.5 sm:px-6 pt-4 sm:pt-6 min-h-screen overflow-x-hidden bg-background text-foreground transition-colors md:pb-16"
-      style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
-    >
-      {/* ============================================================
-          VIEW 1: SELECTED CATEGORY PRODUCTS PAGE (/categories/[slug])
-         ============================================================ */}
-      {selectedCategory ? (
-        <div className="space-y-5 sm:space-y-6">
-          {/* Category Top Nav */}
-          <div className="flex items-center justify-between gap-2 border-b border-border pb-3.5">
+  if (selectedCategory) {
+    /* ============================================================
+       VIEW 1: SELECTED CATEGORY PRODUCTS PAGE (/categories/[slug])
+       ============================================================ */
+    return (
+      <div className="min-h-[calc(100vh-5rem)] bg-background text-foreground">
+        <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                href="/categories"
+                aria-label="Back to Category"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <h1 className="truncate text-lg font-extrabold tracking-tight text-foreground">
+                {selectedCategory.name}
+              </h1>
+            </div>
             <Link
-              href="/categories"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-muted px-3.5 py-2 rounded-xl border border-border hover:bg-muted/80 transition-all active:scale-95"
+              href="/"
+              className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <ArrowLeft className="h-4 w-4 shrink-0" /> All Categories
+              Home
             </Link>
           </div>
+        </header>
 
-          {/* Category Header Card */}
-          <Card className="rounded-3xl border border-border bg-card p-5 sm:p-7 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
-              <div className="flex h-14 w-14 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                {(() => {
-                  const IconComp = getCategoryIcon(selectedCategory);
-                  return <IconComp className="h-7 w-7 sm:h-8 sm:w-8 stroke-[2]" />;
-                })()}
+        <div
+          className="mx-auto w-full max-w-7xl px-3.5 sm:px-6 pt-4 sm:pt-6 space-y-5 sm:space-y-6"
+          style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          {/* Category Hero & Filters */}
+          <Card className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted">
+                {selectedCategory.image_url ? (
+                  <Image
+                    src={selectedCategory.image_url}
+                    alt={selectedCategory.name}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    {(() => {
+                      const IconComp = getCategoryIcon(selectedCategory);
+                      return <IconComp className="h-7 w-7 text-primary" />;
+                    })()}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1 min-w-0">
-                {selectedCategory.group_name && (
-                  <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-muted border border-border text-muted-foreground">
-                    {selectedCategory.group_name}
-                  </span>
-                )}
-                <h1 className="text-xl sm:text-3xl font-black text-foreground tracking-tight">
+                <h2 className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
                   {selectedCategory.name}
-                </h1>
+                </h2>
                 {selectedCategory.description && (
-                  <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed line-clamp-2">
                     {selectedCategory.description}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Filter and In-Category Search Controls */}
-            <div className="mt-5 pt-4 border-t border-border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            {/* Filter & In-Category Search */}
+            <div className="mt-4 pt-4 border-t border-border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="font-bold flex items-center gap-1 text-foreground">
                   <Filter className="h-3.5 w-3.5" /> Sort:
                 </span>
                 <select
                   value={priceSort}
-                  onChange={(e) => setPriceSort(e.target.value as any)}
+                  onChange={(e) => setPriceSort(e.target.value as 'all' | 'low-high' | 'high-low')}
                   className="rounded-xl border border-border bg-muted/50 px-3 py-1.5 text-xs font-bold text-foreground focus:outline-none"
                 >
                   <option value="all">Default Relevance</option>
@@ -326,16 +382,16 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
 
           {/* Products Section */}
           <div className="space-y-4">
-            <h2 className="text-base sm:text-lg font-black text-foreground tracking-tight">
+            <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
               Products in {selectedCategory.name}
-            </h2>
+            </h3>
 
             {categoryProducts.length === 0 ? (
               <Card className="rounded-2xl border border-dashed border-border bg-card p-8 text-center space-y-2">
                 <Store className="mx-auto h-8 w-8 text-muted-foreground" />
-                <h3 className="text-sm font-bold text-foreground">
+                <h4 className="text-sm font-bold text-foreground">
                   No products found in {selectedCategory.name}
-                </h3>
+                </h4>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
                   No verified items match your current filter in {selectedCategory.name}.
                 </p>
@@ -392,9 +448,13 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
                       <div className="flex items-start gap-3">
                         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
                           <Image
-                            src={d.logo_url || 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=200'}
+                            src={
+                              d.logo_url ||
+                              'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=200'
+                            }
                             alt={d.shop_name}
                             fill
+                            unoptimized
                             sizes="48px"
                             className="object-cover"
                           />
@@ -474,30 +534,67 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
             )}
           </div>
         </div>
-      ) : (
-        /* ============================================================
-            VIEW 2: REDESIGNED ALL CATEGORIES MOBILE-FIRST VIEW
-            Clean header + Search Bar + 2-column grid (no counts, no filter chips, no back button)
-           ============================================================ */
-        <div className="space-y-5">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              All Categories
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-              Browse products and local shops by category
-            </p>
+
+        <SendEnquiryDialog
+          open={Boolean(enquiryDealer)}
+          onOpenChange={(open) => {
+            if (!open) setEnquiryDealer(null);
+          }}
+          dealer={enquiryDealer}
+        />
+      </div>
+    );
+  }
+
+  /* ============================================================
+     VIEW 2: CATEGORY INDEX PAGE (/categories)
+     Minimal top header ("Category" + Search icon) + Clean 2-column Image Cards
+     ============================================================ */
+  return (
+    <div className="min-h-[calc(100vh-5rem)] bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Go back"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <h1 className="text-lg font-extrabold tracking-tight text-foreground">Category</h1>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full max-w-md">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSearchOpen((prev) => !prev)}
+              aria-label="Toggle category search"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+            >
+              {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+            </button>
+            <Link
+              href="/"
+              className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              Home
+            </Link>
+          </div>
+        </div>
+
+        {/* Search Input Bar */}
+        <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-6">
+          <div className="relative w-full">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search categories..."
+              placeholder="Search category..."
               aria-label="Search categories"
-              className="h-11 w-full pl-10 pr-10 text-sm rounded-2xl"
+              autoFocus={searchOpen}
+              className="h-10 w-full rounded-2xl border-border bg-muted/40 pl-10 pr-10 text-sm focus-visible:bg-background"
             />
             {searchFilter && (
               <button
@@ -510,61 +607,52 @@ export function CategoriesClient({ initialCategorySlug }: { initialCategorySlug?
               </button>
             )}
           </div>
-
-          {/* Empty State if no categories match search */}
-          {filteredCategories.length === 0 ? (
-            <Card className="rounded-3xl border border-dashed border-border bg-card p-10 text-center space-y-3">
-              <Search className="mx-auto h-9 w-9 text-muted-foreground" />
-              <div className="space-y-1">
-                <h2 className="text-base font-black text-foreground">
-                  No categories found for &quot;{searchFilter}&quot;
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Try searching for another product category.
-                </p>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setSearchFilter('')}
-                variant="outline"
-                className="h-9 px-4 rounded-xl text-xs font-bold"
-              >
-                Clear Search
-              </Button>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {filteredCategories.map((cat) => {
-                const CatIcon = getCategoryIcon(cat);
-                return (
-                  <Link
-                    key={cat.id}
-                    href={`/categories/${cat.slug}`}
-                    className="group block touch-manipulation"
-                  >
-                    <Card className="h-full min-h-[128px] sm:min-h-[144px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-card p-4 text-center hover:bg-muted/60 hover:border-foreground/40 transition-all duration-200 shadow-sm active:scale-95">
-                      <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
-                        <CatIcon className="h-6 w-6 sm:h-7 sm:w-7 stroke-[2]" />
-                      </div>
-                      <h2 className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 leading-snug">
-                        {cat.name}
-                      </h2>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </div>
-      )}
+      </header>
 
-      <SendEnquiryDialog
-        open={Boolean(enquiryDealer)}
-        onOpenChange={(open) => {
-          if (!open) setEnquiryDealer(null);
-        }}
-        dealer={enquiryDealer}
-      />
+      <div
+        className="mx-auto max-w-7xl px-3.5 pt-4 sm:px-6 sm:pt-6"
+        style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        {filteredCategories.length === 0 ? (
+          <Card className="rounded-3xl border border-dashed border-border bg-card p-10 text-center space-y-3">
+            <Search className="mx-auto h-9 w-9 text-muted-foreground" />
+            <div className="space-y-1">
+              <h2 className="text-base font-black text-foreground">
+                No categories found for &quot;{searchFilter}&quot;
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Try searching for another product category.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setSearchFilter('')}
+              variant="outline"
+              className="h-9 px-4 rounded-xl text-xs font-bold"
+            >
+              Clear Search
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+            {filteredCategories.map((cat) => (
+              <Link
+                key={cat.id}
+                href={`/categories/${cat.slug}`}
+                className="group block touch-manipulation"
+              >
+                <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-2.5 sm:p-3 shadow-sm transition-all duration-200 hover:border-foreground/30 hover:shadow-md active:scale-[0.98]">
+                  <CategoryImageTile category={cat} />
+                  <h2 className="mt-2.5 px-1 pb-0.5 text-center text-xs sm:text-sm font-bold text-foreground line-clamp-1">
+                    {cat.name}
+                  </h2>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

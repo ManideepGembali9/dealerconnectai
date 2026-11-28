@@ -149,10 +149,28 @@ export function MessagesClient() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      <h1 className="mb-4 flex items-center gap-2 text-xl font-bold md:text-2xl">
-        <MessageSquare className="h-6 w-6" /> Messages
-      </h1>
+    <div className="mx-auto max-w-6xl px-4 py-4 md:py-8">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+            aria-label="Go back"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h1 className="flex items-center gap-2 text-xl font-bold md:text-2xl">
+            <MessageSquare className="h-5 w-5" /> Messages
+          </h1>
+        </div>
+        <Link
+          href="/"
+          className="hidden md:inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          Home
+        </Link>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-[320px_1fr]">
         {/* Conversation list */}

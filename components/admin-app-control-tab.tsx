@@ -3,56 +3,72 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ImagePicker } from '@/components/ui/image-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/lib/providers';
-import type { AppSettings,ThemePreset } from '@/lib/types';
+import { INITIAL_APP_SETTINGS } from '@/lib/seed-data';
+import type { AppSettings, ThemePreset } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Check,
+  Eye,
   Image as ImageIcon,
   Layout,
   Palette,
+  RotateCcw,
   Save,
-  Store
+  Sparkles,
+  Store,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-const THEMES: { id: ThemePreset; name: string; tag: string; colors: string[]; bgClass: string; borderClass: string }[] = [
+const THEMES: { id: ThemePreset; name: string; tag: string; colors: string[] }[] = [
   {
     id: 'black-white',
-    name: 'Black & White Monochrome (Default)',
-    tag: 'Minimalist Modern High Contrast',
-    colors: ['#09090b', '#18181b', '#71717a', '#e4e4e7', '#ffffff'],
-    bgClass: 'bg-card text-foreground',
-    borderClass: 'border-border',
+    name: 'Black & White Monochrome',
+    tag: 'Minimalist High Contrast (Default)',
+    colors: ['#171717', '#27272a', '#71717a', '#f4f4f5'],
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald Commerce',
+    tag: 'Fresh Local Market Green',
+    colors: ['#059669', '#10b981', '#ecfdf5', '#d1fae5'],
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean Sapphire',
+    tag: 'Crisp Trustworthy Blue',
+    colors: ['#0284c7', '#0ea5e9', '#f0f9ff', '#e0f2fe'],
+  },
+  {
+    id: 'royal-purple',
+    name: 'Royal Violet',
+    tag: 'Modern Tech & Luxury',
+    colors: ['#7c3aed', '#8b5cf6', '#f5f3ff', '#ede9fe'],
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset Amber',
+    tag: 'Warm Retail Energy',
+    colors: ['#ea580c', '#f97316', '#fff7ed', '#ffedd5'],
   },
   {
     id: 'gold-navy',
-    name: 'Deep Slate & Charcoal',
-    tag: 'Executive Dark Mode',
-    colors: ['#09090b', '#27272a', '#52525b', '#ffffff'],
-    bgClass: 'bg-card text-foreground',
-    borderClass: 'border-border',
-  },
-  {
-    id: 'gold-sand',
-    name: 'Golden Sand & White',
-    tag: 'Warm Clean Sunlight',
-    colors: ['#EDC65A', '#FFFFFF', '#2C2F3F', '#FAF283'],
-    bgClass: 'bg-[#FFFFFF] text-[#2C2F3F]',
-    borderClass: 'border-[#EDC65A]',
-  },
-  {
-    id: 'navy-light',
-    name: 'Soft Gold & Navy',
-    tag: 'Airy & Modern Contrast',
-    colors: ['#F3DA6C', '#2C2F3F', '#FAF283', '#FFFFFF'],
-    bgClass: 'bg-white text-[#2C2F3F]',
-    borderClass: 'border-[#F3DA6C]',
+    name: 'Executive Gold & Navy',
+    tag: 'Premium Dark Header',
+    colors: ['#d4a017', '#0f172a', '#1e293b', '#fef3c7'],
   },
 ];
 
@@ -62,10 +78,35 @@ export function AdminAppControlTab() {
   const [form, setForm] = useState<AppSettings>({ ...appSettings });
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    setForm({ ...appSettings });
+  }, [appSettings]);
+
   const handleSelectTheme = async (themeId: ThemePreset) => {
-    setForm((prev) => ({ ...prev, theme_preset: themeId }));
+    const presetColors = THEMES.find((t) => t.id === themeId)?.colors || ['#171717', '#f4f4f5', '#ececed'];
+    setForm((prev) => ({
+      ...prev,
+      theme_preset: themeId,
+      primary_color: presetColors[0],
+      secondary_color: presetColors[1],
+      accent_color: presetColors[2],
+      custom_colors: null,
+    }));
     await setThemePreset(themeId);
-    toast.success(`Active theme changed to ${THEMES.find((t) => t.id === themeId)?.name}`);
+    toast.success(`Theme switched to ${THEMES.find((t) => t.id === themeId)?.name} across all portals!`);
+  };
+
+  const updateCustomColor = (key: NonNullable<keyof NonNullable<AppSettings['custom_colors']>>, val: string) => {
+    setForm((prev) => ({
+      ...prev,
+      primary_color: key === 'primary' ? val : prev.primary_color,
+      secondary_color: key === 'secondary' ? val : prev.secondary_color,
+      accent_color: key === 'accent' ? val : prev.accent_color,
+      custom_colors: {
+        ...(prev.custom_colors || {}),
+        [key]: val,
+      },
+    }));
   };
 
   const handleSaveAll = async (e: React.FormEvent) => {
@@ -73,56 +114,92 @@ export function AdminAppControlTab() {
     setSaving(true);
     try {
       await updateAppSettings(form);
-      toast.success('App branding, homepage design, and settings saved successfully!');
+      toast.success('Theme, branding & homepage CMS published live to Customer and Dealer Apps!');
     } catch {
-      toast.error('Failed to save settings');
+      toast.error('Failed to publish settings');
     } finally {
       setSaving(false);
     }
   };
 
-  const updateSection = (id: string, enabled: boolean) => {
+  const handleResetToDefault = async () => {
+    setSaving(true);
+    try {
+      const resetSettings: AppSettings = {
+        ...INITIAL_APP_SETTINGS,
+        updated_at: new Date().toISOString(),
+        updated_by: 'admin',
+      };
+      setForm(resetSettings);
+      await updateAppSettings(resetSettings);
+      toast.success('Theme and branding restored to default system values.');
+    } catch {
+      toast.error('Failed to reset settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSection = (typeOrId: string, enabled: boolean) => {
     const currentSections = form.homepage_config?.sections || [];
-    const updated = currentSections.map((s) => (s.id === id ? { ...s, enabled } : s));
+    const updated = currentSections.map((s) =>
+      s.id === typeOrId || s.type === typeOrId ? { ...s, enabled } : s
+    );
     setForm((p) => ({
       ...p,
       homepage_config: {
-        ...(p.homepage_config as any),
+        ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
         sections: updated,
       },
     }));
   };
 
-  const updateBanner = (index: number, field: string, val: any) => {
+  const updateBanner = (index: number, field: string, val: string | boolean) => {
     const banners = [...(form.homepage_config?.banners || [])];
     if (banners[index]) {
       banners[index] = { ...banners[index], [field]: val };
       setForm((p) => ({
         ...p,
         homepage_config: {
-          ...(p.homepage_config as any),
+          ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
           banners,
         },
       }));
     }
   };
 
+  const previewPrimary = form.custom_colors?.button || form.custom_colors?.primary || form.primary_color || '#171717';
+  const previewHeader = form.custom_colors?.header || '#171717';
+  const previewAccent = form.custom_colors?.accent || form.accent_color || '#ececed';
+
   return (
     <form onSubmit={handleSaveAll} className="space-y-6">
-      {/* 1. THEME SELECTION PANEL */}
+      {/* 1. THEME PRESETS */}
       <Card className="rounded-2xl border-border/70 p-6 shadow-sm">
-        <div className="flex items-center justify-between pb-4 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-border/40">
           <div>
             <h3 className="text-base font-bold flex items-center gap-2">
-              <Palette className="h-5 w-5 text-primary" /> Application Dynamic Colour Themes
+              <Palette className="h-5 w-5 text-primary" /> Application Colour Theme Presets
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Change the overall look & feel across all customer, dealer, and admin interfaces in real time.
+              Select a preset palette or fine-tune individual custom colors below. Changes propagate in real time.
             </p>
           </div>
-          <Badge className="font-bold uppercase tracking-wider text-xs">
-            Current: {form.theme_preset.replace('-', ' ')}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className="font-bold uppercase tracking-wider text-xs">
+              Active: {form.theme_preset.replace('-', ' ')}
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={handleResetToDefault}
+              className="h-8 text-xs font-semibold"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset Default
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mt-5">
@@ -133,8 +210,10 @@ export function AdminAppControlTab() {
                 key={th.id}
                 onClick={() => handleSelectTheme(th.id)}
                 className={cn(
-                  'cursor-pointer relative overflow-hidden rounded-2xl border-2 p-4 transition-all duration-200 hover:scale-[1.02]',
-                  isSelected ? 'border-primary shadow-lg ring-2 ring-primary/20 bg-card' : 'border-border/60 hover:border-border bg-card/60'
+                  'cursor-pointer relative overflow-hidden rounded-2xl border-2 p-4 transition-all duration-200 hover:scale-[1.01]',
+                  isSelected
+                    ? 'border-primary shadow-md ring-2 ring-primary/20 bg-card'
+                    : 'border-border/60 hover:border-border bg-card/60'
                 )}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -149,8 +228,7 @@ export function AdminAppControlTab() {
                   )}
                 </div>
 
-                {/* Swatches preview */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2">
                   {th.colors.map((c, i) => (
                     <span
                       key={i}
@@ -159,13 +237,109 @@ export function AdminAppControlTab() {
                     />
                   ))}
                 </div>
-
-                <div className={cn('rounded-lg p-2 text-[10px] font-semibold text-center mt-2', th.bgClass)}>
-                  Live Palette Preview
-                </div>
               </div>
             );
           })}
+        </div>
+
+        {/* Custom Color Pickers + Live Preview */}
+        <div className="mt-6 pt-5 border-t border-border/50 grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Custom Brand Color Scheme
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              {[
+                { key: 'primary' as const, label: 'Primary Color', fallback: form.primary_color || '#171717' },
+                { key: 'secondary' as const, label: 'Secondary Color', fallback: form.secondary_color || '#f4f4f5' },
+                { key: 'accent' as const, label: 'Accent Color', fallback: form.accent_color || '#ececed' },
+                { key: 'button' as const, label: 'Button Fill', fallback: form.primary_color || '#171717' },
+                { key: 'header' as const, label: 'Header Bar', fallback: '#ffffff' },
+                { key: 'navigation' as const, label: 'Bottom Nav', fallback: '#ffffff' },
+                { key: 'background' as const, label: 'Background', fallback: form.background_color || '#ffffff' },
+                { key: 'text' as const, label: 'Text Tint', fallback: '#171717' },
+              ].map((item) => {
+                const value = form.custom_colors?.[item.key] || item.fallback;
+                return (
+                  <div key={item.key} className="p-2.5 rounded-xl border border-border bg-muted/20 space-y-1.5">
+                    <Label className="text-[11px] font-bold block">{item.label}</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        aria-label={item.label}
+                        value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#171717'}
+                        onChange={(e) => updateCustomColor(item.key, e.target.value)}
+                        className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0"
+                      />
+                      <Input
+                        value={value}
+                        onChange={(e) => updateCustomColor(item.key, e.target.value)}
+                        className="h-7 text-[11px] font-mono px-2"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="max-w-xs">
+              <Label className="text-xs font-bold mb-1.5 block">Default Appearance Mode</Label>
+              <Select
+                value={form.default_appearance || 'system'}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, default_appearance: v as 'light' | 'dark' | 'system' }))
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system" className="text-xs">Follow User System Preference</SelectItem>
+                  <SelectItem value="light" className="text-xs">Default Light Mode</SelectItem>
+                  <SelectItem value="dark" className="text-xs">Default Dark Mode</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Interactive Live Theme Preview Card */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5 text-primary" /> Live Preview
+            </h4>
+            <div className="rounded-2xl border border-border overflow-hidden bg-card shadow-sm">
+              <div
+                className="px-4 py-3 flex items-center justify-between text-xs font-bold border-b border-border/50"
+                style={{
+                  backgroundColor: form.custom_colors?.header ? previewHeader : undefined,
+                  color: form.custom_colors?.header ? '#ffffff' : undefined,
+                }}
+              >
+                <span className="truncate">{form.app_name || 'DealerConnect AI'}</span>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px]"
+                  style={{ backgroundColor: previewAccent, color: '#171717' }}
+                >
+                  {form.theme_preset}
+                </span>
+              </div>
+              <div className="p-4 space-y-3 text-xs">
+                <p className="font-bold text-foreground">
+                  {form.homepage_config?.headings?.hero_title || 'Local Shop Product Finder'}
+                </p>
+                <p className="text-muted-foreground line-clamp-2 text-[11px]">
+                  {form.tagline || 'Your Trusted Local Shop Product Finder'}
+                </p>
+                <button
+                  type="button"
+                  className="w-full py-2 rounded-xl text-xs font-bold text-white shadow-xs"
+                  style={{ backgroundColor: previewPrimary }}
+                >
+                  Sample Primary Action
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -173,10 +347,10 @@ export function AdminAppControlTab() {
       <Card className="rounded-2xl border-border/70 p-6 shadow-sm">
         <div className="pb-4 border-b border-border/40">
           <h3 className="text-base font-bold flex items-center gap-2">
-            <Store className="h-5 w-5 text-primary" /> App Identity, Logo & Name
+            <Store className="h-5 w-5 text-primary" /> App Identity, Logo &amp; Name
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure application title, logo image URL, and subtitle displayed in header and PWA.
+            Configure application title, logo image, and subtitle displayed across Customer and Dealer portals.
           </p>
         </div>
 
@@ -202,23 +376,12 @@ export function AdminAppControlTab() {
             />
           </div>
 
-          <div>
-            <Label className="mb-1.5 block text-xs font-semibold">Logo Image URL</Label>
-            <Input
+          <div className="sm:col-span-2 p-3 rounded-xl border border-border bg-muted/20">
+            <ImagePicker
               value={form.logo_url || ''}
-              onChange={(e) => setForm((p) => ({ ...p, logo_url: e.target.value }))}
-              className="rounded-xl text-sm"
-              placeholder="https://..."
-            />
-          </div>
-
-          <div>
-            <Label className="mb-1.5 block text-xs font-semibold">App Icon Emoji</Label>
-            <Input
-              value={form.icon_emoji || '🏪'}
-              onChange={(e) => setForm((p) => ({ ...p, icon_emoji: e.target.value }))}
-              className="rounded-xl text-sm"
-              placeholder="🏪"
+              onChange={(url) => setForm((p) => ({ ...p, logo_url: url }))}
+              label="Brand Logo Image"
+              description="Upload a logo or paste URL"
             />
           </div>
         </div>
@@ -228,61 +391,36 @@ export function AdminAppControlTab() {
       <Card className="rounded-2xl border-border/70 p-6 shadow-sm">
         <div className="pb-4 border-b border-border/40">
           <h3 className="text-base font-bold flex items-center gap-2">
-            <Layout className="h-5 w-5 text-primary" /> Homepage Design & Sections Visibility
+            <Layout className="h-5 w-5 text-primary" /> Homepage Design &amp; Sections Visibility
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Turn sections on or off, and customize headings and descriptions shown on the main page.
+            Turn sections on or off, and customize headings synced directly to the Customer App homepage.
           </p>
         </div>
 
-        {/* Section Toggles */}
         <div className="mt-5 space-y-3">
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3.5">
-            <div>
-              <h4 className="text-sm font-semibold">Hero Search Banner</h4>
-              <p className="text-xs text-muted-foreground">The prominent top banner with search input and live GPS pill.</p>
-            </div>
-            <Switch
-              checked={form.homepage_config?.sections?.find((s) => s.type === 'banner')?.enabled ?? true}
-              onCheckedChange={(v) => updateSection('sec-hero', v)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3.5">
-            <div>
-              <h4 className="text-sm font-semibold">Top Categories Grid</h4>
-              <p className="text-xs text-muted-foreground">Quick category chips for Electronics, Appliances, Fashion, etc.</p>
-            </div>
-            <Switch
-              checked={form.homepage_config?.sections?.find((s) => s.type === 'categories')?.enabled ?? true}
-              onCheckedChange={(v) => updateSection('sec-categories', v)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3.5">
-            <div>
-              <h4 className="text-sm font-semibold">Handpicked Deals / Featured Products</h4>
-              <p className="text-xs text-muted-foreground">Product cards with real-time dealer pricing and instant add-to-cart.</p>
-            </div>
-            <Switch
-              checked={form.homepage_config?.sections?.find((s) => s.type === 'products')?.enabled ?? true}
-              onCheckedChange={(v) => updateSection('sec-featured', v)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3.5">
-            <div>
-              <h4 className="text-sm font-semibold">Top Verified Dealers Showcases</h4>
-              <p className="text-xs text-muted-foreground">Neighborhood shops with distance calculation, WhatsApp, and call actions.</p>
-            </div>
-            <Switch
-              checked={form.homepage_config?.sections?.find((s) => s.type === 'dealers')?.enabled ?? true}
-              onCheckedChange={(v) => updateSection('sec-dealers', v)}
-            />
-          </div>
+          {[
+            { key: 'categories', title: 'Popular Categories Row', desc: 'Horizontal scrollable category bar' },
+            { key: 'offers', title: "Today's Showroom Offers", desc: 'Discounted local store listings' },
+            { key: 'nearby', title: 'Nearby Verified Shops', desc: 'Neighborhood dealers sorted by proximity' },
+          ].map((sec) => {
+            const enabled =
+              form.homepage_config?.sections?.find((s) => s.type === sec.key)?.enabled ?? true;
+            return (
+              <div
+                key={sec.key}
+                className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3.5"
+              >
+                <div>
+                  <h4 className="text-sm font-semibold">{sec.title}</h4>
+                  <p className="text-xs text-muted-foreground">{sec.desc}</p>
+                </div>
+                <Switch checked={enabled} onCheckedChange={(v) => updateSection(sec.key, v)} />
+              </div>
+            );
+          })}
         </div>
 
-        {/* Headings & Text Configuration */}
         <div className="mt-6 pt-5 border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <Label className="mb-1.5 block text-xs font-semibold">Hero Headline</Label>
@@ -292,13 +430,13 @@ export function AdminAppControlTab() {
                 setForm((p) => ({
                   ...p,
                   homepage_config: {
-                    ...(p.homepage_config as any),
+                    ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
                     headings: { ...(p.homepage_config?.headings || {}), hero_title: e.target.value },
                   },
                 }))
               }
               className="rounded-xl text-sm"
-              placeholder="Find What You Need. Near You."
+              placeholder="Local Shop Product Finder"
             />
           </div>
 
@@ -310,50 +448,48 @@ export function AdminAppControlTab() {
                 setForm((p) => ({
                   ...p,
                   homepage_config: {
-                    ...(p.homepage_config as any),
+                    ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
                     headings: { ...(p.homepage_config?.headings || {}), hero_subtitle: e.target.value },
                   },
                 }))
               }
               rows={2}
               className="rounded-xl text-sm"
-              placeholder="Search genuine products, discover verified local dealers, compare prices live..."
+              placeholder="Discover genuine products in your neighborhood..."
             />
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs font-semibold">Featured Products Section Title</Label>
+            <Label className="mb-1.5 block text-xs font-semibold">Featured Section Title</Label>
             <Input
               value={form.homepage_config?.headings?.featured_title || ''}
               onChange={(e) =>
                 setForm((p) => ({
                   ...p,
                   homepage_config: {
-                    ...(p.homepage_config as any),
+                    ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
                     headings: { ...(p.homepage_config?.headings || {}), featured_title: e.target.value },
                   },
                 }))
               }
               className="rounded-xl text-sm"
-              placeholder="Handpicked Deals Today"
             />
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs font-semibold">Dealers Section Title</Label>
+            <Label className="mb-1.5 block text-xs font-semibold">Nearby Shops Section Title</Label>
             <Input
               value={form.homepage_config?.headings?.dealers_title || ''}
               onChange={(e) =>
                 setForm((p) => ({
                   ...p,
                   homepage_config: {
-                    ...(p.homepage_config as any),
+                    ...(p.homepage_config as NonNullable<AppSettings['homepage_config']>),
                     headings: { ...(p.homepage_config?.headings || {}), dealers_title: e.target.value },
                   },
                 }))
               }
               className="rounded-xl text-sm"
-              placeholder="Top Verified Neighborhood Dealers"
             />
           </div>
         </div>
@@ -366,7 +502,7 @@ export function AdminAppControlTab() {
             <ImageIcon className="h-5 w-5 text-primary" /> Promotional Banners
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure image banners and call-to-action buttons on the homepage.
+            Configure image banners and call-to-action links displayed on the Customer App homepage.
           </p>
         </div>
 
@@ -421,10 +557,13 @@ export function AdminAppControlTab() {
       </Card>
 
       {/* SAVE BUTTON */}
-      <div className="sticky bottom-6 z-20 flex justify-end">
+      <div className="sticky bottom-6 z-20 flex justify-end gap-3">
+        <Button type="button" variant="outline" size="lg" onClick={handleResetToDefault} disabled={saving}>
+          Reset to Default
+        </Button>
         <Button type="submit" size="lg" className="rounded-2xl px-8 font-bold shadow-xl text-base" disabled={saving}>
           <Save className="mr-2 h-5 w-5" />
-          {saving ? 'Saving...' : 'Save & Broadcast All Changes Live'}
+          {saving ? 'Publishing...' : 'Save & Publish Live'}
         </Button>
       </div>
     </form>

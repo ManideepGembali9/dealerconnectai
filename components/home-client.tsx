@@ -64,7 +64,7 @@ const POPULAR_CATEGORIES_CONFIG = [
 ];
 
 export function HomeClient() {
-  const { location, t } = useApp();
+  const { location, appSettings, t } = useApp();
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
@@ -146,9 +146,28 @@ export function HomeClient() {
     }
   }, []);
 
-  useRealtimeSync(['products', 'dealers', 'reviews', 'categories', 'brands'], loadHomeData, {
+  useRealtimeSync(['products', 'dealers', 'reviews', 'categories', 'brands', 'settings'], loadHomeData, {
     onReconnect: loadHomeData,
   });
+
+  const homepageConfig = appSettings.homepage_config;
+  const heroTitle = homepageConfig?.headings?.hero_title || 'Local Shop Product Finder';
+  const heroSubtitle =
+    homepageConfig?.headings?.hero_subtitle ||
+    'Instant showroom availability, real-time prices & direct local dealer contacts';
+  const offersTitle = homepageConfig?.headings?.featured_title || t('offers');
+  const nearbyTitle = homepageConfig?.headings?.dealers_title || t('nearbyShops');
+  const enabledBanners = useMemo(
+    () => (homepageConfig?.banners || []).filter((b) => b.enabled),
+    [homepageConfig]
+  );
+  const isSectionEnabled = useCallback(
+    (type: string) => {
+      const sec = homepageConfig?.sections?.find((s) => s.type === type);
+      return sec ? sec.enabled : true;
+    },
+    [homepageConfig]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -303,10 +322,10 @@ export function HomeClient() {
         <div className="mx-auto max-w-3xl text-center">
 
           <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
-            Local Shop Product Finder
+            {heroTitle}
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-            Instant showroom availability, real-time prices & direct local dealer contacts
+            {heroSubtitle}
           </p>
 
           {/* Search Input with Voice & Photo Search (NO Separate Search Button) */}
@@ -352,8 +371,48 @@ export function HomeClient() {
       </section>
 
       {/* ============================================================
+          PROMOTIONAL BANNERS (DYNAMIC ADMIN HOMEPAGE CMS)
+         ============================================================ */}
+      {enabledBanners.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {enabledBanners.map((banner, idx) => (
+              <Link
+                key={banner.id || idx}
+                href={banner.link || '/search'}
+                className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:border-primary/50"
+              >
+                <div className="relative h-32 sm:h-40 w-full bg-muted">
+                  {banner.image_url && (
+                    <Image
+                      src={banner.image_url}
+                      alt={banner.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-transparent flex flex-col justify-center p-4 sm:p-5 text-white">
+                    <span className="text-sm sm:text-lg font-black leading-tight line-clamp-2">
+                      {banner.title}
+                    </span>
+                    {banner.subtitle && (
+                      <span className="text-[11px] sm:text-xs text-white/85 mt-1 line-clamp-2">
+                        {banner.subtitle}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ============================================================
           2. POPULAR CATEGORIES (AMAZON-INSPIRED HORIZONTAL ROW)
          ============================================================ */}
+      {isSectionEnabled('categories') && (
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 w-full overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
@@ -413,16 +472,18 @@ export function HomeClient() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ============================================================
           3. TODAY'S SHOWROOM OFFERS (VERIFIED DISCOUNTS)
          ============================================================ */}
+      {isSectionEnabled('offers') && (
       <section className="border-y border-border bg-muted/20 py-10 px-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
-                <Percent className="h-5 w-5 text-foreground" /> {t('offers')}
+                <Percent className="h-5 w-5 text-foreground" /> {offersTitle}
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                 Direct showroom discounts from verified local retailers
@@ -447,15 +508,17 @@ export function HomeClient() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ============================================================
           4. VERIFIED LOCAL SHOWROOMS (DIRECT CALL & WHATSAPP)
          ============================================================ */}
+      {isSectionEnabled('nearby') && (
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
-              <Store className="h-5 w-5 text-foreground" /> {t('nearbyShops')}
+              <Store className="h-5 w-5 text-foreground" /> {nearbyTitle}
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Authorized neighborhood stores with verified physical showrooms
@@ -557,6 +620,7 @@ export function HomeClient() {
           ))}
         </div>
       </section>
+      )}
 
       {/* ============================================================
           5. ALL SHOWROOM PRODUCTS (>100 PRODUCTS ACROSS ALL CATEGORIES)
