@@ -51,7 +51,7 @@ export function MobileBottomNav() {
       isActive:
         pathname === '/profile' ||
         pathname.startsWith('/profile') ||
-        pathname.startsWith('/customer/profile'),
+        pathname.startsWith('/customer/'),
     },
   ];
 

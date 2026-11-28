@@ -145,6 +145,22 @@ function ensureWindowHooks() {
       dispatchReconnect();
     }
   });
+
+  window.addEventListener('pagehide', () => {
+    cleanupConnection();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    cleanupConnection();
+  });
+
+  window.addEventListener('pageshow', (evt) => {
+    if (evt.persisted && listeners.size > 0) {
+      cleanupConnection();
+      connectSharedStream();
+      dispatchReconnect();
+    }
+  });
 }
 
 export function forceRealtimeReconnect() {
