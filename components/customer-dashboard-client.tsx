@@ -84,6 +84,7 @@ export function CustomerDashboardClient() {
     { label: 'Favorite Dealers', value: stats.dealers, icon: Store, color: 'text-[#EDC65A]', href: '/profile' },
     { label: 'Recent Searches', value: stats.searches, icon: Search, color: 'text-[#2C2F3F]', href: '/customer/search-history' },
     { label: 'Active Enquiries', value: stats.enquiries, icon: MessageSquare, color: 'text-[#E6B045]', href: '/customer/enquiries' },
+    { label: 'My Reviews', value: 'Manage', icon: Star, color: 'text-amber-500', href: '/customer/reviews' },
   ];
 
   return (

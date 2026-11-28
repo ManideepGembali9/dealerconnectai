@@ -9,7 +9,7 @@ import {
   useCallback,
 } from 'react';
 import type { Dealer, CustomerProfile } from './types';
-import { getDbDealerApplications, getDbDealers, saveDbDealer } from './firebase-db';
+import { getDbDealers, saveDbDealer } from './firebase-db';
 import { supabase } from './supabase';
 
 export type GoogleAccountInput = {
@@ -125,18 +125,18 @@ const AuthContext = createContext<AuthContextType | null>(null);
 async function syncServerSessionCookie(
   portal: UserRole,
   payload: Record<string, any>
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; data?: any }> {
   try {
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ portal, ...payload }),
     });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      return { ok: false, error: data?.error };
+      return { ok: false, error: data?.error, data };
     }
-    return { ok: true };
+    return { ok: true, data };
   } catch {
     return { ok: true };
   }
@@ -439,84 +439,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 2. DEALER PORTAL LOGIN (approved dealers only; isolated to dealer state + dc_dealer_session)
         if (requestedRole === 'dealer') {
-          const dealers = await getDbDealers();
-          const foundDealer = dealers.find(
-            (d) => d.email.toLowerCase() === lowerEmail
-          );
-
-          if (!foundDealer) {
-            const apps = await getDbDealerApplications();
-            const pendingOrRejectedApp = apps.find(
-              (a) => a.email.toLowerCase().trim() === lowerEmail
-            );
-            if (pendingOrRejectedApp) {
-              if (
-                pendingOrRejectedApp.status === 'pending' ||
-                pendingOrRejectedApp.status === 'under_review'
-              ) {
-                return {
-                  error:
-                    'Your dealership registration is currently pending admin review.',
-                };
-              }
-              if (pendingOrRejectedApp.status === 'rejected') {
-                return {
-                  error:
-                    pendingOrRejectedApp.rejection_reason
-                      ? `Your dealership application was rejected: ${pendingOrRejectedApp.rejection_reason}`
-                      : 'Your dealership application was rejected by Admin.',
-                };
-              }
-            }
-            return {
-              error: 'No dealer account found with this email. Please register first.',
-            };
-          }
-
-          if (foundDealer.status === 'pending') {
-            return {
-              error:
-                'Your dealership registration is currently pending admin review.',
-            };
-          }
-
-          if (
-            foundDealer.status === 'blocked' ||
-            foundDealer.status === 'suspended'
-          ) {
-            return {
-              error: `Your dealership account has been ${foundDealer.status}. Please contact support.`,
-            };
-          }
-
-          const savedDealerPw =
-            localStorage.getItem(`dc-dealer-pw-${foundDealer.id}`) ||
-            localStorage.getItem(`dc-dealer-pw-${lowerEmail}`) ||
-            (foundDealer as any).password_hash ||
-            'dealer123';
-
-          if (
-            password !== savedDealerPw &&
-            password !== 'dealer123' &&
-            password !== 'demo' &&
-            password !== (foundDealer as any).password_hash
-          ) {
-            return { error: 'Invalid dealer password.' };
-          }
-
           const srv = await syncServerSessionCookie('dealer', {
             email: lowerEmail,
-            sub: foundDealer.id,
-            dealerId: foundDealer.id,
-            dealerStatus: foundDealer.status,
             password,
           });
           if (!srv.ok) {
             return { error: srv.error || 'Dealer verification failed.' };
           }
+          const verifiedDealer = srv.data?.dealer as Dealer | undefined;
+          if (!verifiedDealer) {
+            return { error: 'Approved dealer record not found.' };
+          }
 
-          persistDealerSession(foundDealer.id, lowerEmail);
-          setDealer(foundDealer);
+          persistDealerSession(verifiedDealer.id, lowerEmail);
+          setDealer(verifiedDealer);
           return { error: null };
         }
 

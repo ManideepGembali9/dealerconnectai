@@ -11,7 +11,7 @@ import {
   extractCookieValue,
   verifyAdminPasswordOverrideToken,
 } from '@/lib/otp-store';
-import { INITIAL_DEALERS } from '@/lib/seed-data';
+import { verifyDealerLoginInServerDb } from '@/lib/server-db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -161,42 +161,38 @@ export async function POST(request: Request) {
 
     // 2. DEALER PORTAL AUTHENTICATION (approved dealers only)
     if (portal === 'dealer') {
-      const seedMatch = INITIAL_DEALERS.find((d) => d.email.toLowerCase() === emailRaw);
-      const dealerStatus = seedMatch
-        ? seedMatch.status
-        : typeof body?.dealerStatus === 'string'
-          ? body.dealerStatus
-          : '';
-      const dealerId = seedMatch?.id || (typeof body?.dealerId === 'string' ? body.dealerId : sub);
-
-      if (!dealerId) {
-        return NextResponse.json(
-          { error: 'Dealer identity missing or unverified.' },
-          { status: 403, headers: NO_STORE_HEADERS }
-        );
-      }
       if (!password) {
         return NextResponse.json(
           { error: 'Dealer password is required.' },
           { status: 401, headers: NO_STORE_HEADERS }
         );
       }
-      if (dealerStatus !== 'approved') {
+
+      const verification = verifyDealerLoginInServerDb(emailRaw, password);
+      if (!verification.ok || !verification.dealer) {
+        const statusCode = verification.error?.toLowerCase().includes('password') ? 401 : 403;
         return NextResponse.json(
-          { error: 'Only approved dealers can access the Dealer Dashboard.' },
-          { status: 403, headers: NO_STORE_HEADERS }
+          { error: verification.error || 'Only approved dealers can access the Dealer Dashboard.' },
+          { status: statusCode, headers: NO_STORE_HEADERS }
         );
       }
 
+      const dealer = verification.dealer;
       const token = signPortalSession({
         role: 'dealer',
-        sub: dealerId,
-        email: emailRaw,
-        dealerId,
-        dealerStatus: 'approved',
+        sub: dealer.id,
+        email: dealer.email.toLowerCase(),
+        dealerId: dealer.id,
+        dealerStatus: dealer.status,
       });
       const res = NextResponse.json(
-        { success: true, portal: 'dealer', dealerId, email: emailRaw },
+        {
+          success: true,
+          portal: 'dealer',
+          dealerId: dealer.id,
+          email: dealer.email.toLowerCase(),
+          dealer,
+        },
         { headers: NO_STORE_HEADERS }
       );
       res.cookies.set(PORTAL_COOKIE_NAMES.dealer, token, cookieOptions(7 * 24 * 60 * 60));

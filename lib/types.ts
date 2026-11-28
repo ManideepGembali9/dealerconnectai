@@ -120,6 +120,10 @@ export type DealerApplication = {
   home_delivery_radius_km?: number | null;
   pickup_available?: boolean;
   gst_number?: string | null;
+  business_reg_number?: string | null;
+  id_proof_url?: string | null;
+  shop_license_url?: string | null;
+  dealer_id?: string | null;
   status: DealerApplicationStatus;
   admin_remarks?: string | null;
   rejection_reason?: string | null;
@@ -279,6 +283,12 @@ export type ModerationLog = {
   image_url: string | null;
   image_version: number | null;
   metadata: Record<string, unknown>;
+  entity_type?: 'product' | 'dealer' | 'review' | 'category' | 'brand';
+  entity_id?: string;
+  entity_name?: string | null;
+  performed_by?: string;
+  reason?: string | null;
+  details?: Record<string, unknown>;
   created_at: string;
 };
 
@@ -303,14 +313,32 @@ export type PushSubscription = {
 
 // ==================== NOTIFICATION ====================
 
+export type NotificationRecipientRole = 'customer' | 'dealer' | 'admin';
+
 export type Notification = {
   id: string;
   customer_id: string;
-  type: 'in_stock' | 'price_drop' | 'nearby_available' | 'moderation_update' | 'system';
+  recipient_id?: string;
+  recipient_role?: NotificationRecipientRole;
+  type:
+    | 'in_stock'
+    | 'price_drop'
+    | 'nearby_available'
+    | 'moderation_update'
+    | 'enquiry_update'
+    | 'new_enquiry'
+    | 'review_update'
+    | 'new_review'
+    | 'dealer_reply'
+    | 'dealer_application'
+    | 'product_update'
+    | 'system';
   title: string;
   message: string;
   product_id: string | null;
   dealer_id: string | null;
+  related_record_id?: string | null;
+  link_url?: string | null;
   product_name: string | null;
   dealer_name: string | null;
   old_value: string | null;
@@ -323,10 +351,22 @@ export type Notification = {
 
 // ==================== REVIEW ====================
 
+export type ReviewReport = {
+  id: string;
+  review_id: string;
+  reporter_id: string;
+  reporter_name: string;
+  reason: string;
+  created_at: string;
+};
+
 export type Review = {
   id: string;
   dealer_id: string | null;
   product_id: string | null;
+  target_type?: 'product' | 'dealer';
+  customer_id?: string | null;
+  customer_email?: string | null;
   customer_name: string;
   rating: number;
   quality_rating: number | null;
@@ -336,13 +376,32 @@ export type Review = {
   availability_rating: number | null;
   delivery_rating: number | null;
   comment: string | null;
+  dealer_response?: string | null;
+  responded_at?: string | null;
+  responded_by?: string | null;
+  is_verified_interaction?: boolean;
+  is_flagged?: boolean;
+  is_hidden?: boolean;
+  moderation_notes?: string | null;
+  moderated_at?: string | null;
+  moderated_by?: string | null;
+  reports?: ReviewReport[];
   created_at: string;
+  updated_at?: string | null;
   is_approved?: boolean;
 };
 
 // ==================== ENQUIRY ====================
 
 export type EnquiryStatus = 'pending' | 'viewed' | 'responded' | 'resolved' | 'closed';
+
+export type EnquiryConversationMessage = {
+  id: string;
+  sender_role: 'customer' | 'dealer' | 'admin';
+  sender_name: string;
+  message: string;
+  created_at: string;
+};
 
 export type Enquiry = {
   id: string;
@@ -361,6 +420,7 @@ export type Enquiry = {
   responded_at?: string | null;
   responded_by?: string | null;
   admin_notes?: string | null;
+  conversation?: EnquiryConversationMessage[];
   created_at: string;
   updated_at?: string | null;
   dealer?: Dealer | null;

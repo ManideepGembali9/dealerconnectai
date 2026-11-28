@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getDbNotifications } from './firebase-db';
+import { apiSync } from './api-sync';
 import type { Notification, PushSubscription } from './types';
 
 const CUSTOMER_ID_KEY = 'dc_customer_id';
@@ -237,12 +238,21 @@ export async function fetchNotifications(
     )
   );
 
+  let serverPersonal: Notification[] = [];
+  if (typeof window !== 'undefined' && customerIdentity?.id) {
+    try {
+      serverPersonal = await apiSync.fetchNotifications('customer');
+    } catch {
+      // fallback to local store if unauthenticated
+    }
+  }
+
   const { data } = await supabase
     .from('notifications')
     .select('*')
     .order('created_at', { ascending: false });
 
-  const personal = ((data as Notification[]) ?? []).filter(
+  const localPersonal = ((data as Notification[]) ?? []).filter(
     (n) => !n.customer_id || validCustomerIds.has(n.customer_id)
   );
 
@@ -265,11 +275,13 @@ export async function fetchNotifications(
       .map((b) => ({
         id: b.id,
         customer_id: customerIdentity?.id || deviceCustomerId,
+        recipient_role: 'customer' as const,
         type: 'system',
         title: b.title,
         message: b.body,
         product_id: null,
         dealer_id: null,
+        link_url: '/customer/notifications',
         product_name: null,
         dealer_name: b.sent_by || 'DealerConnect AI',
         old_value: null,
@@ -282,7 +294,7 @@ export async function fetchNotifications(
   } catch { }
 
   const merged = new Map<string, Notification>();
-  for (const item of [...personal, ...broadcasts]) {
+  for (const item of [...serverPersonal, ...localPersonal, ...broadcasts]) {
     if (!merged.has(item.id)) {
       merged.set(item.id, item);
     }
@@ -310,6 +322,9 @@ export async function fetchUnreadCount(customerIdentity?: { id?: string | null; 
  */
 export async function markNotificationRead(id: string): Promise<void> {
   markBroadcastReadLocal(id);
+  if (typeof window !== 'undefined') {
+    await apiSync.markNotificationRead(id, 'customer').catch(() => {});
+  }
   await supabase.from('notifications').update({ is_read: true }).eq('id', id);
 }
 
@@ -317,6 +332,9 @@ export async function markNotificationRead(id: string): Promise<void> {
  * Mark all notifications as read.
  */
 export async function markAllNotificationsRead(customerIdentity?: { id?: string | null; email?: string | null }): Promise<void> {
+  if (typeof window !== 'undefined' && customerIdentity?.id) {
+    await apiSync.markAllNotificationsRead('customer').catch(() => {});
+  }
   const all = await fetchNotifications(100, customerIdentity);
   for (const n of all) {
     markBroadcastReadLocal(n.id);
@@ -330,6 +348,9 @@ export async function markAllNotificationsRead(customerIdentity?: { id?: string 
  * Delete a notification.
  */
 export async function deleteNotification(id: string): Promise<void> {
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteNotification(id).catch(() => {});
+  }
   await supabase.from('notifications').delete().eq('id', id);
 }
 

@@ -1,12 +1,14 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
-import { fetchReviewsByDealer } from '@/lib/data';
+import { apiSync } from '@/lib/api-sync';
+import { fetchReviewsForDealer } from '@/lib/data';
 import { getDbEnquiries, getDbProducts } from '@/lib/firebase-db';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import { supabase } from '@/lib/supabase';
-import type { Dealer,Enquiry,Product,Review } from '@/lib/types';
-import { AlertCircle,Loader2 } from 'lucide-react';
-import { useCallback,useEffect,useMemo,useState } from 'react';
+import type { Dealer, Enquiry, Product, Review } from '@/lib/types';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Shell & Screens
 import { DealerLoginScreen } from './dealer/dealer-login-screen';
@@ -84,8 +86,10 @@ export function DealerDashboardClient() {
   // Load Reviews
   const loadReviews = useCallback(async (dealerId: string) => {
     try {
-      const revs = await fetchReviewsByDealer(dealerId);
-      setReviews(revs || []);
+      const resp = await apiSync.fetchReviews({ scope: 'dealer' }).catch(async () => ({
+        reviews: await fetchReviewsForDealer(dealerId, true),
+      }));
+      setReviews(resp.reviews || []);
     } catch (e) {
       console.error('Failed to load reviews:', e);
     }
@@ -103,6 +107,19 @@ export function DealerDashboardClient() {
       loadReviews(targetId),
     ]);
   }, [authDealer?.id, dealer?.id, loadDealerProfile, loadProducts, loadEnquiries, loadReviews]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam) setActiveTab(tabParam);
+    }
+  }, []);
+
+  useRealtimeSync(
+    ['enquiries', 'reviews', 'products', 'dealers', 'notifications', 'dealer_applications'],
+    loadAllData,
+    { enabled: Boolean(authDealer?.id), onReconnect: loadAllData }
+  );
 
   useEffect(() => {
     if (authDealer?.id) {
@@ -298,11 +315,18 @@ export function DealerDashboardClient() {
         <Module09DealerReviews
           dealer={effectiveDealer}
           reviews={reviews}
+          products={products}
+          onRefreshReviews={async () => {
+            await loadReviews(effectiveDealer.id);
+          }}
         />
       )}
 
       {activeTab === '10-notifications' && (
-        <Module10DealerNotifications dealer={effectiveDealer} />
+        <Module10DealerNotifications
+          dealer={effectiveDealer}
+          onNavigateTab={setActiveTab}
+        />
       )}
 
       {activeTab === '11-analytics' && (

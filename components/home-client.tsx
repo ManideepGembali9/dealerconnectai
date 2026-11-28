@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog';
 import { ProductCard } from '@/components/product-card';
 import { useApp } from '@/lib/providers';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import { fetchCategories, fetchApprovedDealers, fetchProducts } from '@/lib/data';
 import { INITIAL_CATEGORIES } from '@/lib/seed-data';
 import type { Category, Dealer, Product } from '@/lib/types';
@@ -144,6 +145,10 @@ export function HomeClient() {
       console.error('Home load error:', err);
     }
   }, []);
+
+  useRealtimeSync(['products', 'dealers', 'reviews', 'categories', 'brands'], loadHomeData, {
+    onReconnect: loadHomeData,
+  });
 
   useEffect(() => {
     setMounted(true);

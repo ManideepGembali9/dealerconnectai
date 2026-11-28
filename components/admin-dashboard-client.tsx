@@ -3,6 +3,7 @@
 import { AdminLoginScreen } from '@/components/admin/admin-login-screen';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { useAuth } from '@/lib/auth';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import { useCallback,useEffect,useState } from 'react';
 
 // 14 Modular Control Center Subsystems
@@ -50,8 +51,8 @@ export function AdminDashboardClient() {
   const [dataLoading, setDataLoading] = useState(true);
 
   // Load actual database data
-  const loadPlatformData = useCallback(async () => {
-    setDataLoading(true);
+  const loadPlatformData = useCallback(async (isInitial = false) => {
+    if (isInitial) setDataLoading(true);
     try {
       const [dls, prods, cats, brnds, revs, logs, enqs] = await Promise.all([
         getDbDealers(),
@@ -100,16 +101,28 @@ export function AdminDashboardClient() {
     } catch (err) {
       console.error('Failed to load platform data:', err);
     } finally {
-      setDataLoading(false);
+      if (isInitial) setDataLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam) setActiveTab(tabParam);
+    }
+  }, []);
+
+  useRealtimeSync('all', () => loadPlatformData(false), {
+    enabled: adminAuthenticated,
+    onReconnect: () => loadPlatformData(false),
+  });
+
+  useEffect(() => {
     if (adminAuthenticated) {
-      loadPlatformData();
+      loadPlatformData(true);
 
       const handleSync = () => {
-        loadPlatformData();
+        loadPlatformData(false);
       };
 
       window.addEventListener('storage', handleSync);
@@ -271,6 +284,8 @@ export function AdminDashboardClient() {
       {activeTab === '09-reviews' && (
         <Module09Reviews
           reviews={reviews}
+          dealers={dealers}
+          products={products}
           onRefreshReviews={loadPlatformData}
         />
       )}
@@ -285,7 +300,9 @@ export function AdminDashboardClient() {
       )}
 
       {/* 11. Notifications */}
-      {activeTab === '11-notifications' && <Module11Notifications />}
+      {activeTab === '11-notifications' && (
+        <Module11Notifications onNavigateTab={setActiveTab} />
+      )}
 
       {/* 12. Analytics and Reports */}
       {activeTab === '12-analytics' && (

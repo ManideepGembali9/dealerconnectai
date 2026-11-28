@@ -15,6 +15,7 @@ import {
 import { useApp } from '@/lib/providers';
 import { useAuth } from '@/lib/auth';
 import { fetchUnreadCount } from '@/lib/notifications';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
@@ -22,6 +23,16 @@ export function SiteHeader() {
   const { wishlist, cartCount, t } = useApp();
   const { customer } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnread = () => {
+    fetchUnreadCount({ id: customer?.id, email: customer?.email })
+      .then((count) => {
+        setUnreadCount(count);
+      })
+      .catch(() => {});
+  };
+
+  useRealtimeSync('all', refreshUnread, { onReconnect: refreshUnread });
 
   useEffect(() => {
     let mounted = true;

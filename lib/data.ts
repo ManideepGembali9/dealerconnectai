@@ -104,14 +104,57 @@ export async function fetchProductsByName(name: string): Promise<Product[]> {
 }
 
 export async function fetchReviewsByDealer(dealerId: string): Promise<Review[]> {
+  return fetchReviewsForDealer(dealerId, false);
+}
+
+export async function fetchReviewsForDealer(
+  dealerId: string,
+  includeHidden = false
+): Promise<Review[]> {
   try {
     const all = await getDbReviews();
     return all
-      .filter((r) => (r.dealer_id === dealerId || !r.dealer_id) && r.is_approved !== false)
+      .filter(
+        (r) =>
+          r.dealer_id === dealerId &&
+          (includeHidden || (r.is_approved !== false && !r.is_hidden))
+      )
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } catch {
     return [];
   }
+}
+
+export async function fetchReviewsForProduct(
+  productId: string,
+  _dealerId?: string | null
+): Promise<{ reviews: Review[]; canReview: boolean; alreadyReviewed: boolean }> {
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch(`/api/reviews?productId=${encodeURIComponent(productId)}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          reviews: (data.reviews || []) as Review[],
+          canReview: Boolean(data.canReview),
+          alreadyReviewed: Boolean(data.alreadyReviewed),
+        };
+      }
+    } catch {
+      // fall back to local getDbReviews
+    }
+  }
+  const all = await getDbReviews();
+  return {
+    reviews: all
+      .filter((r) => r.product_id === productId && r.is_approved !== false && !r.is_hidden)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    canReview: false,
+    alreadyReviewed: false,
+  };
 }
 
 export async function fetchAllDealers(): Promise<Dealer[]> {

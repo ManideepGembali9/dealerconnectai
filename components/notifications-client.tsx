@@ -20,6 +20,7 @@ import {
 } from '@/lib/notifications';
 import { useApp } from '@/lib/providers';
 import { useAuth } from '@/lib/auth';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import { type Notification } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
@@ -66,6 +67,12 @@ export function NotificationsClient() {
     } catch (e) { console.error(e); }
     finally { setSubLoading(false); }
   }, []);
+
+  useRealtimeSync(
+    ['notifications', 'enquiries', 'reviews', 'products', 'dealer_applications'],
+    loadNotifications,
+    { onReconnect: loadNotifications }
+  );
 
   useEffect(() => {
     loadNotifications();
@@ -221,6 +228,15 @@ export function NotificationsClient() {
                     )}
 
                     <div className="mt-2 flex items-center gap-3">
+                      {notif.link_url && (
+                        <Link
+                          href={notif.link_url}
+                          onClick={() => !notif.is_read && handleMarkRead(notif.id)}
+                          className="text-xs font-semibold text-primary hover:underline"
+                        >
+                          Open details
+                        </Link>
+                      )}
                       {notif.product_id && (
                         <Link href={`/product/${notif.product_id}`} className="text-xs text-primary hover:underline">
                           View product

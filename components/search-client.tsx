@@ -17,11 +17,12 @@ import { fetchCategories,fetchDealersByPin,fetchProducts } from '@/lib/data';
 import { getEffectivePrice } from '@/lib/format';
 import { getPinCentroid,haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Category,Dealer,Product } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Camera,History,MapPin,Mic,Search,SlidersHorizontal,Sparkles,X } from 'lucide-react';
 import { useRouter,useSearchParams } from 'next/navigation';
-import { useEffect,useMemo,useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type SortKey = 'relevance' | 'price_low' | 'price_high' | 'nearest' | 'rating' | 'offers';
@@ -87,9 +88,29 @@ export function SearchClient() {
   const [maxPrice, setMaxPrice] = useState(150000);
   const [minRating, setMinRating] = useState(0);
 
+  const loadSearchData = useCallback(async () => {
+    try {
+      const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts({ limit: 200 })]);
+      setCategories(cats);
+      setAllProducts(prods);
+      if (pin || initialPin) {
+        const dls = await fetchDealersByPin(pin || initialPin);
+        setDealers(dls);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [pin, initialPin]);
+
+  useRealtimeSync(['products', 'dealers', 'reviews', 'categories'], loadSearchData, {
+    onReconnect: loadSearchData,
+  });
+
   useEffect(() => {
+    setLoading(true);
     (async () => {
-      setLoading(true);
       try {
         const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts({ limit: 200 })]);
         setCategories(cats);

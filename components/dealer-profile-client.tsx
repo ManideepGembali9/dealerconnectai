@@ -6,11 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { fetchDealerById, fetchProducts, fetchReviewsByDealer } from '@/lib/data';
+import { fetchDealerById, fetchProducts, fetchReviewsForDealer } from '@/lib/data';
+import { apiSync } from '@/lib/api-sync';
+import { useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
 import { formatDistance, haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Dealer, Product, Review } from '@/lib/supabase';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Check,
@@ -38,43 +43,57 @@ const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sat
 export function DealerProfileClient({ id }: { id: string }) {
   const router = useRouter();
   const { location, savedDealers: saved, toggleSavedDealer } = useApp();
+  const { customer, customerAuthenticated } = useAuth();
   const [dealer, setDealer] = useState<Dealer | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [canReview, setCanReview] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [shopReviewForm, setShopReviewForm] = useState({ rating: 5, comment: '' });
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [productSearch, setProductSearch] = useState('');
   const [enquiryOpen, setEnquiryOpen] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    async function loadDealerData() {
-      setLoading(true);
-      try {
-        const [d, prods, revs] = await Promise.all([
-          fetchDealerById(id),
-          fetchProducts({ dealerId: id, limit: 100 }),
-          fetchReviewsByDealer(id),
-        ]);
-        if (!active) return;
-        setDealer(d);
-        setProducts(prods);
-        setReviews(revs);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (active) setLoading(false);
-      }
+  const loadDealerData = async () => {
+    try {
+      const [d, prods, revResp] = await Promise.all([
+        fetchDealerById(id),
+        fetchProducts({ dealerId: id, limit: 100 }),
+        typeof window !== 'undefined'
+          ? apiSync.fetchReviews({ dealerId: id })
+          : fetchReviewsForDealer(id).then((list: Review[]) => ({ reviews: list, canReview: false, alreadyReviewed: false })),
+      ]);
+      setDealer(d);
+      setProducts(prods);
+      setReviews(revResp.reviews || []);
+      setCanReview(Boolean(revResp.canReview));
+      setAlreadyReviewed(Boolean(revResp.alreadyReviewed));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    setLoading(true);
     loadDealerData();
     const handleSync = () => loadDealerData();
     window.addEventListener('dc-sync-event', handleSync);
     window.addEventListener('storage', handleSync);
     return () => {
-      active = false;
       window.removeEventListener('dc-sync-event', handleSync);
       window.removeEventListener('storage', handleSync);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useRealtimeSync(['dealers', 'products', 'reviews', 'enquiries'], () => loadDealerData(), {
+    onReconnect: () => loadDealerData(),
+  });
 
   if (loading) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center"><div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
@@ -99,7 +118,72 @@ export function DealerProfileClient({ id }: { id: string }) {
     ? products.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.tags.some((tag) => tag.includes(productSearch.toLowerCase())))
     : products;
 
-  const avgReviewRating = reviews.length > 0 ? reviews.reduce((a, r) => a + r.rating, 0) / reviews.length : dealer.rating;
+  const avgReviewRating =
+    reviews.length > 0
+      ? Number((reviews.reduce((a, r) => a + Number(r.rating || 0), 0) / reviews.length).toFixed(1))
+      : Number(dealer.rating || 0);
+
+  const myShopReview = customer
+    ? reviews.find(
+        (r) =>
+          (r.target_type === 'dealer' || !r.product_id) &&
+          (r.customer_id === customer.id ||
+            (customer.email && r.customer_email?.toLowerCase() === customer.email.toLowerCase()))
+      ) || null
+    : null;
+
+  const handleSubmitShopReview = async () => {
+    setReviewFeedback(null);
+    if (!customerAuthenticated || !customer) {
+      setReviewFeedback({ type: 'error', text: 'Please sign in as a Customer to review this shop.' });
+      return;
+    }
+    if (shopReviewForm.comment.trim().length < 5) {
+      setReviewFeedback({ type: 'error', text: 'Comment must be at least 5 characters.' });
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      if (editingReviewId) {
+        await apiSync.updateReview({
+          id: editingReviewId,
+          action: 'edit',
+          rating: shopReviewForm.rating,
+          comment: shopReviewForm.comment.trim(),
+        });
+        setEditingReviewId(null);
+        setReviewFeedback({ type: 'success', text: 'Shop review updated!' });
+      } else {
+        await apiSync.createReview({
+          dealer_id: dealer.id,
+          product_id: null,
+          customer_name: customer.full_name || 'Customer',
+          rating: shopReviewForm.rating,
+          comment: shopReviewForm.comment.trim(),
+        });
+        setReviewFeedback({ type: 'success', text: 'Shop review published!' });
+      }
+      setShopReviewForm({ rating: 5, comment: '' });
+      await loadDealerData();
+    } catch (err: unknown) {
+      setReviewFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to submit shop review',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteShopReview = async (revId: string) => {
+    try {
+      await apiSync.deleteReview(revId);
+      toast.success('Review deleted.');
+      await loadDealerData();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete review');
+    }
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -201,31 +285,147 @@ export function DealerProfileClient({ id }: { id: string }) {
 
           <TabsContent value="reviews" className="mt-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Card className="p-5 text-center lg:col-span-1">
-                <p className="text-4xl font-bold">{avgReviewRating.toFixed(1)}</p>
-                <div className="mt-2 flex justify-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn('h-5 w-5', i <= Math.round(avgReviewRating) ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />)}
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{reviews.length} reviews</p>
-              </Card>
+              <div className="space-y-4 lg:col-span-1">
+                <Card className="p-5 text-center">
+                  <p className="text-4xl font-bold">{avgReviewRating.toFixed(1)}</p>
+                  <div className="mt-2 flex justify-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn('h-5 w-5', i <= Math.round(avgReviewRating) ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />)}
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{reviews.length} verified reviews</p>
+                </Card>
+
+                <Card className="p-5 space-y-3">
+                  <h3 className="text-sm font-bold">{editingReviewId ? 'Edit Your Shop Review' : 'Review This Showroom'}</h3>
+                  {!customerAuthenticated ? (
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      <p>Sign in as a Customer to submit or manage reviews for {dealer.shop_name}.</p>
+                      <Link href={`/customer/login?redirect=/dealer/${dealer.id}`}>
+                        <Button size="sm" variant="outline" className="w-full mt-1">Sign In as Customer</Button>
+                      </Link>
+                    </div>
+                  ) : !editingReviewId && (alreadyReviewed || myShopReview) ? (
+                    <div className="space-y-2 text-xs">
+                      <p className="text-muted-foreground">You have already reviewed this shop{myShopReview ? ` (${myShopReview.rating}★)` : ''}.</p>
+                      {myShopReview && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs"
+                            onClick={() => {
+                              setEditingReviewId(myShopReview.id);
+                              setShopReviewForm({ rating: myShopReview.rating, comment: myShopReview.comment || '' });
+                            }}
+                          >
+                            Edit Review
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs text-destructive"
+                            onClick={() => handleDeleteShopReview(myShopReview.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : !editingReviewId && !canReview ? (
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      <p>Verified interaction required: Send an enquiry to {dealer.shop_name} before reviewing this shop.</p>
+                      <Button size="sm" variant="outline" className="w-full" onClick={() => setEnquiryOpen(true)}>
+                        Send Enquiry First
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-xs">Rating</Label>
+                        <div className="flex gap-1 pt-1">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setShopReviewForm((p) => ({ ...p, rating: i }))}
+                              aria-label={`Rate ${i} stars`}
+                            >
+                              <Star className={cn('h-5 w-5', i <= shopReviewForm.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="shop-rev-comment" className="text-xs">Your Experience</Label>
+                        <Textarea
+                          id="shop-rev-comment"
+                          value={shopReviewForm.comment}
+                          onChange={(e) => setShopReviewForm((p) => ({ ...p, comment: e.target.value }))}
+                          placeholder="Share shop pricing, delivery, or staff experience..."
+                          rows={3}
+                        />
+                      </div>
+                      {reviewFeedback && (
+                        <div className={cn('rounded-lg border px-3 py-2 text-xs', reviewFeedback.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700' : 'border-destructive/30 bg-destructive/10 text-destructive')}>
+                          {reviewFeedback.text}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button onClick={handleSubmitShopReview} disabled={submittingReview} className="flex-1 text-xs">
+                          {submittingReview ? 'Saving...' : editingReviewId ? 'Save Update' : 'Post Review'}
+                        </Button>
+                        {editingReviewId && (
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingReviewId(null); setShopReviewForm({ rating: 5, comment: '' }); }}>
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Card>
+              </div>
               <div className="space-y-3 lg:col-span-2">
                 {reviews.length === 0 ? (
                   <Card className="p-8 text-center text-sm text-muted-foreground">No reviews yet.</Card>
-                ) : reviews.map((rev) => (
-                  <Card key={rev.id} className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">{rev.customer_name[0]}</div>
-                        <div>
-                          <p className="text-sm font-medium">{rev.customer_name}</p>
-                          <p className="text-xs text-muted-foreground">{timeAgo(rev.created_at)}</p>
+                ) : reviews.map((rev) => {
+                  const isOwn = Boolean(
+                    customer &&
+                      (rev.customer_id === customer.id ||
+                        (customer.email && rev.customer_email?.toLowerCase() === customer.email.toLowerCase()))
+                  );
+                  return (
+                    <Card key={rev.id} className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">{rev.customer_name[0]}</div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium">{rev.customer_name}</p>
+                              {rev.is_verified_interaction && (
+                                <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30">Verified</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{timeAgo(rev.created_at)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5">{[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn('h-3.5 w-3.5', i <= rev.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />)}</div>
+                          {isOwn && (
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive" onClick={() => handleDeleteShopReview(rev.id)}>
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-0.5">{[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn('h-3.5 w-3.5', i <= rev.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />)}</div>
-                    </div>
-                    {rev.comment && <p className="mt-2 text-sm text-muted-foreground">{rev.comment}</p>}
-                  </Card>
-                ))}
+                      {rev.comment && <p className="text-sm text-muted-foreground">{rev.comment}</p>}
+                      {rev.dealer_response && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                          <p className="font-bold text-emerald-700 dark:text-emerald-400">Reply from {rev.responded_by || dealer.shop_name}</p>
+                          <p className="mt-1 text-foreground">{rev.dealer_response}</p>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           </TabsContent>

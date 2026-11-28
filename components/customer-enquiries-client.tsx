@@ -6,8 +6,11 @@ import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import { getDbEnquiries, saveDbEnquiry } from '@/lib/firebase-db';
 import { timeAgo } from '@/lib/format';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Enquiry, EnquiryStatus } from '@/lib/types';
-import { CheckCircle2, Clock, MessageCircle, MessageSquare, Phone, RefreshCw, Store } from 'lucide-react';
+import { CheckCircle2, Clock, MessageCircle, MessageSquare, Phone, RefreshCw, Send, Store } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,10 +30,11 @@ export function CustomerEnquiriesClient() {
   const [statusFilter, setStatusFilter] = useState<'all' | EnquiryStatus>('all');
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [sendingReplyId, setSendingReplyId] = useState<string | null>(null);
 
   const loadEnquiries = useCallback(async () => {
     if (!customer) return;
-    setLoading(true);
     try {
       const list = await getDbEnquiries(undefined, {
         customerId: customer.id,
@@ -43,6 +47,11 @@ export function CustomerEnquiriesClient() {
       setLoading(false);
     }
   }, [customer]);
+
+  useRealtimeSync(['enquiries', 'notifications'], loadEnquiries, {
+    enabled: Boolean(customer),
+    onReconnect: loadEnquiries,
+  });
 
   useEffect(() => {
     if (!authLoading && !customerAuthenticated) {
@@ -70,12 +79,34 @@ export function CustomerEnquiriesClient() {
   const handleUpdateCustomerStatus = async (enq: Enquiry, nextStatus: EnquiryStatus) => {
     setUpdatingId(enq.id);
     try {
-      const updated = await saveDbEnquiry({ ...enq, status: nextStatus });
+      const updated = await saveDbEnquiry({ id: enq.id, status: nextStatus, actorRole: 'customer' });
       setEnquiries((prev) =>
         prev.map((item) => (item.id === enq.id ? { ...item, ...updated, dealer: item.dealer, product: item.product } : item))
       );
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleSendFollowUp = async (enq: Enquiry) => {
+    const text = (replyDrafts[enq.id] || '').trim();
+    if (!text) return;
+    setSendingReplyId(enq.id);
+    try {
+      const updated = await saveDbEnquiry({
+        id: enq.id,
+        actorRole: 'customer',
+        follow_up_message: text,
+      });
+      setReplyDrafts((prev) => ({ ...prev, [enq.id]: '' }));
+      setEnquiries((prev) =>
+        prev.map((item) => (item.id === enq.id ? { ...item, ...updated, dealer: item.dealer, product: item.product } : item))
+      );
+      toast.success('Follow-up message sent to dealer!');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send reply');
+    } finally {
+      setSendingReplyId(null);
     }
   };
 
@@ -168,19 +199,62 @@ export function CustomerEnquiriesClient() {
                       </p>
                     )}
 
-                    {e.dealer_response && (
-                      <div className="mt-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                            <MessageCircle className="h-3.5 w-3.5" /> Dealer Response
-                          </span>
-                          {e.responded_at && (
-                            <span className="text-[10px] text-muted-foreground">{timeAgo(e.responded_at)}</span>
-                          )}
-                        </div>
-                        <p className="text-foreground leading-relaxed">{e.dealer_response}</p>
+                    {Array.isArray(e.conversation) && e.conversation.length > 0 ? (
+                      <div className="mt-2.5 space-y-2">
+                        {e.conversation.slice(1).map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`rounded-xl border p-2.5 text-xs ${
+                              msg.sender_role === 'dealer'
+                                ? 'border-emerald-500/30 bg-emerald-500/10'
+                                : 'border-primary/20 bg-primary/5'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <span className="font-bold">
+                                {msg.sender_role === 'dealer' ? 'Dealer Reply' : 'Your Follow-up'} ({msg.sender_name})
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{timeAgo(msg.created_at)}</span>
+                            </div>
+                            <p className="text-foreground leading-relaxed">{msg.message}</p>
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      e.dealer_response && (
+                        <div className="mt-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                              <MessageCircle className="h-3.5 w-3.5" /> Dealer Response
+                            </span>
+                            {e.responded_at && (
+                              <span className="text-[10px] text-muted-foreground">{timeAgo(e.responded_at)}</span>
+                            )}
+                          </div>
+                          <p className="text-foreground leading-relaxed">{e.dealer_response}</p>
+                        </div>
+                      )
                     )}
+
+                    <div className="mt-2.5 flex items-end gap-2">
+                      <Textarea
+                        value={replyDrafts[e.id] || ''}
+                        onChange={(ev) => setReplyDrafts((prev) => ({ ...prev, [e.id]: ev.target.value }))}
+                        placeholder="Send a follow-up question to this dealer..."
+                        rows={1}
+                        className="min-h-[38px] text-xs rounded-xl"
+                      />
+                      <Button
+                        size="sm"
+                        type="button"
+                        disabled={sendingReplyId === e.id || !(replyDrafts[e.id] || '').trim()}
+                        onClick={() => handleSendFollowUp(e)}
+                        className="h-9 px-3 rounded-xl text-xs gap-1 shrink-0"
+                      >
+                        <Send className="h-3 w-3" />
+                        {sendingReplyId === e.id ? 'Sending' : 'Reply'}
+                      </Button>
+                    </div>
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <div className="flex flex-wrap items-center gap-3">

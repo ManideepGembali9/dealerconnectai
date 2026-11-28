@@ -514,12 +514,26 @@ export function ProfileClient() {
               <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#FFFFFF] truncate">
                 {customer.full_name || 'Customer'}
               </h1>
-              {isVerified && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF]">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                  <span>Verified Customer</span>
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {isVerified && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF]">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span>Verified Customer</span>
+                  </span>
+                )}
+                <Link
+                  href="/customer/enquiries"
+                  className="inline-flex items-center rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF] hover:bg-[#2a2a2a] transition-colors"
+                >
+                  My Enquiries
+                </Link>
+                <Link
+                  href="/customer/reviews"
+                  className="inline-flex items-center rounded-full border border-[#292929] bg-[#202020] px-2.5 py-0.5 text-[11px] font-semibold text-[#FFFFFF] hover:bg-[#2a2a2a] transition-colors"
+                >
+                  My Reviews
+                </Link>
+              </div>
             </div>
           </div>
         </section>

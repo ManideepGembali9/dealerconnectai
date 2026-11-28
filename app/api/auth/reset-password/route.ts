@@ -6,6 +6,7 @@ import {
   createAdminPasswordOverrideToken,
   extractCookieValue,
 } from '@/lib/otp-store';
+import { mutateServerDb } from '@/lib/server-db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -49,6 +50,19 @@ export async function POST(request: Request) {
 
     // Clear OTP from memory store and expire session cookies
     clearOtp(cleanId);
+
+    // Sync dealer credential password in server-db if this identifier matches a dealer
+    mutateServerDb((state) => {
+      const matchedDealer = state.dealers.find((d) => d.email.toLowerCase() === cleanId);
+      if (matchedDealer) {
+        state.dealerCredentials[cleanId] = {
+          dealerId: matchedDealer.id,
+          email: cleanId,
+          password: newPassword,
+          status: matchedDealer.status,
+        };
+      }
+    });
 
     const response = NextResponse.json({
       success: true,

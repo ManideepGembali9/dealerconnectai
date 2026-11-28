@@ -1,278 +1,336 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { deleteDbReview, getDbDealers, saveDbDealer, saveDbReview } from '@/lib/firebase-db';
+import { apiSync } from '@/lib/api-sync';
 import { timeAgo } from '@/lib/format';
-import type { Review } from '@/lib/types';
+import type { Dealer, ModerationLog, Product, Review } from '@/lib/types';
 import {
-  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
   Flag,
+  History,
+  MessageSquareReply,
+  Package,
   Search,
   Star,
-  Trash2
+  Store,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-type ExtendedReview = Review & {
-  is_flagged?: boolean;
-};
-
-type Module09Props = {
+type Props = {
   reviews: Review[];
-  onRefreshReviews?: () => Promise<void>;
+  dealers?: Dealer[];
+  products?: Product[];
+  onRefreshReviews: () => Promise<void>;
 };
 
-export function Module09Reviews({ reviews: initialReviews, onRefreshReviews }: Module09Props) {
-  const [reviews, setReviews] = useState<ExtendedReview[]>(initialReviews);
-  const [filter, setFilter] = useState<'all' | 'approved' | 'flagged' | 'low'>('all');
+export function Module09Reviews({
+  reviews,
+  dealers = [],
+  products = [],
+  onRefreshReviews,
+}: Props) {
+  const [filter, setFilter] = useState<'all' | 'product' | 'dealer' | 'approved' | 'flagged' | 'hidden' | 'low'>('all');
   const [search, setSearch] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [logs, setLogs] = useState<ModerationLog[]>([]);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
 
-  // Sync with prop
-  useEffect(() => {
-    setReviews(initialReviews);
-  }, [initialReviews]);
-
-  const recomputeDealerRating = async (dealerId: string, updatedList: ExtendedReview[]) => {
+  const loadModerationDetails = useCallback(async () => {
     try {
-      const dealers = await getDbDealers();
-      const target = dealers.find((d) => d.id === dealerId);
-      if (!target) return;
-      const approved = updatedList.filter((r) => r.dealer_id === dealerId && r.is_approved !== false);
-      const count = approved.length;
-      const avg =
-        count > 0
-          ? Number((approved.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / count).toFixed(1))
-          : 4.5;
-      await saveDbDealer({ ...target, rating: avg, rating_count: count });
-    } catch { }
-  };
+      const data = await apiSync.fetchReviews({ scope: 'admin' });
+      setLogs(data.moderationLogs || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadModerationDetails();
+  }, [loadModerationDetails, reviews.length]);
+
+  const dealerMap = useMemo(() => {
+    const map: Record<string, Dealer> = {};
+    dealers.forEach((d) => {
+      map[d.id] = d;
+    });
+    return map;
+  }, [dealers]);
+
+  const productMap = useMemo(() => {
+    const map: Record<string, Product> = {};
+    products.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [products]);
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
-      if (filter === 'approved' && !r.is_approved) return false;
-      if (filter === 'flagged' && !r.is_flagged) return false;
-      if (filter === 'low' && r.rating > 2) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const matchCust = r.customer_name.toLowerCase().includes(q);
-        const matchComm = r.comment?.toLowerCase().includes(q);
-        if (!matchCust && !matchComm) return false;
-      }
-      return true;
+      const isHidden = Boolean(r.is_hidden || r.is_approved === false);
+      const isFlagged = Boolean(r.is_flagged || (r.reports && r.reports.length > 0));
+      const matchFilter =
+        filter === 'all' ||
+        (filter === 'product' && Boolean(r.product_id)) ||
+        (filter === 'dealer' && !r.product_id) ||
+        (filter === 'approved' && !isHidden) ||
+        (filter === 'flagged' && isFlagged) ||
+        (filter === 'hidden' && isHidden) ||
+        (filter === 'low' && Number(r.rating) <= 2);
+
+      if (!matchFilter) return false;
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      const dName = r.dealer_id ? dealerMap[r.dealer_id]?.shop_name || '' : '';
+      const pName = r.product_id ? productMap[r.product_id]?.name || '' : '';
+      return (
+        r.customer_name.toLowerCase().includes(q) ||
+        (r.comment || '').toLowerCase().includes(q) ||
+        dName.toLowerCase().includes(q) ||
+        pName.toLowerCase().includes(q)
+      );
     });
-  }, [reviews, filter, search]);
+  }, [reviews, filter, search, dealerMap, productMap]);
 
-  const handleApprove = async (id: string) => {
-    const target = reviews.find((r) => r.id === id);
-    if (!target) return;
-    const updated: ExtendedReview = { ...target, is_approved: true, is_flagged: false };
-    const nextList = reviews.map((r) => (r.id === id ? updated : r));
-    setReviews(nextList);
+  const handleModerationAction = async (
+    revId: string,
+    action: 'approve' | 'flag' | 'hide' | 'restore'
+  ) => {
+    setLoadingId(revId);
     try {
-      await saveDbReview(updated);
-      if (target.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
-      setFeedback({ type: 'success', text: `Review by "${target.customer_name}" approved and published.` });
-      toast.success('Review approved and published');
-      if (onRefreshReviews) await onRefreshReviews();
-    } catch {
-      setFeedback({ type: 'error', text: 'Failed to approve review' });
-      toast.error('Failed to approve review');
-    }
-  };
-
-  const handleFlag = async (id: string) => {
-    const target = reviews.find((r) => r.id === id);
-    if (!target) return;
-    const updated: ExtendedReview = { ...target, is_flagged: true, is_approved: false };
-    const nextList = reviews.map((r) => (r.id === id ? updated : r));
-    setReviews(nextList);
-    try {
-      await saveDbReview(updated);
-      if (target.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
-      setFeedback({ type: 'success', text: `Review by "${target.customer_name}" flagged for moderation.` });
-      toast.info('Review flagged for content moderation');
-      if (onRefreshReviews) await onRefreshReviews();
-    } catch {
-      setFeedback({ type: 'error', text: 'Failed to flag review' });
-      toast.error('Failed to flag review');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Permanently delete this customer review?')) return;
-    const target = reviews.find((r) => r.id === id);
-    const nextList = reviews.filter((r) => r.id !== id);
-    setReviews(nextList);
-    try {
-      await deleteDbReview(id);
-      if (target?.dealer_id) await recomputeDealerRating(target.dealer_id, nextList);
-      setFeedback({ type: 'success', text: 'Customer review removed permanently.' });
-      toast.success('Review removed');
-      if (onRefreshReviews) await onRefreshReviews();
-    } catch {
-      setFeedback({ type: 'error', text: 'Failed to remove review' });
-      toast.error('Failed to remove review');
+      await apiSync.updateReview({
+        id: revId,
+        action,
+        reason: (adminNotes[revId] || '').trim() || `Admin ${action}d review`,
+      });
+      toast.success(`Review ${action}d and logged in audit trail.`);
+      await Promise.all([onRefreshReviews(), loadModerationDetails()]);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Moderation failed');
+    } finally {
+      setLoadingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
-            <Star className="h-7 w-7 text-amber-500 fill-amber-500" /> Reviews & Ratings Moderation
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Inspect multi-dimensional customer ratings (quality, cleanliness, behavior & delivery) and moderate testimonials
+          <h2 className="text-lg font-black text-foreground">
+            Reviews &amp; Moderation Control ({reviews.length})
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Inspect reported feedback, approve or hide offensive reviews, restore moderated items, and review full audit logs
           </p>
         </div>
+
+        <Button
+          size="sm"
+          variant={showAuditLogs ? 'default' : 'outline'}
+          onClick={() => setShowAuditLogs((v) => !v)}
+          className="gap-1.5 text-xs rounded-xl"
+        >
+          <History className="h-3.5 w-3.5" /> Audit History ({logs.length})
+        </Button>
       </div>
 
-      {feedback && (
-        <div
-          className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-2 ${feedback.type === 'success'
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-            : 'border-destructive/30 bg-destructive/10 text-destructive'
-            }`}
-        >
-          <span>{feedback.text}</span>
-          <button type="button" onClick={() => setFeedback(null)} className="text-[11px] opacity-70 hover:opacity-100">
-            Dismiss
-          </button>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { id: 'all', label: `All (${reviews.length})` },
+            { id: 'approved', label: 'Visible' },
+            { id: 'flagged', label: `Flagged (${reviews.filter((r) => r.is_flagged || (r.reports && r.reports.length > 0)).length})` },
+            { id: 'hidden', label: `Hidden (${reviews.filter((r) => r.is_hidden || r.is_approved === false).length})` },
+            { id: 'low', label: 'Low Rating (1-2★)' },
+            { id: 'product', label: 'Products' },
+            { id: 'dealer', label: 'Shops' },
+          ].map((f) => (
+            <Button
+              key={f.id}
+              size="sm"
+              variant={filter === f.id ? 'default' : 'outline'}
+              className="h-8 text-xs rounded-xl"
+              onClick={() => setFilter(f.id as typeof filter)}
+            >
+              {f.label}
+            </Button>
+          ))}
         </div>
-      )}
 
-      {/* Tabs and Search */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={filter} onValueChange={(v: any) => setFilter(v)}>
-          <TabsList className="h-9">
-            <TabsTrigger value="all" className="text-xs font-semibold">
-              All Reviews ({reviews.length})
-            </TabsTrigger>
-            <TabsTrigger value="approved" className="text-xs font-semibold">
-              Approved
-            </TabsTrigger>
-            <TabsTrigger value="flagged" className="text-xs font-semibold">
-              Flagged ({reviews.filter((r) => r.is_flagged).length})
-            </TabsTrigger>
-            <TabsTrigger value="low" className="text-xs font-semibold">
-              Low Rating (≤2★)
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search reviewer or comment..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs"
+            placeholder="Search customer, dealer, product..."
+            className="h-8 pl-8 text-xs rounded-xl"
           />
         </div>
       </div>
 
-      {/* Reviews Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {filtered.length === 0 ? (
-          <div className="col-span-2 py-16 text-center text-muted-foreground">
-            <Star className="mx-auto h-8 w-8 opacity-40 mb-2" />
-            No reviews match the selected filter.
-          </div>
-        ) : (
-          filtered.map((r) => (
-            <Card
-              key={r.id}
-              className="p-5 border-border/80 flex flex-col justify-between shadow-sm transition-all hover:border-primary/50"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3">
+      {/* Moderation Audit History Drawer */}
+      {showAuditLogs && (
+        <Card className="p-4 rounded-2xl border-border/80 bg-muted/20 space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <History className="h-3.5 w-3.5" /> Moderation Audit Trail (Non-Destructive)
+          </h3>
+          {logs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No moderation actions recorded yet.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {logs.map((log) => (
+                <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 text-xs bg-card p-2.5 rounded-xl border border-border/60">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground text-sm">{r.customer_name}</span>
-                      <Badge
-                        variant={r.is_approved ? 'default' : r.is_flagged ? 'destructive' : 'secondary'}
-                        className="text-[10px] font-semibold"
-                      >
-                        {r.is_approved ? 'Approved' : r.is_flagged ? 'Flagged' : 'Pending'}
+                    <Badge variant="outline" className="text-[10px] mr-2 uppercase">{log.action}</Badge>
+                    <span className="font-semibold">{log.entity_name || log.entity_id}</span>
+                    {log.reason && <span className="text-muted-foreground ml-2">— {log.reason}</span>}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{log.performed_by} • {timeAgo(log.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Review List */}
+      <div className="space-y-3">
+        {filtered.length === 0 ? (
+          <Card className="p-12 text-center rounded-2xl">
+            <Star className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">No customer reviews match the current filter.</p>
+          </Card>
+        ) : (
+          filtered.map((rev) => {
+            const dealer = rev.dealer_id ? dealerMap[rev.dealer_id] : null;
+            const product = rev.product_id ? productMap[rev.product_id] : null;
+            const isHidden = Boolean(rev.is_hidden || rev.is_approved === false);
+
+            return (
+              <Card key={rev.id} className="p-4 sm:p-5 rounded-2xl border-border/80 space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">{rev.customer_name}</span>
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        {rev.product_id ? <Package className="h-3 w-3" /> : <Store className="h-3 w-3" />}
+                        {product ? product.name : dealer?.shop_name || 'Shop Review'}
                       </Badge>
+                      {dealer && (
+                        <span className="text-xs text-muted-foreground">• {dealer.shop_name}</span>
+                      )}
+                      {isHidden ? (
+                        <Badge className="bg-amber-500/15 text-amber-700 text-[10px] gap-1">
+                          <EyeOff className="h-3 w-3" /> Hidden
+                        </Badge>
+                      ) : rev.is_flagged ? (
+                        <Badge className="bg-red-500/15 text-red-700 text-[10px] gap-1">
+                          <Flag className="h-3 w-3" /> Flagged
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-500/15 text-emerald-700 text-[10px] gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Visible
+                        </Badge>
+                      )}
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      Submitted {timeAgo(r.created_at)}
-                    </span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(rev.created_at)}</p>
                   </div>
 
-                  <div className="flex items-center gap-1 bg-amber-500/10 text-amber-600 px-2.5 py-1 rounded-lg font-bold text-xs">
-                    <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                    <span>{r.rating.toFixed(1)}</span>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'
+                        }`}
+                      />
+                    ))}
                   </div>
                 </div>
 
-                {/* Comment */}
-                <p className="mt-3 text-xs text-foreground leading-relaxed italic bg-muted/20 p-3 rounded-xl border border-border/40">
-                  &quot;{r.comment || 'No written commentary provided.'}&quot;
+                <p className="text-sm text-foreground bg-muted/20 p-3 rounded-xl border border-border/40">
+                  {rev.comment || 'No comment text'}
                 </p>
 
-                {/* Rating Dimensions Breakdown */}
-                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]">
-                  <div className="rounded-lg bg-card border border-border/50 p-1.5 text-center">
-                    <span className="text-muted-foreground block">Quality</span>
-                    <span className="font-bold text-foreground">{r.quality_rating ?? 5}★</span>
+                {rev.dealer_response && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                    <p className="font-bold text-emerald-700 flex items-center gap-1.5">
+                      <MessageSquareReply className="h-3.5 w-3.5" /> Dealer Response ({rev.responded_by || dealer?.shop_name || 'Dealer'})
+                    </p>
+                    <p className="mt-1 text-foreground">{rev.dealer_response}</p>
                   </div>
-                  <div className="rounded-lg bg-card border border-border/50 p-1.5 text-center">
-                    <span className="text-muted-foreground block">Store Behavior</span>
-                    <span className="font-bold text-foreground">{r.behavior_rating ?? 5}★</span>
-                  </div>
-                  <div className="rounded-lg bg-card border border-border/50 p-1.5 text-center">
-                    <span className="text-muted-foreground block">Delivery</span>
-                    <span className="font-bold text-foreground">{r.delivery_rating ?? 5}★</span>
-                  </div>
-                </div>
-              </div>
+                )}
 
-              {/* Actions */}
-              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground font-mono">ID: {r.id}</span>
-                <div className="flex items-center gap-1">
-                  {!r.is_approved && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(r.id)}
-                      className="h-7 px-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      <Check className="h-3 w-3 mr-1" /> Approve
-                    </Button>
-                  )}
-                  {!r.is_flagged && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFlag(r.id)}
-                      className="h-7 px-2 text-xs text-amber-600 font-semibold"
-                    >
-                      <Flag className="h-3 w-3 mr-1" /> Flag
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(r.id)}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                    title="Delete Review"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                {rev.reports && rev.reports.length > 0 && (
+                  <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-2.5 text-xs space-y-1">
+                    <p className="font-bold text-red-700">Reports ({rev.reports.length})</p>
+                    {rev.reports.map((rep) => (
+                      <p key={rep.id} className="text-red-700/90">
+                        • {rep.reporter_name}: &ldquo;{rep.reason}&rdquo; ({timeAgo(rep.created_at)})
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <Input
+                    value={adminNotes[rev.id] ?? ''}
+                    onChange={(e) => setAdminNotes((p) => ({ ...p, [rev.id]: e.target.value }))}
+                    placeholder="Moderation audit note (optional)..."
+                    className="h-8 text-xs flex-1 rounded-xl"
+                  />
+                  <div className="flex flex-wrap gap-1.5 shrink-0">
+                    {isHidden ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={loadingId === rev.id}
+                        onClick={() => handleModerationAction(rev.id, 'restore')}
+                        className="h-8 text-xs gap-1 rounded-xl text-emerald-700 border-emerald-500/30"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Restore Review
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingId === rev.id}
+                          onClick={() => handleModerationAction(rev.id, 'approve')}
+                          className="h-8 text-xs gap-1 rounded-xl text-emerald-700"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingId === rev.id}
+                          onClick={() => handleModerationAction(rev.id, 'flag')}
+                          className="h-8 text-xs gap-1 rounded-xl text-amber-700"
+                        >
+                          <Flag className="h-3.5 w-3.5" /> Flag
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingId === rev.id}
+                          onClick={() => handleModerationAction(rev.id, 'hide')}
+                          className="h-8 text-xs gap-1 rounded-xl text-destructive border-destructive/30"
+                        >
+                          <EyeOff className="h-3.5 w-3.5" /> Hide Review
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

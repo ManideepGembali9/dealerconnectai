@@ -65,6 +65,9 @@ export function Module08Enquiries({
 }: Module08Props) {
   const [enquiries, setEnquiries] = useState<Enquiry[]>(initialEnquiries);
   const [filterStatus, setFilterStatus] = useState<'all' | EnquiryStatus>('all');
+  const [filterDealer, setFilterDealer] = useState<string>('all');
+  const [filterCustomer, setFilterCustomer] = useState<string>('all');
+  const [filterProduct, setFilterProduct] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
@@ -78,10 +81,31 @@ export function Module08Enquiries({
   const dealerMap = useMemo(() => new Map(dealers.map((d) => [d.id, d])), [dealers]);
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
+  const uniqueCustomers = useMemo(() => {
+    const names = new Set<string>();
+    enquiries.forEach((e) => {
+      if (e.customer_name?.trim()) names.add(e.customer_name.trim());
+    });
+    return Array.from(names).sort();
+  }, [enquiries]);
+
+  const uniqueEnquiryProducts = useMemo(() => {
+    const map = new Map<string, string>();
+    enquiries.forEach((e) => {
+      if (e.product_id) {
+        map.set(e.product_id, e.product_name || productMap.get(e.product_id)?.name || e.product_id);
+      }
+    });
+    return Array.from(map.entries());
+  }, [enquiries, productMap]);
+
   const filteredEnquiries = useMemo(() => {
     return enquiries.filter((e) => {
       const st = normalizeStatus(e.status);
       if (filterStatus !== 'all' && st !== filterStatus) return false;
+      if (filterDealer !== 'all' && e.dealer_id !== filterDealer) return false;
+      if (filterCustomer !== 'all' && (e.customer_name || '').trim() !== filterCustomer) return false;
+      if (filterProduct !== 'all' && e.product_id !== filterProduct) return false;
       if (search) {
         const q = search.toLowerCase();
         const targetDealer = e.dealer || (e.dealer_id ? dealerMap.get(e.dealer_id) : null);
@@ -95,7 +119,7 @@ export function Module08Enquiries({
       }
       return true;
     });
-  }, [enquiries, filterStatus, search, dealerMap]);
+  }, [enquiries, filterStatus, filterDealer, filterCustomer, filterProduct, search, dealerMap]);
 
   const counts = useMemo(() => {
     const c = { all: enquiries.length, pending: 0, viewed: 0, responded: 0, resolved: 0, closed: 0 };
@@ -115,6 +139,7 @@ export function Module08Enquiries({
     try {
       const saved = await saveDbEnquiry({
         id: enq.id,
+        actorRole: 'admin',
         status: newStatus,
         admin_notes: notesOverride !== undefined ? notesOverride.trim() || null : enq.admin_notes ?? null,
       });
@@ -193,6 +218,51 @@ export function Module08Enquiries({
             className="pl-9 h-9 text-xs"
           />
         </div>
+      </div>
+
+      {/* Multi-Portal Filters: Dealer, Customer, Product */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <select
+          aria-label="Filter enquiries by dealer"
+          value={filterDealer}
+          onChange={(e) => setFilterDealer(e.target.value)}
+          className="h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground"
+        >
+          <option value="all">All Dealers ({dealers.length})</option>
+          {dealers.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.shop_name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Filter enquiries by customer"
+          value={filterCustomer}
+          onChange={(e) => setFilterCustomer(e.target.value)}
+          className="h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground"
+        >
+          <option value="all">All Customers ({uniqueCustomers.length})</option>
+          {uniqueCustomers.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Filter enquiries by product"
+          value={filterProduct}
+          onChange={(e) => setFilterProduct(e.target.value)}
+          className="h-9 rounded-xl border border-input bg-background px-3 text-xs text-foreground"
+        >
+          <option value="all">All Products ({uniqueEnquiryProducts.length})</option>
+          {uniqueEnquiryProducts.map(([pid, pname]) => (
+            <option key={pid} value={pid}>
+              {pname}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Mobile Cards */}

@@ -19,6 +19,7 @@ import {
 import { fetchApprovedDealers, fetchProductById, fetchProducts } from '@/lib/data';
 import { formatINR as formatPrice, getDiscountPercent as discountPercent } from '@/lib/format';
 import { useApp } from '@/lib/providers';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Dealer, Product } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,41 +76,39 @@ export function CompareClient() {
     return merged;
   }, [compare, urlIds]);
 
-  useEffect(() => {
-    let active = true;
-    async function loadComparedProducts() {
+  const loadCompared = useMemo(
+    () => async () => {
       if (activeIds.length === 0) {
-        if (active) {
-          setProducts([]);
-          setLoading(false);
-        }
+        setProducts([]);
+        setLoading(false);
         return;
       }
-      setLoading(true);
       try {
         const [resolvedItems, dealers] = await Promise.all([
           Promise.all(activeIds.map((id) => fetchProductById(id))),
           fetchApprovedDealers(200),
         ]);
-        if (!active) return;
-
         const dMap: Record<string, Dealer> = {};
         for (const d of dealers) dMap[d.id] = d;
         setDealerMap(dMap);
-
-        const valid = resolvedItems.filter((p): p is Product => Boolean(p));
-        setProducts(valid);
+        setProducts(resolvedItems.filter((p): p is Product => Boolean(p)));
       } catch {
-        if (active) setProducts([]);
+        setProducts([]);
       } finally {
-        if (active) setLoading(false);
+        setLoading(false);
       }
-    }
-    loadComparedProducts();
-    return () => {
-      active = false;
-    };
-  }, [activeIds]);
+    },
+    [activeIds]
+  );
+
+  useRealtimeSync(['products', 'dealers', 'reviews'], () => loadCompared(), {
+    onReconnect: () => loadCompared(),
+  });
+
+  useEffect(() => {
+    setLoading(true);
+    loadCompared();
+  }, [loadCompared]);
 
   const openPicker = async () => {
     setPickerOpen(true);

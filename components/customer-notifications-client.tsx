@@ -11,7 +11,9 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/lib/notifications';
-import { Bell, BellOff, Check, Package, Store, TrendingUp } from 'lucide-react';
+import { useRealtimeSync } from '@/lib/realtime-client';
+import { Bell, BellOff, Check, ExternalLink, Package, Store, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -23,7 +25,6 @@ export function CustomerNotificationsClient() {
 
   const loadNotifications = useCallback(async () => {
     if (!customer) return;
-    setLoading(true);
     try {
       const data = await fetchNotifications(100, {
         id: customer.id,
@@ -32,6 +33,11 @@ export function CustomerNotificationsClient() {
       setNotifications(data);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [customer]);
+
+  useRealtimeSync(['notifications', 'enquiries', 'reviews', 'dealer_applications'], loadNotifications, {
+    enabled: Boolean(customer),
+    onReconnect: loadNotifications,
+  });
 
   useEffect(() => {
     if (!authLoading && !customerAuthenticated) { router.push('/customer/login'); return; }
@@ -104,6 +110,15 @@ export function CustomerNotificationsClient() {
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{timeAgo(n.created_at)}</span>
                     {!n.is_read && <Badge className="bg-primary/15 text-primary text-[10px]">New</Badge>}
+                    {(n.link_url || n.product_id || n.dealer_id) && (
+                      <Link
+                        href={n.link_url || (n.product_id ? `/product/${n.product_id}` : `/dealer/${n.dealer_id}`)}
+                        onClick={() => !n.is_read && markAsRead(n.id)}
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                      >
+                        Open <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

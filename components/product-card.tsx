@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Heart, MapPin, Zap, Scale, ShoppingCart, Check, Store } from 'lucide-react';
+import { Heart, MapPin, Zap, Scale, ShoppingCart, Check, Store, Star } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -139,11 +139,19 @@ export function ProductCard({ product, distanceKm }: { product: Product; distanc
           {product.name}
         </Link>
 
-        {/* Pricing */}
-        <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-sm sm:text-lg font-black text-foreground">{formatINR(price)}</span>
-          {discount > 0 && (
-            <span className="text-[11px] sm:text-xs text-muted-foreground line-through font-semibold">{formatINR(product.price)}</span>
+        {/* Pricing & Real Rating */}
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1.5 flex-wrap">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-sm sm:text-lg font-black text-foreground">{formatINR(price)}</span>
+            {discount > 0 && (
+              <span className="text-[11px] sm:text-xs text-muted-foreground line-through font-semibold">{formatINR(product.price)}</span>
+            )}
+          </div>
+          {Number(product.rating_count || 0) > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+              <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+              {Number(product.rating || 0).toFixed(1)} ({product.rating_count})
+            </span>
           )}
         </div>
 

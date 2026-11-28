@@ -10,38 +10,46 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth';
-import { fetchApprovedDealers,fetchProductById,fetchProductsByName,fetchReviewsByDealer,fetchSimilarProducts } from '@/lib/data';
-import { saveDbDealer,saveDbEnquiry,saveDbReview } from '@/lib/firebase-db';
+import { apiSync } from '@/lib/api-sync';
+import { fetchApprovedDealers,fetchProductById,fetchProductsByName,fetchReviewsForProduct,fetchSimilarProducts } from '@/lib/data';
+import { saveDbEnquiry } from '@/lib/firebase-db';
 import { formatINR,getDiscountPercent,getEffectivePrice,timeAgo } from '@/lib/format';
 import { estimateDriveTime,haversineKm } from '@/lib/geo';
 import { useApp } from '@/lib/providers';
-import type { Dealer,Product,Review } from '@/lib/types';
+import { useRealtimeSync } from '@/lib/realtime-client';
+import type { Dealer, Product, Review } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Edit3,
+  Flag,
   Heart,
   MapPin,
-  MessageCircle, Navigation,
+  MessageCircle,
+  MessageSquareReply,
+  Navigation,
   Package,
   Phone,
   Scale,
   Share2,
   Shield,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Star,
   Store,
   ThumbsUp,
+  Trash2,
   Truck,
   Zap
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const stockConfig = {
@@ -53,13 +61,18 @@ const stockConfig = {
 
 export function ProductDetailClient({ id }: { id: string }) {
   const router = useRouter();
-  const { customer } = useAuth();
+  const { customer, customerAuthenticated } = useAuth();
   const { location, wishlist, toggleWishlist, compare, toggleCompare, addRecentlyViewed, addToCart, t } = useApp();
   const [product, setProduct] = useState<Product | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
   const [allVariants, setAllVariants] = useState<Product[]>([]);
   const [allApprovedDealers, setAllApprovedDealers] = useState<Dealer[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [canReview, setCanReview] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [imageIdx, setImageIdx] = useState(0);
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
@@ -80,48 +93,48 @@ export function ProductDetailClient({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
-  useEffect(() => {
-    let active = true;
-    async function loadProductData() {
-      setLoading(true);
-      try {
-        const p = await fetchProductById(id);
-        if (!active) return;
-        setProduct(p);
-        if (p) {
-          setImageIdx(0);
-          const [sim, variants, dealers] = await Promise.all([
-            fetchSimilarProducts(p, 8),
-            fetchProductsByName(p.name),
-            fetchApprovedDealers(50),
-          ]);
-          if (!active) return;
-          setSimilar(sim);
-          setAllVariants(variants);
-          setAllApprovedDealers(dealers);
-          if (p.dealer_id) {
-            const revs = await fetchReviewsByDealer(p.dealer_id);
-            if (active) setReviews(revs);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (active) setLoading(false);
+  const loadProductData = useCallback(async () => {
+    try {
+      const p = await fetchProductById(id);
+      setProduct(p);
+      if (p) {
+        const [sim, variants, dealers, revData] = await Promise.all([
+          fetchSimilarProducts(p, 8),
+          fetchProductsByName(p.name),
+          fetchApprovedDealers(50),
+          fetchReviewsForProduct(p.id, p.dealer_id),
+        ]);
+        setSimilar(sim);
+        setAllVariants(variants);
+        setAllApprovedDealers(dealers);
+        setReviews(revData.reviews);
+        setCanReview(revData.canReview);
+        setAlreadyReviewed(revData.alreadyReviewed);
       }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  }, [id]);
+
+  useEffect(() => {
+    setImageIdx(0);
+    setLoading(true);
     loadProductData();
 
     const handleSync = () => loadProductData();
     window.addEventListener('dc-sync-event', handleSync);
     window.addEventListener('storage', handleSync);
     return () => {
-      active = false;
       window.removeEventListener('dc-sync-event', handleSync);
       window.removeEventListener('storage', handleSync);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [loadProductData]);
+
+  useRealtimeSync(['products', 'dealers', 'reviews', 'enquiries'], loadProductData, {
+    onReconnect: loadProductData,
+  });
 
   // Compute all available local showrooms with verified inventory & distance
   const availableShops = useMemo(() => {
@@ -204,6 +217,23 @@ export function ProductDetailClient({ id }: { id: string }) {
     return Array.from(map.values()).sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
   }, [product, allVariants, allApprovedDealers, location]);
 
+  const computedAvgRating = useMemo(() => {
+    if (reviews.length === 0) return Number(product?.rating || 0);
+    return Number((reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length).toFixed(1));
+  }, [reviews, product?.rating]);
+
+  const myExistingReview = useMemo(() => {
+    if (!customer) return null;
+    const custEmail = customer.email?.toLowerCase();
+    return (
+      reviews.find(
+        (r) =>
+          r.customer_id === customer.id ||
+          (custEmail && r.customer_email?.toLowerCase() === custEmail)
+      ) || null
+    );
+  }, [reviews, customer]);
+
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -248,51 +278,93 @@ export function ProductDetailClient({ id }: { id: string }) {
 
   const submitReview = async () => {
     setReviewFeedback(null);
-    if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
-      setReviewFeedback({ type: 'error', text: 'Please fill in your name and comment.' });
+    if (!customerAuthenticated || !customer) {
+      setReviewFeedback({ type: 'error', text: 'Please sign in as a Customer to submit a review.' });
+      return;
+    }
+    if (!reviewForm.comment.trim() || reviewForm.comment.trim().length < 5) {
+      setReviewFeedback({ type: 'error', text: 'Please enter a review comment (at least 5 characters).' });
       return;
     }
     const targetDealer = dealer || availableShops[0]?.dealer || null;
-    if (!targetDealer) {
+    if (!targetDealer && !product) {
       setReviewFeedback({ type: 'error', text: 'No associated dealer found for this product.' });
       return;
     }
     setSubmittingReview(true);
     try {
-      const newReview: Review = {
-        id: `rev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        dealer_id: targetDealer.id,
-        product_id: product.id,
-        customer_name: reviewForm.name.trim(),
-        rating: reviewForm.rating,
-        quality_rating: reviewForm.rating,
-        cleanliness_rating: reviewForm.rating,
-        behavior_rating: reviewForm.rating,
-        price_rating: reviewForm.rating,
-        availability_rating: reviewForm.rating,
-        delivery_rating: reviewForm.rating,
-        comment: reviewForm.comment.trim(),
-        created_at: new Date().toISOString(),
-        is_approved: true,
-      };
-      await saveDbReview(newReview);
-      const nextReviews = [newReview, ...reviews];
-      setReviews(nextReviews);
-
-      const avg = nextReviews.reduce((sum, r) => sum + r.rating, 0) / nextReviews.length;
-      await saveDbDealer({
-        ...targetDealer,
-        rating: Number(avg.toFixed(1)),
-        rating_count: nextReviews.length,
-        updated_at: new Date().toISOString(),
+      if (editingReviewId) {
+        const updated = await apiSync.updateReview({
+          id: editingReviewId,
+          action: 'edit',
+          rating: reviewForm.rating,
+          comment: reviewForm.comment.trim(),
+        });
+        setReviews((prev) => prev.map((r) => (r.id === editingReviewId ? updated : r)));
+        setEditingReviewId(null);
+        setReviewForm({ name: customer.full_name || '', rating: 5, comment: '' });
+        setReviewFeedback({ type: 'success', text: 'Your review has been updated!' });
+      } else {
+        const created = await apiSync.createReview({
+          dealer_id: targetDealer?.id || product?.dealer_id || null,
+          product_id: product.id,
+          customer_name: reviewForm.name.trim() || customer.full_name || 'Customer',
+          rating: reviewForm.rating,
+          comment: reviewForm.comment.trim(),
+          quality_rating: reviewForm.rating,
+        });
+        setReviews((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
+        setAlreadyReviewed(true);
+        setReviewForm({ name: customer.full_name || '', rating: 5, comment: '' });
+        setReviewFeedback({ type: 'success', text: 'Your verified review has been published!' });
+      }
+      await loadProductData();
+    } catch (err: unknown) {
+      setReviewFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to submit review. Please try again.',
       });
-
-      setReviewForm({ name: customer?.full_name || '', rating: 5, comment: '' });
-      setReviewFeedback({ type: 'success', text: 'Your review has been published successfully!' });
-    } catch {
-      setReviewFeedback({ type: 'error', text: 'Failed to submit review. Please try again.' });
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteOwnReview = async (reviewId: string) => {
+    setSubmittingReview(true);
+    setReviewFeedback(null);
+    try {
+      await apiSync.deleteReview(reviewId);
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      setAlreadyReviewed(false);
+      if (editingReviewId === reviewId) {
+        setEditingReviewId(null);
+        setReviewForm({ name: customer?.full_name || '', rating: 5, comment: '' });
+      }
+      setReviewFeedback({ type: 'success', text: 'Your review was deleted.' });
+      await loadProductData();
+    } catch (err: unknown) {
+      setReviewFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Could not delete review.',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleReportReview = async (reviewId: string) => {
+    if (!reportReason.trim()) {
+      toast.error('Please enter a reason to report this review.');
+      return;
+    }
+    try {
+      await apiSync.updateReview({ id: reviewId, action: 'report', reason: reportReason.trim() });
+      setReportingId(null);
+      setReportReason('');
+      toast.success('Review flagged for Admin moderation.');
+      await loadProductData();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to report review');
     }
   };
 
@@ -356,10 +428,10 @@ export function ProductDetailClient({ id }: { id: string }) {
           <div className="mt-3 flex items-center gap-3">
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className={cn('h-4 w-4', i <= Math.round(dealer?.rating ?? 0) ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />
+                <Star key={i} className={cn('h-4 w-4', i <= Math.round(computedAvgRating) ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />
               ))}
-              <span className="ml-1 text-sm font-medium">{dealer?.rating.toFixed(1) ?? 'N/A'}</span>
-              <span className="text-sm text-muted-foreground">({dealer?.rating_count ?? 0} reviews)</span>
+              <span className="ml-1 text-sm font-medium">{reviews.length > 0 ? computedAvgRating.toFixed(1) : (dealer?.rating?.toFixed(1) ?? '0.0')}</span>
+              <span className="text-sm text-muted-foreground">({reviews.length} product reviews)</span>
             </div>
           </div>
 
@@ -829,68 +901,293 @@ export function ProductDetailClient({ id }: { id: string }) {
 
           <TabsContent value="reviews" className="mt-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Card className="p-5 lg:col-span-1">
-                <h3 className="mb-3 text-sm font-semibold">Write a Review</h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="rev-name" className="text-xs">Your Name</Label>
-                    <Input id="rev-name" value={reviewForm.name} onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })} placeholder="Enter your name" />
+              <div className="space-y-4 lg:col-span-1">
+                <Card className="p-5 text-center">
+                  <p className="text-4xl font-bold">{computedAvgRating.toFixed(1)}</p>
+                  <div className="mt-1 flex justify-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          'h-4 w-4',
+                          i <= Math.round(computedAvgRating)
+                            ? 'fill-warning text-warning'
+                            : 'text-muted-foreground/30'
+                        )}
+                      />
+                    ))}
                   </div>
-                  <div>
-                    <Label className="text-xs">Rating</Label>
-                    <div className="flex gap-1 pt-1">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <button key={i} onClick={() => setReviewForm({ ...reviewForm, rating: i })}>
-                          <Star className={cn('h-6 w-6', i <= reviewForm.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />
-                        </button>
-                      ))}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Based on {reviews.length} product {reviews.length === 1 ? 'review' : 'reviews'}
+                  </p>
+                </Card>
+
+                <Card className="p-5">
+                  <h3 className="mb-3 text-sm font-semibold">
+                    {editingReviewId ? 'Edit Your Review' : 'Write a Review'}
+                  </h3>
+
+                  {!customerAuthenticated ? (
+                    <div className="space-y-3 text-xs text-muted-foreground">
+                      <p>Please sign in as a Customer to review this product.</p>
+                      <Link href={`/customer/login?redirect=/product/${product.id}`}>
+                        <Button size="sm" variant="outline" className="w-full">
+                          Sign In to Review
+                        </Button>
+                      </Link>
                     </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="rev-comment" className="text-xs">Comment</Label>
-                    <Textarea id="rev-comment" value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Share your experience..." rows={3} />
-                  </div>
-                  {reviewFeedback && (
-                    <div
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-xs font-medium',
-                        reviewFeedback.type === 'success'
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                          : 'border-destructive/30 bg-destructive/10 text-destructive'
+                  ) : !editingReviewId && (alreadyReviewed || myExistingReview) ? (
+                    <div className="space-y-3 text-xs">
+                      <p className="text-muted-foreground">
+                        You have already reviewed this product ({myExistingReview?.rating ?? 5}★). Duplicate reviews are prevented — edit or delete your review below.
+                      </p>
+                      {myExistingReview && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 gap-1 text-xs"
+                            onClick={() => {
+                              setEditingReviewId(myExistingReview.id);
+                              setReviewForm({
+                                name: customer?.full_name || myExistingReview.customer_name,
+                                rating: myExistingReview.rating,
+                                comment: myExistingReview.comment || '',
+                              });
+                            }}
+                          >
+                            <Edit3 className="h-3.5 w-3.5" /> Edit My Review
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs text-destructive"
+                            disabled={submittingReview}
+                            onClick={() => handleDeleteOwnReview(myExistingReview.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        </div>
                       )}
-                    >
-                      {reviewFeedback.text}
+                    </div>
+                  ) : !editingReviewId && !canReview ? (
+                    <div className="space-y-3 text-xs text-muted-foreground">
+                      <p>
+                        Verified Customer Interaction Required: Send a product enquiry to{' '}
+                        <span className="font-semibold text-foreground">{dealer?.shop_name || 'the dealer'}</span> first to unlock verified reviews.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setEnquiryTargetDealer(dealer ?? null);
+                          setEnquiryModalOpen(true);
+                        }}
+                      >
+                        Send Enquiry First
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="rev-name" className="text-xs">Your Name</Label>
+                        <Input
+                          id="rev-name"
+                          value={reviewForm.name}
+                          onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })}
+                          placeholder="Enter your name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Rating</Label>
+                        <div className="flex gap-1 pt-1">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              aria-label={`Rate ${i} stars`}
+                              onClick={() => setReviewForm({ ...reviewForm, rating: i })}
+                            >
+                              <Star
+                                className={cn(
+                                  'h-6 w-6',
+                                  i <= reviewForm.rating
+                                    ? 'fill-warning text-warning'
+                                    : 'text-muted-foreground/30'
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="rev-comment" className="text-xs">Comment</Label>
+                        <Textarea
+                          id="rev-comment"
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                          placeholder="Share product quality, pricing & dealer delivery experience..."
+                          rows={3}
+                        />
+                      </div>
+                      {reviewFeedback && (
+                        <div
+                          className={cn(
+                            'rounded-lg border px-3 py-2 text-xs font-medium',
+                            reviewFeedback.type === 'success'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                              : 'border-destructive/30 bg-destructive/10 text-destructive'
+                          )}
+                        >
+                          {reviewFeedback.text}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button onClick={submitReview} disabled={submittingReview} className="flex-1">
+                          {submittingReview
+                            ? 'Saving...'
+                            : editingReviewId
+                              ? 'Save Changes'
+                              : 'Submit Review'}
+                        </Button>
+                        {editingReviewId && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingReviewId(null);
+                              setReviewForm({ name: customer?.full_name || '', rating: 5, comment: '' });
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
-                  <Button onClick={submitReview} disabled={submittingReview} className="w-full">
-                    {submittingReview ? 'Submitting...' : 'Submit Review'}
-                  </Button>
-                </div>
-              </Card>
+                </Card>
+              </div>
 
               <div className="space-y-3 lg:col-span-2">
                 {reviews.length === 0 ? (
                   <Card className="flex items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                    No reviews yet. Be the first to review!
+                    No reviews yet for this product. Be the first verified customer to review!
                   </Card>
                 ) : (
-                  reviews.map((rev) => (
-                    <Card key={rev.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">{rev.customer_name[0]}</div>
-                          <div>
-                            <p className="text-sm font-medium">{rev.customer_name}</p>
-                            <p className="text-xs text-muted-foreground">{timeAgo(rev.created_at)}</p>
+                  reviews.map((rev) => {
+                    const isOwn = Boolean(
+                      customer &&
+                        (rev.customer_id === customer.id ||
+                          (customer.email &&
+                            rev.customer_email?.toLowerCase() === customer.email.toLowerCase()))
+                    );
+                    return (
+                      <Card key={rev.id} className="p-4 space-y-2.5">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+                              {rev.customer_name[0]}
+                            </div>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="text-sm font-medium">{rev.customer_name}</p>
+                                {rev.is_verified_interaction && (
+                                  <Badge variant="outline" className="text-[10px] gap-1 text-emerald-600 border-emerald-500/30">
+                                    <ShieldCheck className="h-3 w-3" /> Verified Buyer
+                                  </Badge>
+                                )}
+                                {rev.updated_at && rev.updated_at !== rev.created_at && (
+                                  <span className="text-[10px] text-muted-foreground">(Edited)</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">{timeAgo(rev.created_at)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    'h-3.5 w-3.5',
+                                    i <= rev.rating
+                                      ? 'fill-warning text-warning'
+                                      : 'text-muted-foreground/30'
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            {isOwn && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => {
+                                    setEditingReviewId(rev.id);
+                                    setReviewForm({
+                                      name: customer?.full_name || rev.customer_name,
+                                      rating: rev.rating,
+                                      comment: rev.comment || '',
+                                    });
+                                  }}
+                                >
+                                  <Edit3 className="h-3 w-3 mr-1" /> Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-xs text-destructive"
+                                  onClick={() => handleDeleteOwnReview(rev.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                            {!isOwn && customerAuthenticated && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-[11px] text-muted-foreground"
+                                onClick={() => setReportingId(reportingId === rev.id ? null : rev.id)}
+                              >
+                                <Flag className="h-3 w-3 mr-1" /> Report
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-0.5">
-                          {[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn('h-3.5 w-3.5', i <= rev.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30')} />)}
-                        </div>
-                      </div>
-                      {rev.comment && <p className="mt-2 text-sm text-muted-foreground">{rev.comment}</p>}
-                    </Card>
-                  ))
+
+                        {rev.comment && (
+                          <p className="text-sm text-foreground">{rev.comment}</p>
+                        )}
+
+                        {rev.dealer_response && (
+                          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                              <MessageSquareReply className="h-3.5 w-3.5" />
+                              Response from {rev.responded_by || dealer?.shop_name || 'Dealer'}
+                            </p>
+                            <p className="mt-1 text-xs text-foreground">{rev.dealer_response}</p>
+                          </div>
+                        )}
+
+                        {reportingId === rev.id && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <Input
+                              value={reportReason}
+                              onChange={(e) => setReportReason(e.target.value)}
+                              placeholder="Reason for reporting this review (e.g., spam, fake)..."
+                              className="h-8 text-xs"
+                            />
+                            <Button size="sm" className="h-8 text-xs" onClick={() => handleReportReview(rev.id)}>
+                              Submit Report
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </div>

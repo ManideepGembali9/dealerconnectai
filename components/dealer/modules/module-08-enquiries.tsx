@@ -110,7 +110,7 @@ export function Module08DealerEnquiries({
     const st = normalizeStatus(enq.status);
     if (st === 'pending') {
       try {
-        const saved = await saveDbEnquiry({ id: enq.id, dealer_id: dealer.id, status: 'viewed' });
+        const saved = await saveDbEnquiry({ id: enq.id, dealer_id: dealer.id, status: 'viewed', actorRole: 'dealer' });
         setEnquiries((prev) => prev.map((item) => (item.id === enq.id ? saved : item)));
         setSelectedEnquiry(saved);
         if (onRefreshEnquiries) await onRefreshEnquiries();
@@ -125,6 +125,7 @@ export function Module08DealerEnquiries({
         id: enq.id,
         dealer_id: dealer.id,
         dealer_name: dealer.shop_name,
+        actorRole: 'dealer',
         status: newStatus,
         dealer_response: customReply !== undefined ? customReply.trim() || null : enq.dealer_response ?? null,
         responded_at:
@@ -382,9 +383,29 @@ export function Module08DealerEnquiries({
                     </span>
                   </div>
                 )}
-                <div className="pt-2 border-t border-border/60">
-                  <span className="text-muted-foreground block mb-1">Customer Request:</span>
-                  <p className="text-foreground font-medium">{selectedEnquiry.message}</p>
+                <div className="pt-2 border-t border-border/60 space-y-2">
+                  <span className="text-muted-foreground block">Conversation Timeline:</span>
+                  {Array.isArray(selectedEnquiry.conversation) && selectedEnquiry.conversation.length > 0 ? (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedEnquiry.conversation.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`rounded-lg p-2 text-xs ${
+                            m.sender_role === 'dealer'
+                              ? 'bg-emerald-500/10 border border-emerald-500/20'
+                              : 'bg-background border border-border/60'
+                          }`}
+                        >
+                          <p className="font-bold text-[10px]">
+                            {m.sender_role === 'dealer' ? 'Showroom Reply' : 'Customer'} ({m.sender_name}) • {timeAgo(m.created_at)}
+                          </p>
+                          <p className="mt-0.5 text-foreground">{m.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-foreground font-medium">{selectedEnquiry.message}</p>
+                  )}
                 </div>
               </div>
 

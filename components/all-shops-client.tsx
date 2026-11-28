@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { SendEnquiryDialog } from '@/components/send-enquiry-dialog';
 import { fetchApprovedDealers, fetchProducts } from '@/lib/data';
 import { useApp } from '@/lib/providers';
+import { useRealtimeSync } from '@/lib/realtime-client';
 import type { Dealer, Product } from '@/lib/types';
 
 export function AllShopsClient() {
@@ -46,6 +47,10 @@ export function AllShopsClient() {
       setLoading(false);
     }
   }, []);
+
+  useRealtimeSync(['dealers', 'products', 'reviews'], loadShopsData, {
+    onReconnect: loadShopsData,
+  });
 
   useEffect(() => {
     loadShopsData();

@@ -1,3 +1,4 @@
+import { apiSync } from './api-sync';
 import { getFirebaseDb } from './firebase';
 import {
   collection,
@@ -167,6 +168,15 @@ async function deleteFirestoreDoc(colName: string, docId: string, timeoutMs = 10
 // ==================== APP SETTINGS ====================
 
 export async function getDbAppSettings(): Promise<AppSettings> {
+  if (typeof window !== 'undefined') {
+    try {
+      const meta = await apiSync.fetchMetadata();
+      if (meta?.appSettings) {
+        setLocal(KEY_SETTINGS, meta.appSettings);
+        return meta.appSettings;
+      }
+    } catch {}
+  }
   const local = getLocal<AppSettings>(KEY_SETTINGS, INITIAL_APP_SETTINGS);
   const db = getFirebaseDb();
   if (!db) return local;
@@ -189,6 +199,9 @@ export async function saveDbAppSettings(settings: Partial<AppSettings>): Promise
     ...settings,
     updated_at: new Date().toISOString(),
   };
+  if (typeof window !== 'undefined') {
+    await apiSync.saveMetadata('app_settings', updated);
+  }
   setLocal(KEY_SETTINGS, updated);
   await writeFirestoreDoc('settings', 'app', updated);
 
@@ -202,6 +215,15 @@ export async function saveDbAppSettings(settings: Partial<AppSettings>): Promise
 // ==================== CATEGORIES & GROUPS ====================
 
 export async function getDbCategories(): Promise<Category[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const meta = await apiSync.fetchMetadata();
+      if (Array.isArray(meta?.categories) && meta.categories.length > 0) {
+        setLocal(KEY_CATEGORIES, meta.categories);
+        return meta.categories;
+      }
+    } catch {}
+  }
   const local = getLocal<Category[]>(KEY_CATEGORIES, INITIAL_CATEGORIES);
   const list = await readFirestoreCollection<Category>('categories');
   if (list && list.length >= INITIAL_CATEGORIES.length) {
@@ -216,7 +238,10 @@ export function getDbCategoryGroups(): CategoryGroup[] {
 }
 
 export async function saveDbCategory(category: Category): Promise<void> {
-  const list = await getDbCategories();
+  if (typeof window !== 'undefined') {
+    await apiSync.saveMetadata('category', category);
+  }
+  const list = getLocal<Category[]>(KEY_CATEGORIES, INITIAL_CATEGORIES);
   const index = list.findIndex((c) => c.id === category.id);
   const updated = index >= 0 ? list.map((c) => (c.id === category.id ? category : c)) : [...list, category];
   setLocal(KEY_CATEGORIES, updated);
@@ -225,7 +250,10 @@ export async function saveDbCategory(category: Category): Promise<void> {
 }
 
 export async function deleteDbCategory(id: string): Promise<void> {
-  const list = await getDbCategories();
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteMetadata('category', id);
+  }
+  const list = getLocal<Category[]>(KEY_CATEGORIES, INITIAL_CATEGORIES);
   const updated = list.filter((c) => c.id !== id);
   setLocal(KEY_CATEGORIES, updated);
   await deleteFirestoreDoc('categories', id);
@@ -235,6 +263,15 @@ export async function deleteDbCategory(id: string): Promise<void> {
 // ==================== BRANDS ====================
 
 export async function getDbBrands(): Promise<Brand[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const meta = await apiSync.fetchMetadata();
+      if (Array.isArray(meta?.brands) && meta.brands.length > 0) {
+        setLocal(KEY_BRANDS, meta.brands);
+        return meta.brands;
+      }
+    } catch {}
+  }
   let local = getLocal<Brand[]>(KEY_BRANDS, INITIAL_BRANDS);
   if (local.length === 0) {
     local = [...INITIAL_BRANDS];
@@ -249,9 +286,12 @@ export async function getDbBrands(): Promise<Brand[]> {
 }
 
 export async function saveDbBrand(brand: Brand): Promise<void> {
-  const list = await getDbBrands();
-  const index = list.findIndex((b) => b.id === brand.id);
   const nextBrand: Brand = { ...brand, updated_at: new Date().toISOString() };
+  if (typeof window !== 'undefined') {
+    await apiSync.saveMetadata('brand', nextBrand);
+  }
+  const list = getLocal<Brand[]>(KEY_BRANDS, INITIAL_BRANDS);
+  const index = list.findIndex((b) => b.id === brand.id);
   const updated = index >= 0 ? list.map((b) => (b.id === brand.id ? nextBrand : b)) : [nextBrand, ...list];
   setLocal(KEY_BRANDS, updated);
   await writeFirestoreDoc('brands', brand.id, nextBrand);
@@ -259,7 +299,10 @@ export async function saveDbBrand(brand: Brand): Promise<void> {
 }
 
 export async function deleteDbBrand(id: string): Promise<void> {
-  const list = await getDbBrands();
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteMetadata('brand', id);
+  }
+  const list = getLocal<Brand[]>(KEY_BRANDS, INITIAL_BRANDS);
   const updated = list.filter((b) => b.id !== id);
   setLocal(KEY_BRANDS, updated);
   await deleteFirestoreDoc('brands', id);
@@ -306,6 +349,13 @@ export async function saveDbPlatformSettings(
 // ==================== DEALERS ====================
 
 export async function getDbDealers(): Promise<Dealer[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const list = await apiSync.fetchDealers();
+      setLocal(KEY_DEALERS, list);
+      return list;
+    } catch {}
+  }
   const local = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
   const remote = await readFirestoreCollection<Dealer>('dealers');
   if (remote) {
@@ -321,16 +371,25 @@ export async function getDbDealerById(id: string): Promise<Dealer | null> {
 }
 
 export async function saveDbDealer(dealer: Dealer): Promise<void> {
-  const list = await getDbDealers();
+  if (typeof window !== 'undefined') {
+    const existingList = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
+    const exists = existingList.some((d) => d.id === dealer.id);
+    const saved = await apiSync.saveDealer(dealer, exists ? 'PATCH' : 'POST');
+    dealer = saved || dealer;
+  }
+  const list = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
   const index = list.findIndex((d) => d.id === dealer.id);
-  const updated = index >= 0 ? list.map((d) => (d.id === dealer.id ? dealer : d)) : [...list, dealer];
+  const updated = index >= 0 ? list.map((d) => (d.id === dealer.id ? dealer : d)) : [dealer, ...list];
   setLocal(KEY_DEALERS, updated);
   await writeFirestoreDoc('dealers', dealer.id, dealer);
   broadcastSync('dealers', dealer);
 }
 
 export async function deleteDbDealer(id: string): Promise<void> {
-  const list = await getDbDealers();
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteDealer(id);
+  }
+  const list = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
   const updated = list.filter((d) => d.id !== id);
   setLocal(KEY_DEALERS, updated);
   await deleteFirestoreDoc('dealers', id);
@@ -350,17 +409,25 @@ export async function getDbProducts(opts?: {
   includeUnapproved?: boolean;
 }): Promise<Product[]> {
   let list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
-  if (list.length < INITIAL_PRODUCTS.length) {
-    const existingIds = new Set(list.map((p) => p.id));
-    const missing = INITIAL_PRODUCTS.filter((p) => !existingIds.has(p.id));
-    list = [...list, ...missing];
-    setLocal(KEY_PRODUCTS, list);
-  }
-
-  const remote = await readFirestoreCollection<Product>('products');
-  if (remote) {
-    list = remote;
-    setLocal(KEY_PRODUCTS, list);
+  if (typeof window !== 'undefined') {
+    try {
+      const serverProducts = await apiSync.fetchProducts();
+      list = serverProducts;
+      setLocal(KEY_PRODUCTS, list);
+    } catch {
+      if (list.length < INITIAL_PRODUCTS.length) {
+        const existingIds = new Set(list.map((p) => p.id));
+        const missing = INITIAL_PRODUCTS.filter((p) => !existingIds.has(p.id));
+        list = [...list, ...missing];
+        setLocal(KEY_PRODUCTS, list);
+      }
+    }
+  } else {
+    const remote = await readFirestoreCollection<Product>('products');
+    if (remote) {
+      list = remote;
+      setLocal(KEY_PRODUCTS, list);
+    }
   }
 
   let filtered = [...list];
@@ -374,7 +441,6 @@ export async function getDbProducts(opts?: {
   if (opts?.dealerId) {
     filtered = filtered.filter((p) => p.dealer_id === opts.dealerId);
   } else if (!opts?.includeUnapproved) {
-    // Customer browsing: only show approved, active products
     filtered = filtered.filter((p) => {
       if (p.moderation_status === 'pending' || p.moderation_status === 'rejected') return false;
       if (p.is_active === false) return false;
@@ -427,15 +493,22 @@ export async function getDbProductById(id: string): Promise<Product | null> {
 }
 
 export async function saveDbProduct(product: Product): Promise<void> {
+  let savedProduct = product;
+  if (typeof window !== 'undefined') {
+    savedProduct = await apiSync.saveProduct(product, false);
+  }
   const list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
-  const index = list.findIndex((p) => p.id === product.id);
-  const updated = index >= 0 ? list.map((p) => (p.id === product.id ? product : p)) : [...list, product];
+  const index = list.findIndex((p) => p.id === savedProduct.id);
+  const updated = index >= 0 ? list.map((p) => (p.id === savedProduct.id ? savedProduct : p)) : [savedProduct, ...list];
   setLocal(KEY_PRODUCTS, updated);
-  await writeFirestoreDoc('products', product.id, product);
-  broadcastSync('products', product);
+  await writeFirestoreDoc('products', savedProduct.id, savedProduct);
+  broadcastSync('products', savedProduct);
 }
 
 export async function deleteDbProduct(id: string): Promise<void> {
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteProduct(id);
+  }
   const list = getLocal<Product[]>(KEY_PRODUCTS, INITIAL_PRODUCTS);
   const updated = list.filter((p) => p.id !== id);
   setLocal(KEY_PRODUCTS, updated);
@@ -503,6 +576,13 @@ export async function markDbMessagesRead(dealerId: string, customerId: string): 
 // ==================== NOTIFICATIONS ====================
 
 export async function getDbNotifications(): Promise<PushNotification[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const serverList = await apiSync.fetchPushNotifications();
+      setLocal(KEY_NOTIFICATIONS, serverList);
+      return serverList;
+    } catch {}
+  }
   const local = getLocal<PushNotification[]>(KEY_NOTIFICATIONS, [
     {
       id: 'notif-welcome',
@@ -536,15 +616,25 @@ export async function getDbNotifications(): Promise<PushNotification[]> {
 export async function sendDbNotification(
   payload: Omit<PushNotification, 'id' | 'sent_at' | 'delivery_status'>
 ): Promise<PushNotification> {
-  const newNotif: PushNotification = {
-    ...payload,
-    id: `notif-${Date.now()}`,
-    sent_at: new Date().toISOString(),
-    delivery_status: 'sent',
-  };
+  let newNotif: PushNotification | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      newNotif = await apiSync.sendPushNotification(payload);
+    } catch {
+      // ignore if non-admin internal fallback call
+    }
+  }
+  if (!newNotif) {
+    newNotif = {
+      ...payload,
+      id: `notif-${Date.now()}`,
+      sent_at: new Date().toISOString(),
+      delivery_status: 'sent',
+    };
+  }
 
-  const current = await getDbNotifications();
-  const updated = [newNotif, ...current];
+  const current = getLocal<PushNotification[]>(KEY_NOTIFICATIONS, []);
+  const updated = [newNotif, ...current.filter((n) => n.id !== newNotif!.id)];
   setLocal(KEY_NOTIFICATIONS, updated);
   await writeFirestoreDoc('push_notifications', newNotif.id, newNotif, false);
 
@@ -645,7 +735,21 @@ export async function saveDbSearchHistory(
 
 // ==================== REVIEWS ====================
 
-export async function getDbReviews(): Promise<Review[]> {
+export async function getDbReviews(opts?: {
+  productId?: string;
+  dealerId?: string;
+  scope?: 'customer' | 'dealer' | 'admin';
+}): Promise<Review[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await apiSync.fetchReviews(opts);
+      const list = res.reviews || [];
+      if (!opts?.productId && !opts?.dealerId && (!opts?.scope || opts.scope === 'admin')) {
+        setLocal(KEY_REVIEWS, list);
+      }
+      return list;
+    } catch {}
+  }
   const local = getLocal<Review[]>(KEY_REVIEWS, [
     {
       id: 'rev-1',
@@ -683,20 +787,45 @@ export async function getDbReviews(): Promise<Review[]> {
   return local;
 }
 
-export async function saveDbReview(review: Review): Promise<void> {
-  const list = await getDbReviews();
+export async function saveDbReview(review: Review): Promise<Review> {
+  let saved = review;
+  if (typeof window !== 'undefined') {
+    const existingList = getLocal<Review[]>(KEY_REVIEWS, []);
+    const exists = existingList.some((r) => r.id === review.id);
+    if (exists) {
+      saved = await apiSync.updateReview({
+        id: review.id,
+        action: review.is_hidden ? 'hide' : review.is_approved === false ? 'hide' : 'approve',
+        reason: review.moderation_notes ?? undefined,
+      });
+    } else {
+      saved = await apiSync.createReview({
+        dealer_id: review.dealer_id,
+        product_id: review.product_id,
+        customer_name: review.customer_name,
+        rating: review.rating,
+        comment: review.comment || '',
+        quality_rating: review.quality_rating,
+      });
+    }
+  }
   const normalized: Review = {
-    ...review,
-    is_approved: review.is_approved ?? true,
+    ...saved,
+    is_approved: saved.is_approved ?? true,
   };
+  const list = getLocal<Review[]>(KEY_REVIEWS, []);
   const updated = [normalized, ...list.filter((r) => r.id !== normalized.id)];
   setLocal(KEY_REVIEWS, updated);
   await writeFirestoreDoc('reviews', normalized.id, normalized, true, 2000);
   broadcastSync('reviews', normalized);
+  return normalized;
 }
 
 export async function deleteDbReview(id: string): Promise<void> {
-  const list = await getDbReviews();
+  if (typeof window !== 'undefined') {
+    await apiSync.deleteReview(id);
+  }
+  const list = getLocal<Review[]>(KEY_REVIEWS, []);
   const updated = list.filter((r) => r.id !== id);
   setLocal(KEY_REVIEWS, updated);
   await deleteFirestoreDoc('reviews', id, 2000);
@@ -761,10 +890,24 @@ export async function getDbEnquiries(
   opts?: { customerId?: string; customerEmail?: string }
 ): Promise<Enquiry[]> {
   let list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
-  const remote = await readFirestoreCollection<Enquiry>('enquiries');
-  if (remote) {
-    list = remote;
-    setLocal(KEY_ENQUIRIES, list);
+  if (typeof window !== 'undefined') {
+    try {
+      const scope = dealerId
+        ? 'dealer'
+        : opts?.customerId || opts?.customerEmail
+          ? 'customer'
+          : undefined;
+      list = await apiSync.fetchEnquiries({ scope, dealerId });
+      setLocal(KEY_ENQUIRIES, list);
+    } catch {
+      // keep fallback if unauthenticated
+    }
+  } else {
+    const remote = await readFirestoreCollection<Enquiry>('enquiries');
+    if (remote) {
+      list = remote;
+      setLocal(KEY_ENQUIRIES, list);
+    }
   }
 
   const [dealers, products] = await Promise.all([
@@ -810,17 +953,37 @@ export async function getDbEnquiries(
   return enriched;
 }
 
-export async function saveDbEnquiry(enquiry: Partial<Enquiry>): Promise<Enquiry> {
+export async function saveDbEnquiry(
+  enquiry: Partial<Enquiry> & {
+    actorRole?: 'customer' | 'dealer' | 'admin';
+    follow_up_message?: string;
+  }
+): Promise<Enquiry> {
+  let savedFromServer: Enquiry | null = null;
+  if (typeof window !== 'undefined') {
+    if (enquiry.id) {
+      savedFromServer = await apiSync.updateEnquiry({
+        ...enquiry,
+        id: enquiry.id,
+      });
+    } else {
+      savedFromServer = await apiSync.createEnquiry(enquiry);
+    }
+  }
+
   const list = getLocal<Enquiry[]>(KEY_ENQUIRIES, INITIAL_ENQUIRIES);
-  const existing = enquiry.id ? list.find((e) => e.id === enquiry.id) : undefined;
+  const existing = (savedFromServer?.id || enquiry.id)
+    ? list.find((e) => e.id === (savedFromServer?.id || enquiry.id))
+    : undefined;
   const nowIso = new Date().toISOString();
 
   const generatedId =
+    savedFromServer?.id ||
     existing?.id ||
     enquiry.id ||
     `ENQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-  const mergedRaw: Enquiry = {
+  const mergedRaw: Enquiry = savedFromServer || {
     id: generatedId,
     customer_id: enquiry.customer_id !== undefined ? enquiry.customer_id : existing?.customer_id ?? null,
     customer_email:
@@ -847,60 +1010,9 @@ export async function saveDbEnquiry(enquiry: Partial<Enquiry>): Promise<Enquiry>
     updated_at: nowIso,
   };
 
-  const updated = existing
-    ? list.map((e) => (e.id === mergedRaw.id ? mergedRaw : e))
-    : [mergedRaw, ...list];
+  const updated = [mergedRaw, ...list.filter((e) => e.id !== mergedRaw.id)];
   setLocal(KEY_ENQUIRIES, updated);
   await writeFirestoreDoc('enquiries', mergedRaw.id, mergedRaw);
-
-  // Targetted real-time notification when customer sends a new enquiry to a specific dealer
-  if (!existing && mergedRaw.dealer_id) {
-    try {
-      await sendDbNotification({
-        title: `New Customer Enquiry (${mergedRaw.id})`,
-        body: `${mergedRaw.customer_name || 'A buyer'} enquired about ${mergedRaw.product_name || 'a product'}: "${(mergedRaw.message || '').slice(0, 90)}"`,
-        target_audience: 'specific',
-        target_user_ids: [mergedRaw.dealer_id],
-        sent_by: 'Customer Enquiry',
-      });
-    } catch {}
-  }
-
-  // Targeted notification to customer when dealer responds or updates status
-  if (
-    existing &&
-    mergedRaw.customer_id &&
-    ((mergedRaw.dealer_response && mergedRaw.dealer_response !== existing.dealer_response) ||
-      (mergedRaw.status && mergedRaw.status !== existing.status))
-  ) {
-    try {
-      const custNotifs = getLocal<any[]>(KEY_CUSTOMER_NOTIFICATIONS, []);
-      const notif = {
-        id: `cnotif-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-        customer_id: mergedRaw.customer_id,
-        type: 'system',
-        title: mergedRaw.dealer_response
-          ? `Dealer Reply on ${mergedRaw.id}`
-          : `Enquiry ${mergedRaw.id} marked ${mergedRaw.status}`,
-        message: mergedRaw.dealer_response
-          ? `${mergedRaw.dealer_name || 'Dealer'} replied: "${mergedRaw.dealer_response}"`
-          : `Your enquiry for ${mergedRaw.product_name || 'product'} is now "${mergedRaw.status}".`,
-        product_id: mergedRaw.product_id,
-        dealer_id: mergedRaw.dealer_id,
-        product_name: mergedRaw.product_name || null,
-        dealer_name: mergedRaw.dealer_name || null,
-        old_value: existing.status || null,
-        new_value: mergedRaw.status || null,
-        pin_code: null,
-        distance_km: null,
-        is_read: false,
-        created_at: nowIso,
-      };
-      setLocal(KEY_CUSTOMER_NOTIFICATIONS, [notif, ...custNotifs]);
-      broadcastSync('notifications', notif);
-    } catch {}
-  }
-
   broadcastSync('enquiries', mergedRaw);
   return mergedRaw;
 }
@@ -944,6 +1056,13 @@ const INITIAL_DEALER_APPLICATIONS: DealerApplication[] = [
 ];
 
 export async function getDbDealerApplications(): Promise<DealerApplication[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const serverList = await apiSync.fetchDealerApplications();
+      setLocal(KEY_DEALER_APPLICATIONS, serverList);
+      return serverList;
+    } catch {}
+  }
   let list = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
   const remote = await readFirestoreCollection<DealerApplication>('dealer_applications', 3000);
   if (remote) {
@@ -959,16 +1078,24 @@ export async function getDbDealerApplicationByCustomerId(customerId: string): Pr
 }
 
 export async function saveDbDealerApplication(application: DealerApplication): Promise<DealerApplication> {
-  let list = await getDbDealerApplications();
+  let saved: DealerApplication | null = null;
+  if (typeof window !== 'undefined') {
+    saved = await apiSync.submitDealerApplication({
+      ...application,
+      dealer_password: application.dealer_password ?? undefined,
+    });
+  }
+  if (!saved) {
+    saved = {
+      ...application,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  let list = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
   const idx = list.findIndex(
-    (a) => a.id === application.id || (application.customer_id && a.customer_id === application.customer_id)
+    (a) => a.id === saved!.id || (saved!.customer_id && a.customer_id === saved!.customer_id)
   );
-
-  const saved: DealerApplication = {
-    ...application,
-    updated_at: new Date().toISOString(),
-  };
-
   if (idx >= 0) {
     list[idx] = saved;
   } else {
@@ -976,18 +1103,6 @@ export async function saveDbDealerApplication(application: DealerApplication): P
   }
   setLocal(KEY_DEALER_APPLICATIONS, list);
   await writeFirestoreDoc('dealer_applications', saved.id, saved);
-
-  // Notify admin about the new or updated application
-  try {
-    await sendDbNotification({
-      title: '📝 Dealer Application Submitted',
-      body: `"${saved.shop_name}" by ${saved.owner_name} (${saved.city}). App ID: ${saved.id}.`,
-      target_audience: 'dealers',
-      target_user_ids: ['admin'],
-      sent_by: 'system',
-    });
-  } catch {}
-
   broadcastSync('dealers', saved);
   return saved;
 }
@@ -996,110 +1111,38 @@ export async function approveDbDealerApplication(
   appId: string,
   adminRemarks?: string
 ): Promise<{ success: boolean; dealerId?: string; error?: string }> {
-  const apps = await getDbDealerApplications();
-  const app = apps.find((a) => a.id === appId);
-  if (!app) return { success: false, error: 'Application not found' };
-
-  app.status = 'approved';
-  app.admin_remarks = adminRemarks || 'Approved by Administrator. Welcome to DealerConnect AI Merchant Console!';
-  app.reviewed_at = new Date().toISOString();
-  app.reviewed_by = 'admin';
-
-  // Create or activate Dealer entity in the database
-  const dealerId = `dealer-${app.id.replace(/\D/g, '') || Date.now()}`;
-  const newDealer: Dealer = {
-    id: dealerId,
-    shop_name: app.shop_name,
-    owner_name: app.owner_name,
-    description: app.description || `Verified local shop in ${app.city}. Authorized dealer.`,
-    email: app.email.toLowerCase().trim(),
-    phone: app.phone.trim(),
-    whatsapp: app.whatsapp?.trim() || app.phone.trim(),
-    address: app.address,
-    village: app.village || null,
-    city: app.city,
-    district: app.district || null,
-    state: app.state,
-    pin_code: app.pin_code,
-    gst_number: app.gst_number || null,
-    logo_url: app.logo_url || 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=200',
-    banner_url: (app.images && app.images[0]) || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800',
-    map_lat: app.map_lat || 16.5787,
-    map_lng: app.map_lng || 82.0061,
-    working_hours: {
-      mon: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      tue: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      wed: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      thu: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      fri: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      sat: `${app.opening_time || '9:00 AM'} - ${app.closing_time || '9:00 PM'}`,
-      sun: '10:00 AM - 6:00 PM',
-    },
-    rating: 5.0,
-    rating_count: 1,
-    status: 'approved',
-    auth_user_id: app.customer_id,
-    business_category_id: app.category_id || null,
-    delivery_available: app.delivery_available,
-    pickup_available: true,
-    home_delivery_radius_km: 15,
-    product_count: 0,
-    view_count: 0,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    approved_at: new Date().toISOString(),
-  };
-
-  await saveDbDealer(newDealer);
-
-  // Set password credentials for dealer login
-  const pw = app.dealer_password || 'dealer123';
   if (typeof window !== 'undefined') {
-    localStorage.setItem(`dc-dealer-pw-${dealerId}`, pw);
-    localStorage.setItem(`dc-dealer-pw-${app.email.toLowerCase().trim()}`, pw);
+    const res = await apiSync.reviewDealerApplication(appId, 'approve', adminRemarks);
+    if (res.dealer) {
+      const dlList = getLocal<Dealer[]>(KEY_DEALERS, INITIAL_DEALERS);
+      setLocal(KEY_DEALERS, [res.dealer, ...dlList.filter((d) => d.id !== res.dealer!.id)]);
+    }
+    const apps = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
+    setLocal(
+      KEY_DEALER_APPLICATIONS,
+      apps.map((a) => (a.id === appId ? res.application : a))
+    );
+    broadcastSync('dealers', res.application);
+    return { success: true, dealerId: res.dealer?.id };
   }
-
-  await saveDbDealerApplication(app);
-
-  try {
-    await sendDbNotification({
-      title: '🎉 Dealership Application Approved!',
-      body: `Congratulations! Your shop "${app.shop_name}" has been approved. You can now log into the Dealer App with your email ${app.email}.`,
-      target_audience: 'specific',
-      target_user_ids: [app.customer_id],
-      sent_by: 'admin',
-    });
-  } catch {}
-
-  return { success: true, dealerId };
+  return { success: false, error: 'Browser session required' };
 }
 
 export async function rejectDbDealerApplication(
   appId: string,
   reason: string
 ): Promise<{ success: boolean; error?: string }> {
-  const apps = await getDbDealerApplications();
-  const app = apps.find((a) => a.id === appId);
-  if (!app) return { success: false, error: 'Application not found' };
-
-  app.status = 'rejected';
-  app.rejection_reason = reason;
-  app.reviewed_at = new Date().toISOString();
-  app.reviewed_by = 'admin';
-
-  await saveDbDealerApplication(app);
-
-  try {
-    await sendDbNotification({
-      title: '⚠️ Dealership Application Status Update',
-      body: `Your application for "${app.shop_name}" was reviewed: ${reason}. You may update and resubmit your details from My Profile.`,
-      target_audience: 'specific',
-      target_user_ids: [app.customer_id],
-      sent_by: 'admin',
-    });
-  } catch {}
-
-  return { success: true };
+  if (typeof window !== 'undefined') {
+    const res = await apiSync.reviewDealerApplication(appId, 'reject', reason);
+    const apps = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
+    setLocal(
+      KEY_DEALER_APPLICATIONS,
+      apps.map((a) => (a.id === appId ? res.application : a))
+    );
+    broadcastSync('dealers', res.application);
+    return { success: true };
+  }
+  return { success: false, error: 'Browser session required' };
 }
 
 export async function updateDbDealerApplicationStatus(
@@ -1113,30 +1156,17 @@ export async function updateDbDealerApplicationStatus(
   if (status === 'rejected') {
     return rejectDbDealerApplication(appId, remarks || 'Application does not meet dealer requirements.');
   }
-
-  const apps = await getDbDealerApplications();
-  const app = apps.find((a) => a.id === appId);
-  if (!app) return { success: false, error: 'Application not found' };
-
-  app.status = status;
-  if (remarks) app.admin_remarks = remarks;
-  app.updated_at = new Date().toISOString();
-
-  await saveDbDealerApplication(app);
-
-  if (status === 'more_info_required') {
-    try {
-      await sendDbNotification({
-        title: '📋 More Information Required for Dealer Application',
-        body: `Admin requested additional details for "${app.shop_name}": ${remarks || 'Please check and update your application details.'}`,
-        target_audience: 'specific',
-        target_user_ids: [app.customer_id],
-        sent_by: 'admin',
-      });
-    } catch {}
+  if (typeof window !== 'undefined') {
+    const res = await apiSync.reviewDealerApplication(appId, 'under_review', remarks);
+    const apps = getLocal<DealerApplication[]>(KEY_DEALER_APPLICATIONS, INITIAL_DEALER_APPLICATIONS);
+    setLocal(
+      KEY_DEALER_APPLICATIONS,
+      apps.map((a) => (a.id === appId ? res.application : a))
+    );
+    broadcastSync('dealers', res.application);
+    return { success: true };
   }
-
-  return { success: true };
+  return { success: false, error: 'Browser session required' };
 }
 
 // ============================================================
